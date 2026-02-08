@@ -1,7 +1,7 @@
-import pandas as pd
-import numpy as np
 import re
 from pathlib import Path
+
+import pandas as pd
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
@@ -230,11 +230,11 @@ if __name__ == "__main__":
     print(f"\n--- 5. Radar Data for Student: {s_name} ---")
     print(analytics.get_student_radar(s_name, PERIOD))
 
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    import pandas as pd
-    import numpy as np
     from math import pi
+
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    import seaborn as sns
 
     # Assumption: Data is already loaded in DataFrames named clean_grades and clean_events
     # (See loading code in previous response)

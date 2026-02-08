@@ -5,10 +5,10 @@ Run with: pytest tests/test_api.py -v
 Requires server running: uv run src/main.py
 """
 
-import pytest
 from pathlib import Path
 
 import httpx
+import pytest
 
 BASE_URL = "http://localhost:3000"
 DATA_DIR = Path(__file__).parent.parent.parent / "data"

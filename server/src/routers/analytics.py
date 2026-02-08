@@ -4,18 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
 from ..database import get_session
-from ..services.analytics import DashboardAnalytics
 from ..schemas.analytics import (
-    LayerKPIsResponse,
     ClassComparisonItem,
-    StudentRankItem,
-    TopBottomResponse,
-    GradeDistributionItem,
-    TeacherStatsResponse,
-    SubjectGradeItem,
+    LayerKPIsResponse,
     MetadataResponse,
+    SubjectGradeItem,
+    TeacherStatsResponse,
+    TopBottomResponse,
 )
-
+from ..services.analytics import DashboardAnalytics
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 

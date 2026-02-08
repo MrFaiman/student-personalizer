@@ -1,17 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, select, func
+from sqlmodel import Session, func, select
 
 from ..database import get_session
-from ..models import Class, Student, Grade, AttendanceRecord
+from ..models import AttendanceRecord, Class, Grade, Student
 from ..schemas.student import (
-    StudentDetailResponse,
-    GradeResponse,
     AttendanceResponse,
-    StudentListResponse,
     ClassResponse,
     DashboardStats,
+    GradeResponse,
+    StudentDetailResponse,
+    StudentListResponse,
 )
-
 
 router = APIRouter(prefix="/api/students", tags=["students"])
 

@@ -1,12 +1,12 @@
 from typing import Literal
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, select
 
 from ..database import get_session
 from ..models import ImportLog
-from ..services.ingestion import ingest_file, ImportResult
-from ..schemas.ingestion import ImportResponse, ImportLogResponse
-
+from ..schemas.ingestion import ImportLogResponse, ImportResponse
+from ..services.ingestion import ImportResult, ingest_file
 
 router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
 

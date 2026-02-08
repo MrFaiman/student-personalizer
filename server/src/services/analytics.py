@@ -1,8 +1,8 @@
 """Dashboard analytics service."""
 
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select
 
-from ..models import Class, Student, Grade, AttendanceRecord
+from ..models import AttendanceRecord, Class, Grade, Student
 
 
 class DashboardAnalytics:

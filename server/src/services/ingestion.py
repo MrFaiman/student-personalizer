@@ -1,13 +1,13 @@
 import json
 import re
 import uuid
-from io import BytesIO
 from dataclasses import dataclass, field
+from io import BytesIO
 
 import pandas as pd
 from sqlmodel import Session, select
 
-from ..models import Class, Student, Grade, AttendanceRecord, ImportLog
+from ..models import AttendanceRecord, Class, Grade, ImportLog, Student
 
 
 @dataclass

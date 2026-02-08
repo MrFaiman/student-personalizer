@@ -1,10 +1,12 @@
 import os
 from contextlib import asynccontextmanager
+
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+
 from .database import init_db
-from .routers import ingestion, students, analytics
+from .routers import analytics, ingestion, students
 
 PORT = int(os.getenv("PORT", 3000))
 

@@ -58,7 +58,7 @@ def test_upload_grades():
         print(f"Classes created: {data['classes_created']}")
 
         if data.get("errors"):
-            print(f"\nFirst 5 errors:")
+            print("\nFirst 5 errors:")
             for err in data["errors"][:5]:
                 print(f"  - {err}")
 
@@ -102,7 +102,7 @@ def test_upload_events():
         print(f"Classes created: {data['classes_created']}")
 
         if data.get("errors"):
-            print(f"\nFirst 5 errors:")
+            print("\nFirst 5 errors:")
             for err in data["errors"][:5]:
                 print(f"  - {err}")
 
@@ -158,7 +158,7 @@ def test_get_students():
         data = response.json()
         print(f"Total students: {data['total']}")
         print(f"Page: {data['page']}")
-        print(f"\nSample students:")
+        print("\nSample students:")
         for student in data["items"][:5]:
             risk = " [AT RISK]" if student["is_at_risk"] else ""
             avg = student["average_grade"] or "N/A"
@@ -179,13 +179,13 @@ def test_get_dashboard():
 
     if response.status_code == 200:
         data = response.json()
-        print(f"\nDashboard Stats:")
+        print("\nDashboard Stats:")
         print(f"  Total students: {data['total_students']}")
         print(f"  Average grade: {data['average_grade']}")
         print(f"  At-risk count: {data['at_risk_count']}")
         print(f"  Total classes: {data['total_classes']}")
 
-        print(f"\nClasses:")
+        print("\nClasses:")
         for cls in data["classes"][:5]:
             print(f"  - {cls['class_name']}: {cls['student_count']} students, avg={cls['average_grade']}, at-risk={cls['at_risk_count']}")
     else:
