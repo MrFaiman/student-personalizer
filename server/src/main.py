@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
-from .routers import analytics, ingestion, students
+from .routers import analytics, ingestion, ml, students
 
 PORT = int(os.getenv("PORT", 3000))
 
@@ -37,6 +37,7 @@ app.add_middleware(
 app.include_router(ingestion.router)
 app.include_router(students.router)
 app.include_router(analytics.router)
+app.include_router(ml.router)
 
 
 @app.get("/")
