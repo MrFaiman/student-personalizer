@@ -6,7 +6,8 @@ from sqlmodel import Field, Relationship, SQLModel
 class Class(SQLModel, table=True):
     """Class/homeroom."""
 
-    class_name: str = Field(primary_key=True)  # e.g. "J1", "י-1"
+    id: int | None = Field(default=None, primary_key=True)
+    class_name: str = Field(index=True, unique=True)  # e.g. "J1", "י-1"
     grade_level: str  # e.g. "10", "י"
 
     # Relationships
@@ -18,7 +19,7 @@ class Student(SQLModel, table=True):
 
     student_tz: str = Field(primary_key=True)  # ID Card / Unique ID (ת.ז)
     student_name: str
-    class_name: str = Field(foreign_key="class.class_name")
+    class_id: int | None = Field(foreign_key="class.id")
 
     # Relationships
     class_: Class = Relationship(back_populates="students")

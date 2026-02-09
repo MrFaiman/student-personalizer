@@ -8,6 +8,7 @@ class StudentResponse(BaseModel):
 
     student_tz: str
     student_name: str
+    class_id: int | None
     class_name: str
     grade_level: str | None
 
@@ -58,6 +59,7 @@ class StudentListResponse(BaseModel):
 class ClassResponse(BaseModel):
     """Response model for class data."""
 
+    id: int
     class_name: str
     grade_level: str
     student_count: int

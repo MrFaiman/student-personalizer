@@ -50,6 +50,11 @@ class BatchPredictionResponse(BaseModel):
     predictions: list[StudentPrediction]
     model_trained: bool
     total_students: int
+    total: int
+    page: int
+    page_size: int
+    high_risk_count: int
+    medium_risk_count: int
 
 
 class ModelStatusResponse(BaseModel):
