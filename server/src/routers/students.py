@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/students", tags=["students"])
 async def list_students(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, le=100),
-    class_name: str | None = Query(default=None),
+    class_id: int | None = Query(default=None),
     search: str | None = Query(default=None),
     at_risk_only: bool = Query(default=False),
     period: str | None = Query(default=None),
@@ -28,7 +28,7 @@ async def list_students(
     """
     List students with optional filtering.
 
-    - **class_name**: Filter by class name (e.g., "י-1")
+    - **class_id**: Filter by class ID
     - **search**: Search by student name
     - **at_risk_only**: Only show students with average < 55
     - **period**: Filter grades/attendance by period
@@ -36,8 +36,8 @@ async def list_students(
     # Base query
     query = select(Student)
 
-    if class_name:
-        query = query.where(Student.class_name == class_name)
+    if class_id:
+        query = query.where(Student.class_id == class_id)
     if search:
         query = query.where(Student.student_name.contains(search))
 
@@ -53,8 +53,9 @@ async def list_students(
     result_items = []
     for student in students:
         # Get class info
-        cls = session.get(Class, student.class_name)
+        cls = session.get(Class, student.class_id)
         grade_level = cls.grade_level if cls else None
+        class_name = cls.class_name if cls else "Unknown"
 
         # Get grades for this student (optionally filtered by period)
         grade_query = select(Grade).where(Grade.student_tz == student.student_tz)
@@ -87,7 +88,8 @@ async def list_students(
             StudentDetailResponse(
                 student_tz=student.student_tz,
                 student_name=student.student_name,
-                class_name=student.class_name,
+                class_id=student.class_id,
+                class_name=class_name,
                 grade_level=grade_level,
                 average_grade=round(avg_grade, 1) if avg_grade else None,
                 total_absences=total_absences,
@@ -107,15 +109,15 @@ async def list_students(
 
 @router.get("/dashboard", response_model=DashboardStats)
 async def get_dashboard_stats(
-    class_name: str | None = Query(default=None),
+    class_id: int | None = Query(default=None),
     period: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
     """Get dashboard statistics."""
     # Get all classes
     class_query = select(Class)
-    if class_name:
-        class_query = class_query.where(Class.class_name == class_name)
+    if class_id:
+        class_query = class_query.where(Class.id == class_id)
     classes = session.exec(class_query).all()
 
     total_students = 0
@@ -125,7 +127,7 @@ async def get_dashboard_stats(
 
     for cls in classes:
         # Get students in this class
-        student_query = select(Student).where(Student.class_name == cls.class_name)
+        student_query = select(Student).where(Student.class_id == cls.id)
         students = session.exec(student_query).all()
 
         class_grades = []
@@ -151,6 +153,7 @@ async def get_dashboard_stats(
         class_avg = sum(class_grades) / len(class_grades) if class_grades else None
         class_responses.append(
             ClassResponse(
+                id=cls.id,
                 class_name=cls.class_name,
                 grade_level=cls.grade_level,
                 student_count=len(students),
@@ -181,7 +184,7 @@ async def list_classes(
 
     for cls in classes:
         students = session.exec(
-            select(Student).where(Student.class_name == cls.class_name)
+            select(Student).where(Student.class_id == cls.id)
         ).all()
 
         grades = []
@@ -202,6 +205,7 @@ async def list_classes(
         class_avg = sum(grades) / len(grades) if grades else None
         result.append(
             ClassResponse(
+                id=cls.id,
                 class_name=cls.class_name,
                 grade_level=cls.grade_level,
                 student_count=len(students),
@@ -224,8 +228,9 @@ async def get_student(
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
 
-    cls = session.get(Class, student.class_name)
+    cls = session.get(Class, student.class_id)
     grade_level = cls.grade_level if cls else None
+    class_name = cls.class_name if cls else "Unknown"
 
     # Get grades
     grade_query = select(Grade).where(Grade.student_tz == student_tz)
@@ -252,7 +257,8 @@ async def get_student(
     return StudentDetailResponse(
         student_tz=student.student_tz,
         student_name=student.student_name,
-        class_name=student.class_name,
+        class_id=student.class_id,
+        class_name=class_name,
         grade_level=grade_level,
         average_grade=round(avg_grade, 1) if avg_grade else None,
         total_absences=total_absences,

@@ -26,3 +26,12 @@ class ImportLogResponse(BaseModel):
     rows_failed: int
     period: str | None
     created_at: str
+
+
+class ImportLogListResponse(BaseModel):
+    """Paginated response for import logs."""
+
+    items: list[ImportLogResponse]
+    total: int
+    page: int
+    page_size: int

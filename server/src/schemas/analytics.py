@@ -15,8 +15,9 @@ class LayerKPIsResponse(BaseModel):
 class ClassComparisonItem(BaseModel):
     """Single class in comparison chart."""
 
+    id: int
     class_name: str
-    grade: float
+    average_grade: float
     student_count: int
 
 
@@ -25,7 +26,7 @@ class StudentRankItem(BaseModel):
 
     student_name: str
     student_tz: str
-    grade: float
+    average: float
 
 
 class TopBottomResponse(BaseModel):

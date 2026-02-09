@@ -52,9 +52,9 @@ async def get_class_comparison(
     return analytics.get_class_comparison(period=period, grade_level=grade_level)
 
 
-@router.get("/class/{class_name}/heatmap")
+@router.get("/class/{class_id}/heatmap")
 async def get_class_heatmap(
-    class_name: str,
+    class_id: int,
     period: str | None = Query(default=None, description="Period filter"),
     session: Session = Depends(get_session),
 ):
@@ -65,17 +65,17 @@ async def get_class_heatmap(
     Each row represents a student with their grades per subject.
     """
     analytics = DashboardAnalytics(session)
-    data = analytics.get_class_heatmap(class_name=class_name, period=period)
+    data = analytics.get_class_heatmap(class_id=class_id, period=period)
     
     if not data:
-        raise HTTPException(status_code=404, detail=f"Class '{class_name}' not found or has no data")
+        raise HTTPException(status_code=404, detail=f"Class ID '{class_id}' not found or has no data")
     
     return data
 
 
-@router.get("/class/{class_name}/rankings", response_model=TopBottomResponse)
+@router.get("/class/{class_id}/rankings", response_model=TopBottomResponse)
 async def get_class_rankings(
-    class_name: str,
+    class_id: int,
     period: str | None = Query(default=None, description="Period filter"),
     top_n: int = Query(default=5, ge=1, le=20, description="Number of top students"),
     bottom_n: int = Query(default=5, ge=1, le=20, description="Number of bottom students"),
@@ -90,7 +90,7 @@ async def get_class_rankings(
     """
     analytics = DashboardAnalytics(session)
     return analytics.get_top_bottom_students(
-        class_name=class_name,
+        class_id=class_id,
         period=period,
         top_n=top_n,
         bottom_n=bottom_n,

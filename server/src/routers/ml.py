@@ -44,12 +44,14 @@ async def predict_student(
 @router.get("/predict", response_model=BatchPredictionResponse)
 async def predict_all(
     period: str | None = Query(default=None, description="Period filter"),
+    page: int = Query(default=1, ge=1, description="Page number"),
+    page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     session: Session = Depends(get_session),
 ):
     """Get predictions for all students."""
     service = MLService(session)
     try:
-        result = service.predict_all(period=period)
+        result = service.predict_all(period=period, page=page, page_size=page_size)
     except FileNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return result

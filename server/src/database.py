@@ -16,6 +16,14 @@ def init_db():
     SQLModel.metadata.create_all(engine)
 
 
+def reset_db():
+    """Drop all tables and recreate them."""
+    # Import models to ensure they are registered with SQLModel.metadata
+    from . import models  # noqa: F401
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+
+
 def get_session():
     """Dependency for getting database sessions."""
     with Session(engine) as session:
