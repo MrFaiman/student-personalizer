@@ -9,3 +9,5 @@
 *.sln
 *.sw?
 data/
+!data/events.xlsx
+!data/events.csv
