@@ -17,6 +17,9 @@ GRADE_MODEL_PATH = MODELS_DIR / "grade_predictor.joblib"
 DROPOUT_MODEL_PATH = MODELS_DIR / "dropout_classifier.joblib"
 META_PATH = MODELS_DIR / "model_meta.json"
 
+_prediction_cache: dict[tuple[str | None, str | None], list[dict]] = {}
+
+
 FEATURE_COLUMNS = [
     "average_grade",
     "min_grade",
@@ -110,6 +113,8 @@ class MLService:
         """Train both models and save to disk. Returns training metrics."""
         import joblib
 
+        _prediction_cache.clear()
+
         df = self._build_feature_dataframe(period=period)
 
         if len(df) < 5:
@@ -192,7 +197,12 @@ class MLService:
         X = row[FEATURE_COLUMNS].values.reshape(1, -1)
 
         predicted_grade = round(float(grade_model.predict(X)[0]), 2)
-        dropout_proba = float(dropout_model.predict_proba(X)[0][1])
+        # Handle case when model was trained with only one class
+        proba = dropout_model.predict_proba(X)
+        if proba.shape[1] == 1:
+            dropout_proba = 0.0
+        else:
+            dropout_proba = float(proba[0][1])
         dropout_risk = round(dropout_proba, 4)
 
         if dropout_risk > 0.7:
@@ -213,19 +223,37 @@ class MLService:
             "features": features,
         }
 
-    def predict_all(self, period: str | None = None) -> dict:
-        """Predict for all students."""
-        grade_model, dropout_model = self._load_models()
+    def _get_model_trained_at(self) -> str | None:
+        """Get the trained_at timestamp from model metadata for cache keying."""
+        if not META_PATH.exists():
+            return None
+        with open(META_PATH) as f:
+            meta = json.load(f)
+        return meta.get("trained_at")
 
+    def _compute_all_predictions(self, period: str | None = None) -> list[dict]:
+        """Compute predictions for all students (cached by period + model version)."""
+        trained_at = self._get_model_trained_at()
+        cache_key = (period, trained_at)
+
+        if cache_key in _prediction_cache:
+            return _prediction_cache[cache_key]
+
+        grade_model, dropout_model = self._load_models()
         df = self._build_feature_dataframe(period=period)
         if df.empty:
-            return {"predictions": [], "model_trained": True, "total_students": 0}
+            _prediction_cache[cache_key] = []
+            return []
 
         X = df[FEATURE_COLUMNS].values
         predicted_grades = grade_model.predict(X)
-        dropout_probas = dropout_model.predict_proba(X)[:, 1]
+        proba = dropout_model.predict_proba(X)
+        if proba.shape[1] == 1:
+            dropout_probas = np.zeros(len(X))
+        else:
+            dropout_probas = proba[:, 1]
 
-        predictions = []
+        all_predictions = []
         for i, row in df.iterrows():
             dropout_risk = round(float(dropout_probas[i]), 4)
             if dropout_risk > 0.7:
@@ -237,7 +265,7 @@ class MLService:
 
             features = {col: _convert_value(row[col]) for col in FEATURE_COLUMNS}
 
-            predictions.append({
+            all_predictions.append({
                 "student_tz": row["student_tz"],
                 "student_name": row["student_name"],
                 "predicted_grade": round(float(predicted_grades[i]), 2),
@@ -246,10 +274,31 @@ class MLService:
                 "features": features,
             })
 
+        all_predictions.sort(key=lambda p: p["dropout_risk"], reverse=True)
+        _prediction_cache[cache_key] = all_predictions
+        return all_predictions
+
+    def predict_all(self, period: str | None = None, page: int = 1, page_size: int = 20) -> dict:
+        """Predict for all students with pagination."""
+        all_predictions = self._compute_all_predictions(period=period)
+
+        total = len(all_predictions)
+        high_risk_count = sum(1 for p in all_predictions if p["risk_level"] == "high")
+        medium_risk_count = sum(1 for p in all_predictions if p["risk_level"] == "medium")
+
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated = all_predictions[start:end]
+
         return {
-            "predictions": predictions,
+            "predictions": paginated,
             "model_trained": True,
-            "total_students": len(predictions),
+            "total_students": total,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "high_risk_count": high_risk_count,
+            "medium_risk_count": medium_risk_count,
         }
 
     def get_status(self) -> dict:

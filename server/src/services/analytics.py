@@ -32,7 +32,7 @@ class DashboardAnalytics:
             grade_query = (
                 grade_query
                 .join(Student, Grade.student_tz == Student.student_tz)
-                .join(Class, Student.class_name == Class.class_name)
+                .join(Class, Student.class_id == Class.id)
                 .where(Class.grade_level == grade_level)
             )
         
@@ -47,7 +47,7 @@ class DashboardAnalytics:
             att_query = (
                 att_query
                 .join(Student, AttendanceRecord.student_tz == Student.student_tz)
-                .join(Class, Student.class_name == Class.class_name)
+                .join(Class, Student.class_id == Class.id)
                 .where(Class.grade_level == grade_level)
             )
         
@@ -101,7 +101,7 @@ class DashboardAnalytics:
         for cls in classes:
             # Get students in this class
             students = self.session.exec(
-                select(Student).where(Student.class_name == cls.class_name)
+                select(Student).where(Student.class_id == cls.id)
             ).all()
             
             # Get grades for these students
@@ -116,60 +116,70 @@ class DashboardAnalytics:
             if class_grades:
                 avg = round(sum(class_grades) / len(class_grades), 2)
                 result.append({
+                    "id": cls.id,
                     "class_name": cls.class_name,
-                    "grade": avg,
+                    "average_grade": avg,
                     "student_count": len(students),
                 })
         
         return sorted(result, key=lambda x: x["class_name"])
 
-    def get_class_heatmap(self, class_name: str, period: str | None = None) -> list[dict]:
+    def get_class_heatmap(self, class_id: int, period: str | None = None) -> dict:
         """
         Returns Heatmap Matrix: Student x Subject.
-        
+
         Args:
-            class_name: The class to get heatmap for
+            class_id: The class ID to get heatmap for
             period: Optional period filter
-        
+
         Returns:
-            List of dicts, each representing a student row with subject grades
+            Dict with "subjects" list and "students" list (each with grades dict and average)
         """
         # Get students in the class
         students = self.session.exec(
-            select(Student).where(Student.class_name == class_name)
+            select(Student).where(Student.class_id == class_id)
         ).all()
-        
+
         if not students:
-            return []
-        
-        # Collect all subjects and grades
-        result = []
+            return {}
+
         all_subjects: set[str] = set()
-        
+        student_rows = []
+
         for student in students:
             grade_query = select(Grade).where(Grade.student_tz == student.student_tz)
             if period:
                 grade_query = grade_query.where(Grade.period == period)
             grades = self.session.exec(grade_query).all()
-            
-            student_data = {"student_name": student.student_name, "student_tz": student.student_tz}
+
+            grades_dict: dict[str, float] = {}
             for g in grades:
                 all_subjects.add(g.subject)
-                student_data[g.subject] = g.grade
-            
-            result.append(student_data)
-        
-        # Fill missing subjects with 0
-        for row in result:
-            for subject in all_subjects:
-                if subject not in row:
-                    row[subject] = 0
-        
-        return result
+                grades_dict[g.subject] = g.grade
+
+            avg = round(sum(grades_dict.values()) / len(grades_dict), 2) if grades_dict else 0
+            student_rows.append({
+                "student_name": student.student_name,
+                "student_tz": student.student_tz,
+                "grades": grades_dict,
+                "average": avg,
+            })
+
+        # Fill missing subjects with None
+        sorted_subjects = sorted(all_subjects)
+        for row in student_rows:
+            for subject in sorted_subjects:
+                if subject not in row["grades"]:
+                    row["grades"][subject] = None
+
+        return {
+            "subjects": sorted_subjects,
+            "students": student_rows,
+        }
 
     def get_top_bottom_students(
         self, 
-        class_name: str, 
+        class_id: int, 
         period: str | None = None,
         top_n: int = 5,
         bottom_n: int = 5
@@ -182,7 +192,7 @@ class DashboardAnalytics:
         """
         # Get students in the class
         students = self.session.exec(
-            select(Student).where(Student.class_name == class_name)
+            select(Student).where(Student.class_id == class_id)
         ).all()
         
         student_averages = []
@@ -198,11 +208,11 @@ class DashboardAnalytics:
                 student_averages.append({
                     "student_name": student.student_name,
                     "student_tz": student.student_tz,
-                    "grade": round(avg, 2),
+                    "average": round(avg, 2),
                 })
-        
-        # Sort by grade
-        sorted_students = sorted(student_averages, key=lambda x: x["grade"], reverse=True)
+
+        # Sort by average
+        sorted_students = sorted(student_averages, key=lambda x: x["average"], reverse=True)
         
         return {
             "top": sorted_students[:top_n],

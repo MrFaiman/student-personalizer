@@ -66,21 +66,25 @@ def get_or_create_student(
     class_name: str,
 ) -> tuple[Student, bool]:
     """Get existing student or create new one. Returns (student, created)."""
+    # Resolve class_name to class_id
+    cls = session.exec(select(Class).where(Class.class_name == class_name)).first()
+    class_id = cls.id if cls else None
+
     statement = select(Student).where(Student.student_tz == student_tz)
     student = session.exec(statement).first()
 
     if student:
         if student.student_name != student_name:
             student.student_name = student_name
-        if student.class_name != class_name:
-            student.class_name = class_name
+        if student.class_id != class_id:
+            student.class_id = class_id
         session.add(student)
         return student, False
 
     student = Student(
         student_tz=student_tz,
         student_name=student_name,
-        class_name=class_name,
+        class_id=class_id,
     )
     session.add(student)
     session.flush()
@@ -204,9 +208,13 @@ def ingest_grades_file(
     result = ImportResult(batch_id=batch_id, file_type="grades")
 
     try:
-        df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
+        # Detect file format and read accordingly
+        if filename.lower().endswith(".csv"):
+            df = pd.read_csv(BytesIO(file_content), encoding="utf-8")
+        else:
+            df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
     except Exception as e:
-        result.errors.append(f"Failed to read Excel file: {str(e)}")
+        result.errors.append(f"Failed to read file: {str(e)}")
         return result
 
     # Transform to long format with subject/teacher parsing
@@ -406,9 +414,13 @@ def ingest_events_file(
     result = ImportResult(batch_id=batch_id, file_type="events")
 
     try:
-        df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
+        # Detect file format and read accordingly
+        if filename.lower().endswith(".csv"):
+            df = pd.read_csv(BytesIO(file_content), encoding="utf-8")
+        else:
+            df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
     except Exception as e:
-        result.errors.append(f"Failed to read Excel file: {str(e)}")
+        result.errors.append(f"Failed to read file: {str(e)}")
         return result
 
     # Transform dataframe with column mapping and calculations
@@ -511,12 +523,16 @@ def ingest_file(
         ImportResult with details of the import
     """
     try:
-        df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
+        # Detect file format and read accordingly
+        if filename.lower().endswith(".csv"):
+            df = pd.read_csv(BytesIO(file_content), encoding="utf-8")
+        else:
+            df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
     except Exception as e:
         return ImportResult(
             batch_id=str(uuid.uuid4()),
             file_type="unknown",
-            errors=[f"Failed to read Excel file: {str(e)}"],
+            errors=[f"Failed to read file: {str(e)}"],
         )
 
     if file_type is None:
