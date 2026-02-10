@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
     Pagination,
     PaginationContent,
@@ -15,6 +16,8 @@ interface TablePaginationProps {
 }
 
 export function TablePagination({ page, totalPages, onPageChange }: TablePaginationProps) {
+    const { t } = useTranslation();
+
     if (totalPages <= 1) return null;
 
     const getPageNumbers = () => {
@@ -47,7 +50,7 @@ export function TablePagination({ page, totalPages, onPageChange }: TablePaginat
                             aria-disabled={isPrevDisabled}
                             tabIndex={isPrevDisabled ? -1 : undefined}
                         >
-                            הקודם
+                            {t("pagination.previous")}
                         </PaginationPrevious>
                     </PaginationItem>
                     {getPageNumbers().map((p, i) =>
@@ -74,7 +77,7 @@ export function TablePagination({ page, totalPages, onPageChange }: TablePaginat
                             aria-disabled={isNextDisabled}
                             tabIndex={isNextDisabled ? -1 : undefined}
                         >
-                            הבא
+                            {t("pagination.next")}
                         </PaginationNext>
                     </PaginationItem>
                 </PaginationContent>

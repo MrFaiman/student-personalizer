@@ -100,6 +100,7 @@ export interface StudentDetailResponse {
     class_average_absences: number;
     is_at_risk: boolean;
     trend: "improving" | "declining" | "stable";
+    performance_score: number | null;
 }
 
 export interface GradeResponse {
@@ -197,9 +198,10 @@ export interface BatchPredictionResponse {
 
 export interface ModelStatusResponse {
     trained: boolean;
-    last_trained_at: string | null;
-    samples_trained: number | null;
-    model_version: string | null;
+    trained_at: string | null;
+    samples: number | null;
+    grade_model_mae: number | null;
+    dropout_model_accuracy: number | null;
 }
 
 // ========================
