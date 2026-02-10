@@ -20,6 +20,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
     GraduationCap,
     LayoutDashboard,
@@ -30,11 +31,12 @@ import {
     Search,
     RotateCcw,
     Loader2,
+    Menu,
 } from "lucide-react";
 import { useFilters } from "./FilterContext";
 import { analyticsApi, ingestionApi } from "@/lib/api";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const navItems = [
     { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
@@ -45,18 +47,39 @@ const navItems = [
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const routerState = useRouterState();
+    const pathname = routerState.location.pathname;
+
+    // Auto-close mobile sidebar on navigation
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [pathname]);
+
     return (
         <div className="flex h-screen overflow-hidden" dir="rtl">
-            <Sidebar />
+            {/* Desktop sidebar */}
+            <aside className="hidden md:flex w-72 bg-card border-l border-border flex-col shrink-0">
+                <SidebarContent />
+            </aside>
+
+            {/* Mobile sidebar */}
+            <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+                <SheetContent side="right" className="w-72 p-0" showCloseButton={true}>
+                    <SheetTitle className="sr-only">Navigation</SheetTitle>
+                    <SidebarContent />
+                </SheetContent>
+            </Sheet>
+
             <main className="flex-1 flex flex-col overflow-y-auto">
-                <Header />
-                <div className="p-8 space-y-8">{children}</div>
+                <Header onMenuClick={() => setSidebarOpen(true)} />
+                <div className="p-4 md:p-8 space-y-4 md:space-y-8">{children}</div>
             </main>
         </div>
     );
 }
 
-function Sidebar() {
+function SidebarContent() {
     const { t } = useTranslation();
     const routerState = useRouterState();
     const currentPath = routerState.location.pathname;
@@ -67,7 +90,7 @@ function Sidebar() {
     const { data: metadata } = useQuery({
         queryKey: ["metadata"],
         queryFn: analyticsApi.getMetadata,
-        staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+        staleTime: 5 * 60 * 1000,
     });
 
     const { data: kpis, isLoading: kpisLoading } = useQuery({
@@ -80,7 +103,6 @@ function Sidebar() {
     const resetMutation = useMutation({
         mutationFn: () => ingestionApi.resetDatabase({ reload_data: true }),
         onSuccess: (data) => {
-            // Invalidate all queries to refresh data
             queryClient.invalidateQueries();
             setIsResetOpen(false);
             alert(t("reset.success", { students: data.students_loaded, events: data.events_loaded }));
@@ -91,143 +113,158 @@ function Sidebar() {
     });
 
     return (
-        <aside className="w-72 bg-card border-l border-border flex flex-col shrink-0">
-            <div className="p-6 flex flex-col gap-6 h-full justify-between">
-                <div className="flex flex-col gap-6">
-                    {/* Logo */}
-                    <div className="flex items-center gap-3">
-                        <div className="bg-primary/10 rounded-full p-2">
-                            <GraduationCap className="size-7 text-primary" />
-                        </div>
-                        <div className="flex flex-col">
-                            <h1 className="text-lg font-bold leading-tight">{t("appName")}</h1>
-                            <p className="text-muted-foreground text-xs">{t("appTagline")}</p>
-                        </div>
+        <div className="p-6 flex flex-col gap-6 h-full justify-between">
+            <div className="flex flex-col gap-6">
+                {/* Logo */}
+                <div className="flex items-center gap-3">
+                    <div className="bg-primary/10 rounded-full p-2">
+                        <GraduationCap className="size-7 text-primary" />
                     </div>
-
-                    {/* Navigation */}
-                    <nav className="flex flex-col gap-1">
-                        {navItems.map((item) => {
-                            const isActive = currentPath === item.path ||
-                                (item.path !== "/" && currentPath.startsWith(item.path));
-                            const isDisabled = isEmptyState && item.path !== "/upload";
-
-                            return (
-                                <Link
-                                    key={item.path}
-                                    to={item.path}
-                                    disabled={isDisabled}
-                                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
-                                        ? "bg-primary/10 text-primary"
-                                        : "text-muted-foreground hover:bg-accent"
-                                        } ${isDisabled ? "opacity-50 pointer-events-none grayscale" : ""}`}
-                                >
-                                    <item.icon className="size-5" aria-hidden="true" />
-                                    <span className={`text-sm ${isActive ? "font-semibold" : "font-medium"}`}>
-                                        {t(item.labelKey)}
-                                    </span>
-                                </Link>
-                            );
-                        })}
-                    </nav>
-
-                    {/* Filters */}
-                    <div className={`pt-4 border-t border-border ${isEmptyState ? "opacity-50 pointer-events-none grayscale" : ""}`}>
-                        <p className="text-xs font-bold text-muted-foreground px-3 mb-3 uppercase tracking-wider">
-                            {t("filters.title")}
-                        </p>
-                        <div className="flex flex-col gap-3 px-1">
-                            {/* Period Filter */}
-                            <Select
-                                value={filters.period || "__all__"}
-                                onValueChange={(v) => setFilter("period", v === "__all__" ? undefined : v)}
-                                disabled={isEmptyState}
-                            >
-                                <SelectTrigger className="h-9 text-sm">
-                                    <SelectValue placeholder={t("filters.allPeriods")} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="__all__">{t("filters.allPeriods")}</SelectItem>
-                                    {metadata?.periods.map((period) => (
-                                        <SelectItem key={period} value={period}>
-                                            {period}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            {/* Grade Level Filter */}
-                            <Select
-                                value={filters.gradeLevel || "__all__"}
-                                onValueChange={(v) => setFilter("gradeLevel", v === "__all__" ? undefined : v)}
-                                disabled={isEmptyState}
-                            >
-                                <SelectTrigger className="h-9 text-sm">
-                                    <SelectValue placeholder={t("filters.allGradeLevels")} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="__all__">{t("filters.allGradeLevels")}</SelectItem>
-                                    {metadata?.grade_levels.map((level) => (
-                                        <SelectItem key={level} value={level}>
-                                            {t("filters.gradeLevel", { level })}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div className="flex flex-col">
+                        <h1 className="text-lg font-bold leading-tight">{t("appName")}</h1>
+                        <p className="text-muted-foreground text-xs">{t("appTagline")}</p>
                     </div>
                 </div>
 
-                {/* Bottom Actions */}
-                <div className="flex flex-col gap-3">
-                    <Link to="/students" className={isEmptyState ? "pointer-events-none" : ""}>
-                        <Button className="w-full gap-2" disabled={isEmptyState}>
-                            <Search className="size-4" />
-                            <span>{t("filters.searchStudent")}</span>
-                        </Button>
-                    </Link>
+                {/* Navigation */}
+                <nav className="flex flex-col gap-1">
+                    {navItems.map((item) => {
+                        const isActive = currentPath === item.path ||
+                            (item.path !== "/" && currentPath.startsWith(item.path));
+                        const isDisabled = isEmptyState && item.path !== "/upload";
 
-                    {/* Reset Database */}
-                    <AlertDialog open={isResetOpen} onOpenChange={setIsResetOpen}>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="outline" className="w-full gap-2 text-destructive hover:text-destructive">
-                                {resetMutation.isPending ? (
-                                    <Loader2 className="size-4 animate-spin" />
-                                ) : (
-                                    <RotateCcw className="size-4" />
-                                )}
-                                <span>{t("reset.button")}</span>
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent dir="rtl">
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>{t("reset.title")}</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    {t("reset.description")}
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="flex-row-reverse gap-2">
-                                <AlertDialogCancel>{t("reset.cancel")}</AlertDialogCancel>
-                                <AlertDialogAction
-                                    onClick={() => resetMutation.mutate()}
-                                    disabled={resetMutation.isPending}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                    {resetMutation.isPending ? t("reset.pending") : t("reset.confirm")}
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                        return (
+                            <Link
+                                key={item.path}
+                                to={item.path}
+                                disabled={isDisabled}
+                                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
+                                    ? "bg-primary/10 text-primary"
+                                    : "text-muted-foreground hover:bg-accent"
+                                    } ${isDisabled ? "opacity-50 pointer-events-none grayscale" : ""}`}
+                            >
+                                <item.icon className="size-5" aria-hidden="true" />
+                                <span className={`text-sm ${isActive ? "font-semibold" : "font-medium"}`}>
+                                    {t(item.labelKey)}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </nav>
+
+                {/* Filters */}
+                <div className={`pt-4 border-t border-border ${isEmptyState ? "opacity-50 pointer-events-none grayscale" : ""}`}>
+                    <p className="text-xs font-bold text-muted-foreground px-3 mb-3 uppercase tracking-wider">
+                        {t("filters.title")}
+                    </p>
+                    <div className="flex flex-col gap-3 px-1">
+                        {/* Period Filter */}
+                        <Select
+                            value={filters.period || "__all__"}
+                            onValueChange={(v) => setFilter("period", v === "__all__" ? undefined : v)}
+                            disabled={isEmptyState}
+                        >
+                            <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder={t("filters.allPeriods")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">{t("filters.allPeriods")}</SelectItem>
+                                {metadata?.periods.map((period) => (
+                                    <SelectItem key={period} value={period}>
+                                        {period}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {/* Grade Level Filter */}
+                        <Select
+                            value={filters.gradeLevel || "__all__"}
+                            onValueChange={(v) => setFilter("gradeLevel", v === "__all__" ? undefined : v)}
+                            disabled={isEmptyState}
+                        >
+                            <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder={t("filters.allGradeLevels")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__all__">{t("filters.allGradeLevels")}</SelectItem>
+                                {metadata?.grade_levels.map((level) => (
+                                    <SelectItem key={level} value={level}>
+                                        {t("filters.gradeLevel", { level })}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
             </div>
-        </aside>
+
+            {/* Bottom Actions */}
+            <div className="flex flex-col gap-3">
+                <Link to="/students" className={isEmptyState ? "pointer-events-none" : ""}>
+                    <Button className="w-full gap-2" disabled={isEmptyState}>
+                        <Search className="size-4" />
+                        <span>{t("filters.searchStudent")}</span>
+                    </Button>
+                </Link>
+
+                {/* Reset Database */}
+                <AlertDialog open={isResetOpen} onOpenChange={setIsResetOpen}>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="outline" className="w-full gap-2 text-destructive hover:text-destructive">
+                            {resetMutation.isPending ? (
+                                <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                                <RotateCcw className="size-4" />
+                            )}
+                            <span>{t("reset.button")}</span>
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent dir="rtl">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>{t("reset.title")}</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                {t("reset.description")}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex-row-reverse gap-2">
+                            <AlertDialogCancel>{t("reset.cancel")}</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => resetMutation.mutate()}
+                                disabled={resetMutation.isPending}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                                {resetMutation.isPending ? t("reset.pending") : t("reset.confirm")}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+        </div>
     );
 }
 
-function Header() {
+function Header({ onMenuClick }: { onMenuClick: () => void }) {
+    const { t } = useTranslation();
+
     return (
-        <header className="flex items-center justify-between bg-card border-b border-border px-8 py-4 sticky top-0 z-10">
-            <div className="flex items-center gap-6" />
+        <header className="flex items-center justify-between bg-card border-b border-border px-4 md:px-8 py-4 sticky top-0 z-10">
+            <div className="flex items-center gap-3 md:hidden">
+                <div className="bg-primary/10 rounded-full p-1.5">
+                    <GraduationCap className="size-5 text-primary" />
+                </div>
+                <span className="text-sm font-bold">{t("appName")}</span>
+            </div>
+            <div className="hidden md:flex items-center gap-6" />
+            <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                onClick={onMenuClick}
+                aria-label="Open menu"
+            >
+                <Menu className="size-5" />
+            </Button>
         </header>
     );
 }
