@@ -9,6 +9,7 @@ from .database import init_db
 from .routers import analytics, ingestion, ml, students
 
 PORT = int(os.getenv("PORT", 3000))
+ORIGIN_URL = os.getenv("ORIGIN_URL", "http://localhost:5173")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,7 +28,7 @@ app = FastAPI(
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[ORIGIN_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
