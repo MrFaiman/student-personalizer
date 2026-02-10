@@ -229,7 +229,7 @@ function StudentDetailPage() {
               <p className="text-2xl font-bold tabular-nums">
                 {student.average_grade?.toFixed(1) ?? "—"}
               </p>
-              <p className="text-sm text-muted-foreground">{t("detail.averageGrade")}</p>
+              <p className="text-sm text-muted-foreground">{tc("general.averageGrade")}</p>
             </div>
           </CardContent>
         </Card>
@@ -240,7 +240,7 @@ function StudentDetailPage() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">{attendanceRate.toFixed(0)}%</p>
-              <p className="text-sm text-muted-foreground">{t("detail.attendance")}</p>
+              <p className="text-sm text-muted-foreground">{tc("general.attendance")}</p>
             </div>
           </CardContent>
         </Card>
@@ -262,7 +262,7 @@ function StudentDetailPage() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">{student.total_absences || 0}</p>
-              <p className="text-sm text-muted-foreground">{t("detail.absences")}</p>
+              <p className="text-sm text-muted-foreground">{tc("general.absences")}</p>
             </div>
           </CardContent>
         </Card>
@@ -326,7 +326,7 @@ function StudentDetailPage() {
         <div className="p-6 border-b">
           <h3 className="text-lg font-bold flex items-center gap-2">
             <Clock className="size-4 text-muted-foreground" />
-            {t("detail.attendanceRate")}
+            {tc("general.attendanceRate")}
           </h3>
         </div>
         <CardContent className="p-6">
@@ -415,7 +415,7 @@ function StudentDetailPage() {
               <TableHead className="text-right font-bold w-12">#</TableHead>
               <TableHead className="text-right font-bold">{tc("table.period")}</TableHead>
               <TableHead className="text-right font-bold">{tc("table.absences")}</TableHead>
-              <TableHead className="text-right font-bold">{t("detail.attendance")}</TableHead>
+              <TableHead className="text-right font-bold">{tc("general.attendance")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -456,6 +456,7 @@ function PeriodComparisonSection({
   periods: string[];
 }) {
   const { t } = useTranslation("students");
+  const { t: tc } = useTranslation();
   const [period1, setPeriod1] = useState<string>(periods[0] ?? "");
   const [period2, setPeriod2] = useState<string>(periods[1] ?? periods[0] ?? "");
 
@@ -513,17 +514,17 @@ function PeriodComparisonSection({
             <p className="text-lg font-bold tabular-nums">
               {stats.avgGrade !== null ? stats.avgGrade.toFixed(1) : "—"}
             </p>
-            <p className="text-xs text-muted-foreground">{t("detail.avgGrade")}</p>
+            <p className="text-xs text-muted-foreground">{tc("general.averageGrade")}</p>
           </div>
           <div className="text-center p-2 bg-accent/30 rounded-lg">
             <p className="text-lg font-bold tabular-nums">
               {stats.attRate !== null ? `${stats.attRate.toFixed(0)}%` : "—"}
             </p>
-            <p className="text-xs text-muted-foreground">{t("detail.attendanceRate")}</p>
+            <p className="text-xs text-muted-foreground">{tc("general.attendanceRate")}</p>
           </div>
           <div className="text-center p-2 bg-accent/30 rounded-lg">
             <p className="text-lg font-bold tabular-nums">{stats.totalAbsences}</p>
-            <p className="text-xs text-muted-foreground">{t("detail.totalAbsences")}</p>
+            <p className="text-xs text-muted-foreground">{tc("general.absences")}</p>
           </div>
         </div>
 
