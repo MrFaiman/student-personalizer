@@ -1,0 +1,65 @@
+{
+  "appName": "מבט על שכבתי",
+  "appTagline": "דשבורד פדגוגי",
+  "nav": {
+    "dashboard": "לוח בקרה",
+    "students": "תלמידים",
+    "classes": "כיתות",
+    "upload": "טעינת נתונים",
+    "predictions": "תחזיות ML"
+  },
+  "filters": {
+    "title": "סינונים",
+    "allPeriods": "כל התקופות",
+    "allGradeLevels": "כל השכבות",
+    "gradeLevel": "שכבה {{level}}",
+    "allClasses": "כל הכיתות",
+    "searchStudent": "חיפוש תלמיד",
+    "searchByStudentName": "חיפוש לפי שם תלמיד…",
+    "atRiskOnly": "תלמידים בסיכון בלבד"
+  },
+  "reset": {
+    "button": "איפוס מסד נתונים",
+    "title": "איפוס מסד הנתונים",
+    "description": "פעולה זו תמחק את כל הנתונים הקיימים ותטען מחדש את הנתונים מקבצי ה-CSV. האם אתה בטוח שברצונך להמשיך?",
+    "cancel": "ביטול",
+    "confirm": "איפוס",
+    "pending": "מאפס...",
+    "success": "איפוס בוצע בהצלחה!\nנטענו {{students}} תלמידים ו-{{events}} אירועים",
+    "error": "שגיאה באיפוס: {{message}}"
+  },
+  "pagination": {
+    "previous": "הקודם",
+    "next": "הבא"
+  },
+  "status": {
+    "atRisk": "בסיכון",
+    "highRisk": "סיכון גבוה",
+    "watch": "במעקב",
+    "normal": "תקין",
+    "present": "נוכח",
+    "absent": "נעדר"
+  },
+  "table": {
+    "studentName": "שם התלמיד",
+    "class": "כיתה",
+    "averageGrade": "ממוצע ציונים",
+    "absences": "חיסורים",
+    "status": "סטטוס",
+    "actions": "פעולות",
+    "idNumber": "ת.ז.",
+    "subject": "מקצוע",
+    "teacher": "מורה",
+    "grade": "ציון",
+    "date": "תאריך",
+    "period": "תקופה",
+    "hour": "שעה",
+    "name": "שם",
+    "rank": "מקום",
+    "average": "ממוצע",
+    "student": "תלמיד"
+  },
+  "noData": "אין נתונים להצגה",
+  "viewStudent": "צפה בתלמיד",
+  "viewDetails": "צפה בפרטים"
+}

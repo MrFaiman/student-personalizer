@@ -1,0 +1,35 @@
+{
+  "list": {
+    "title": "ניהול תלמידים",
+    "subtitle": "צפייה ומעקב אחר כל התלמידים במערכת",
+    "totalStudents": "סה\"כ תלמידים",
+    "atRiskStudents": "תלמידים בסיכון",
+    "classes": "כיתות",
+    "noStudents": "לא נמצאו תלמידים"
+  },
+  "detail": {
+    "notFound": "התלמיד לא נמצא",
+    "backToList": "חזור לרשימת התלמידים",
+    "backToListAria": "חזרה לרשימת התלמידים",
+    "classAndId": "כיתה {{className}} | ת.ז: {{tz}}",
+    "averageGrade": "ממוצע ציונים",
+    "attendance": "נוכחות",
+    "exams": "מבחנים",
+    "absences": "היעדרויות",
+    "performanceBySubject": "ביצועים לפי מקצוע",
+    "gradeTrend": "מגמת ציונים",
+    "gradeTooltip": "ציון",
+    "examTooltip": "מבחן {{label}}",
+    "noGradeData": "אין נתוני ציונים",
+    "noTrendData": "אין נתוני מגמה",
+    "attendanceRate": "אחוז נוכחות",
+    "totalLessons": "סה״כ: {{count}} שיעורים",
+    "presentCount": "נוכח: {{count}}",
+    "absentCount": "נעדר: {{count}}",
+    "gradeHistory": "היסטוריית ציונים",
+    "attendanceHistory": "היסטוריית נוכחות",
+    "noGrades": "אין נתוני ציונים",
+    "noAttendance": "אין נתוני נוכחות",
+    "performanceScore": "ציון ביצועים"
+  }
+}

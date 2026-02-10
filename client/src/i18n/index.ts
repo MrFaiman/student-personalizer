@@ -1,0 +1,26 @@
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+
+import commonHe from "./locales/he/common.json";
+import dashboardHe from "./locales/he/dashboard.json";
+import studentsHe from "./locales/he/students.json";
+import classesHe from "./locales/he/classes.json";
+
+i18n.use(initReactI18next).init({
+  lng: "he",
+  fallbackLng: "he",
+  defaultNS: "common",
+  resources: {
+    he: {
+      common: commonHe,
+      dashboard: dashboardHe,
+      students: studentsHe,
+      classes: classesHe,
+    },
+  },
+  interpolation: {
+    escapeValue: false,
+  },
+});
+
+export default i18n;

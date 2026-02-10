@@ -1,0 +1,24 @@
+{
+  "list": {
+    "title": "כיתות",
+    "subtitle": "צפייה וניתוח נתונים לפי כיתות",
+    "classes": "כיתות",
+    "students": "תלמידים",
+    "atRisk": "תלמידים בסיכון",
+    "gradeLevel": "שכבה {{level}}",
+    "atRiskCount": "{{count}} בסיכון",
+    "studentCount": "{{count}} תלמידים",
+    "noClasses": "לא נמצאו כיתות"
+  },
+  "detail": {
+    "backToList": "חזרה לרשימת הכיתות",
+    "classTitle": "כיתה {{id}}",
+    "studentsAndLevel": "{{count}} תלמידים | שכבה {{level}}",
+    "average": "ממוצע",
+    "atRisk": "בסיכון",
+    "heatmapTitle": "מפת חום: תלמידים × מקצועות",
+    "topStudents": "מצטיינים",
+    "bottomStudents": "דורשים תשומת לב",
+    "noData": "אין נתונים"
+  }
+}

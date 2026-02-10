@@ -1,0 +1,21 @@
+{
+  "kpi": {
+    "layerAverage": "ממוצע ציונים שכבתי",
+    "avgAbsences": "ממוצע חיסורים לתלמיד",
+    "atRiskStudents": "תלמידים בסיכון (מתחת ל-55)",
+    "totalStudents": "{{count}} תלמידים בסה\"כ"
+  },
+  "charts": {
+    "gradeComparisonTitle": "השוואת ממוצע ציונים לפי כיתות",
+    "overallAverage": "ממוצע כללי",
+    "average": "ממוצע",
+    "studentsByClass": "תלמידים לפי כיתה",
+    "studentsByClassDesc": "כמות תלמידים בכל כיתה",
+    "students": "תלמידים"
+  },
+  "urgentStudents": {
+    "title": "תלמידים בטיפול דחוף",
+    "viewAll": "צפה בכל התלמידים",
+    "noAtRisk": "אין תלמידים בסיכון"
+  }
+}
