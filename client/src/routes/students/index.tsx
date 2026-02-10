@@ -68,7 +68,7 @@ function StudentsListPage() {
         queryFn: () =>
             studentsApi.getDashboardStats({
                 period: filters.period,
-                class_id: selectedClassId === "__all__" ? undefined : Number(selectedClassId),
+                class_id: selectedClassId === "__all__" ? undefined : selectedClassId,
             }),
     });
 
@@ -77,7 +77,7 @@ function StudentsListPage() {
         queryFn: () =>
             studentsApi.list({
                 period: filters.period,
-                class_id: selectedClassId === "__all__" ? undefined : Number(selectedClassId),
+                class_id: selectedClassId === "__all__" ? undefined : selectedClassId,
                 search: debouncedSearch || undefined,
                 at_risk_only: showAtRiskOnly,
                 page,

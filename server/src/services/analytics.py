@@ -1,5 +1,7 @@
 """Dashboard analytics service."""
 
+from uuid import UUID
+
 from sqlmodel import Session, select
 
 from ..models import AttendanceRecord, Class, Grade, Student
@@ -124,7 +126,7 @@ class DashboardAnalytics:
         
         return sorted(result, key=lambda x: x["class_name"])
 
-    def get_class_heatmap(self, class_id: int, period: str | None = None) -> dict:
+    def get_class_heatmap(self, class_id: UUID, period: str | None = None) -> dict:
         """
         Returns Heatmap Matrix: Student x Subject.
 
@@ -179,7 +181,7 @@ class DashboardAnalytics:
 
     def get_top_bottom_students(
         self, 
-        class_id: int, 
+        class_id: UUID,
         period: str | None = None,
         top_n: int = 5,
         bottom_n: int = 5

@@ -274,7 +274,7 @@ function StudentsTable() {
       studentsApi.list({
         at_risk_only: true,
         period: filters.period,
-        class_id: filters.classId ? Number(filters.classId) : undefined,
+        class_id: filters.classId || undefined,
       }),
   });
 

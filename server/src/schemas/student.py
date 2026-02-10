@@ -1,5 +1,7 @@
 """Student-related schemas."""
 
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -8,7 +10,7 @@ class StudentResponse(BaseModel):
 
     student_tz: str
     student_name: str
-    class_id: int | None
+    class_id: UUID | None
     class_name: str
     grade_level: str | None
 
@@ -59,7 +61,7 @@ class StudentListResponse(BaseModel):
 class ClassResponse(BaseModel):
     """Response model for class data."""
 
-    id: int
+    id: UUID
     class_name: str
     grade_level: str
     student_count: int

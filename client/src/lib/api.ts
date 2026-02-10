@@ -39,10 +39,12 @@ async function fetchApi<T>(
 
 // Query params helper
 function buildQueryString(params: Record<string, string | number | boolean | undefined>): string {
-  const filtered = Object.entries(params)
-    .filter(([, v]) => v !== undefined && v !== null && v !== "")
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
-  return filtered.length > 0 ? `?${filtered.join("&")}` : "";
+  const searchParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+  }
+  const qs = searchParams.toString();
+  return qs ? `?${qs}` : "";
 }
 
 // ========================
@@ -66,11 +68,11 @@ export const analyticsApi = {
   getClassComparison: (params: { period?: string; grade_level?: string } = {}) =>
     fetchApi<ClassComparisonItem[]>(`/api/analytics/class-comparison${buildQueryString(params)}`),
 
-  getClassHeatmap: (classId: number, params: { period?: string } = {}) =>
+  getClassHeatmap: (classId: string, params: { period?: string } = {}) =>
     fetchApi<HeatmapData>(`/api/analytics/class/${classId}/heatmap${buildQueryString(params)}`),
 
   getClassRankings: (
-    classId: number,
+    classId: string,
     params: { period?: string; top_n?: number; bottom_n?: number } = {}
   ) =>
     fetchApi<TopBottomResponse>(
@@ -109,7 +111,7 @@ import type {
 export const studentsApi = {
   list: (
     params: {
-      class_id?: number;
+      class_id?: string;
       search?: string;
       at_risk_only?: boolean;
       period?: string;
@@ -133,7 +135,7 @@ export const studentsApi = {
       `/api/students/${encodeURIComponent(studentTz)}/attendance${buildQueryString(params)}`
     ),
 
-  getDashboardStats: (params: { class_id?: number; period?: string } = {}) =>
+  getDashboardStats: (params: { class_id?: string; period?: string } = {}) =>
     fetchApi<DashboardStats>(`/api/students/dashboard${buildQueryString(params)}`),
 
   getClasses: (params: { period?: string } = {}) =>

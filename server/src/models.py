@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -6,8 +7,8 @@ from sqlmodel import Field, Relationship, SQLModel
 class Class(SQLModel, table=True):
     """Class/homeroom."""
 
-    id: int | None = Field(default=None, primary_key=True)
-    class_name: str = Field(index=True, unique=True)  # e.g. "J1", "י-1"
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    class_name: str = Field(index=True, unique=True)  # e.g. "י-1"
     grade_level: str  # e.g. "10", "י"
 
     # Relationships
@@ -19,7 +20,7 @@ class Student(SQLModel, table=True):
 
     student_tz: str = Field(primary_key=True)  # ID Card / Unique ID (ת.ז)
     student_name: str
-    class_id: int | None = Field(foreign_key="class.id")
+    class_id: UUID | None = Field(default=None, foreign_key="class.id")
 
     # Relationships
     class_: Class = Relationship(back_populates="students")

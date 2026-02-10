@@ -1,5 +1,7 @@
 """Dashboard analytics routes."""
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
@@ -54,7 +56,7 @@ async def get_class_comparison(
 
 @router.get("/class/{class_id}/heatmap")
 async def get_class_heatmap(
-    class_id: int,
+    class_id: UUID,
     period: str | None = Query(default=None, description="Period filter"),
     session: Session = Depends(get_session),
 ):
@@ -75,7 +77,7 @@ async def get_class_heatmap(
 
 @router.get("/class/{class_id}/rankings", response_model=TopBottomResponse)
 async def get_class_rankings(
-    class_id: int,
+    class_id: UUID,
     period: str | None = Query(default=None, description="Period filter"),
     top_n: int = Query(default=5, ge=1, le=20, description="Number of top students"),
     bottom_n: int = Query(default=5, ge=1, le=20, description="Number of bottom students"),

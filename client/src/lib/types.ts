@@ -14,7 +14,7 @@ export interface LayerKPIsResponse {
 }
 
 export interface ClassComparisonItem {
-    id: number;
+    id: string;
     class_name: string;
     average_grade: number;
     student_count: number;
@@ -73,7 +73,7 @@ export interface MetadataResponse {
 export interface StudentListItem {
     student_tz: string;
     student_name: string;
-    class_id: number;
+    class_id: string;
     class_name: string;
     grade_level: string;
     average_grade: number | null;
@@ -91,7 +91,7 @@ export interface StudentListResponse {
 export interface StudentDetailResponse {
     student_tz: string;
     student_name: string;
-    class_id: number;
+    class_id: string;
     class_name: string;
     grade_level: string;
     average_grade: number | null;
@@ -118,7 +118,7 @@ export interface AttendanceResponse {
 }
 
 export interface ClassResponse {
-    id: number;
+    id: string;
     class_name: string;
     grade_level: string;
     student_count: number;

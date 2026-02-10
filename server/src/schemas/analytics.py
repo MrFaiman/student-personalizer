@@ -1,5 +1,7 @@
 """Analytics-related schemas."""
 
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -15,7 +17,7 @@ class LayerKPIsResponse(BaseModel):
 class ClassComparisonItem(BaseModel):
     """Single class in comparison chart."""
 
-    id: int
+    id: UUID
     class_name: str
     average_grade: float
     student_count: int

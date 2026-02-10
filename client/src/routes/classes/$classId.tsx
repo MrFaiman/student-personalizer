@@ -23,7 +23,6 @@ export const Route = createFileRoute("/classes/$classId")({
 
 function ClassDetailPage() {
     const { classId } = Route.useParams();
-    const id = Number(classId);
     const { filters } = useFilters();
 
     const { data: classes } = useQuery({
@@ -31,16 +30,16 @@ function ClassDetailPage() {
         queryFn: () => studentsApi.getClasses({ period: filters.period }),
     });
 
-    const classInfo = classes?.find((c) => c.id === id);
+    const classInfo = classes?.find((c) => c.id === classId);
 
     const { data: heatmapData, isLoading: isLoadingHeatmap } = useQuery({
-        queryKey: ["class-heatmap", id, filters.period],
-        queryFn: () => analyticsApi.getClassHeatmap(id, { period: filters.period }),
+        queryKey: ["class-heatmap", classId, filters.period],
+        queryFn: () => analyticsApi.getClassHeatmap(classId, { period: filters.period }),
     });
 
     const { data: rankings, isLoading: isLoadingRankings } = useQuery({
-        queryKey: ["class-rankings", id, filters.period],
-        queryFn: () => analyticsApi.getClassRankings(id, { period: filters.period }),
+        queryKey: ["class-rankings", classId, filters.period],
+        queryFn: () => analyticsApi.getClassRankings(classId, { period: filters.period }),
     });
 
     const getGradeColor = (grade: number | null) => {

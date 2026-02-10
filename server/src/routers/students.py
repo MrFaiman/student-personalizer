@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 
@@ -19,7 +21,7 @@ router = APIRouter(prefix="/api/students", tags=["students"])
 async def list_students(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, le=100),
-    class_id: int | None = Query(default=None),
+    class_id: UUID | None = Query(default=None),
     search: str | None = Query(default=None),
     at_risk_only: bool = Query(default=False),
     period: str | None = Query(default=None),
@@ -109,7 +111,7 @@ async def list_students(
 
 @router.get("/dashboard", response_model=DashboardStats)
 async def get_dashboard_stats(
-    class_id: int | None = Query(default=None),
+    class_id: UUID | None = Query(default=None),
     period: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
