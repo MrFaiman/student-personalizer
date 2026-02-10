@@ -289,3 +289,52 @@ async def get_import_log(
         period=log.period,
         created_at=log.created_at.isoformat(),
     )
+
+
+@router.delete("/logs/{batch_id}")
+async def delete_import_log(
+    batch_id: str,
+    session: Session = Depends(get_session),
+):
+    """
+    Delete an import log and all associated data.
+
+    This will remove:
+    - The import log entry
+    - All grades/attendance records imported in this batch (identified by period and file type)
+
+    Note: This does NOT delete students or classes, only the data from this specific import.
+    """
+    # Find the import log
+    statement = select(ImportLog).where(ImportLog.batch_id == batch_id)
+    log = session.exec(statement).first()
+
+    if not log:
+        raise HTTPException(status_code=404, detail="Import log not found")
+
+    # Delete associated data based on file type and period
+    deleted_records = 0
+    if log.file_type == "grades":
+        # Delete all grades for this period
+        grade_statement = select(Grade).where(Grade.period == log.period)
+        grades = session.exec(grade_statement).all()
+        for grade in grades:
+            session.delete(grade)
+            deleted_records += 1
+    elif log.file_type == "events":
+        # Delete all attendance records for this period
+        attendance_statement = select(AttendanceRecord).where(AttendanceRecord.period == log.period)
+        records = session.exec(attendance_statement).all()
+        for record in records:
+            session.delete(record)
+            deleted_records += 1
+
+    # Delete the import log
+    session.delete(log)
+    session.commit()
+
+    return {
+        "message": f"Import log deleted successfully",
+        "batch_id": batch_id,
+        "records_deleted": deleted_records,
+    }

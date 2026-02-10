@@ -176,6 +176,12 @@ export const ingestionApi = {
   getLog: (batchId: string) =>
     fetchApi<ImportLogResponse>(`/api/ingest/logs/${encodeURIComponent(batchId)}`),
 
+  deleteLog: (batchId: string) =>
+    fetchApi<{ message: string; batch_id: string; records_deleted: number }>(
+      `/api/ingest/logs/${encodeURIComponent(batchId)}`,
+      { method: "DELETE" }
+    ),
+
   resetDatabase: (params: { reload_data?: boolean } = { reload_data: true }) =>
     fetchApi<{ message: string; students_loaded: number; events_loaded: number }>(
       `/api/ingest/reset${buildQueryString(params)}`,
