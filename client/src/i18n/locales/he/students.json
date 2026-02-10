@@ -12,17 +12,14 @@
     "backToList": "חזור לרשימת התלמידים",
     "backToListAria": "חזרה לרשימת התלמידים",
     "classAndId": "כיתה {{className}} | ת.ז: {{tz}}",
-    "averageGrade": "ממוצע ציונים",
     "attendance": "נוכחות",
     "gradesCount": "סה״כ ציונים",
-    "absences": "היעדרויות",
     "performanceBySubject": "ביצועים לפי מקצוע",
     "gradeTrend": "מגמת ציונים",
     "gradeTooltip": "ציון",
     "examTooltip": "מבחן {{label}}",
     "noGradeData": "אין נתוני ציונים",
     "noTrendData": "אין נתוני מגמה",
-    "attendanceRate": "אחוז נוכחות",
     "totalLessons": "סה״כ: {{count}} שיעורים",
     "presentCount": "נוכח: {{count}}",
     "absentCount": "נעדר: {{count}}",
@@ -37,9 +34,6 @@
     "period2": "תקופה 2",
     "noPeriodData": "אין נתונים לתקופה זו",
     "selectTwoPeriods": "בחר שתי תקופות להשוואה",
-    "avgGrade": "ממוצע ציונים",
-    "attendanceRate": "אחוז נוכחות",
-    "totalAbsences": "היעדרויות",
     "gradesBySubject": "ציונים לפי מקצוע"
   }
 }
