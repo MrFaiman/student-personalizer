@@ -14,7 +14,7 @@
     "classAndId": "כיתה {{className}} | ת.ז: {{tz}}",
     "averageGrade": "ממוצע ציונים",
     "attendance": "נוכחות",
-    "exams": "מבחנים",
+    "gradesCount": "סה״כ ציונים",
     "absences": "היעדרויות",
     "performanceBySubject": "ביצועים לפי מקצוע",
     "gradeTrend": "מגמת ציונים",
@@ -30,6 +30,16 @@
     "attendanceHistory": "היסטוריית נוכחות",
     "noGrades": "אין נתוני ציונים",
     "noAttendance": "אין נתוני נוכחות",
-    "performanceScore": "ציון ביצועים"
+    "performanceScore": "ציון ביצועים",
+    "periodComparison": "השוואת תקופות",
+    "selectPeriod": "בחר תקופה",
+    "period1": "תקופה 1",
+    "period2": "תקופה 2",
+    "noPeriodData": "אין נתונים לתקופה זו",
+    "selectTwoPeriods": "בחר שתי תקופות להשוואה",
+    "avgGrade": "ממוצע ציונים",
+    "attendanceRate": "אחוז נוכחות",
+    "totalAbsences": "היעדרויות",
+    "gradesBySubject": "ציונים לפי מקצוע"
   }
 }

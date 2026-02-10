@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -6,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -27,9 +35,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
 } from "recharts";
 import {
   ArrowRight,
+  ArrowLeftRight,
   User,
   GraduationCap,
   Calendar,
@@ -40,6 +50,7 @@ import {
   Clock,
 } from "lucide-react";
 import { studentsApi } from "@/lib/api";
+import type { GradeResponse, AttendanceResponse } from "@/lib/types";
 
 export const Route = createFileRoute("/students/$studentTz")({
   component: StudentDetailPage,
@@ -65,17 +76,37 @@ function StudentDetailPage() {
     queryFn: () => studentsApi.getAttendance(studentTz),
   });
 
-  // Prepare radar chart data from grades by subject
-  const radarData =
-    grades?.reduce((acc: { subject: string; grade: number }[], grade) => {
-      const existing = acc.find((a) => a.subject === grade.subject);
-      if (existing) {
-        existing.grade = (existing.grade + grade.grade) / 2;
+  // Prepare radar chart data: average grade per subject per period
+  const { radarData, periods } = (() => {
+    if (!grades?.length) return { radarData: [], periods: [] as string[] };
+    const byPeriodSubject = new Map<string, Map<string, { sum: number; count: number }>>();
+    for (const g of grades) {
+      const period = g.period || "—";
+      if (!byPeriodSubject.has(period)) byPeriodSubject.set(period, new Map());
+      const subjectMap = byPeriodSubject.get(period)!;
+      const entry = subjectMap.get(g.subject);
+      if (entry) {
+        entry.sum += g.grade;
+        entry.count += 1;
       } else {
-        acc.push({ subject: grade.subject, grade: grade.grade });
+        subjectMap.set(g.subject, { sum: g.grade, count: 1 });
       }
-      return acc;
-    }, []) || [];
+    }
+    const allSubjects = new Set<string>();
+    for (const subjectMap of byPeriodSubject.values()) {
+      for (const s of subjectMap.keys()) allSubjects.add(s);
+    }
+    const periods = Array.from(byPeriodSubject.keys());
+    const radarData = Array.from(allSubjects, (subject) => {
+      const row: Record<string, string | number> = { subject };
+      for (const period of periods) {
+        const entry = byPeriodSubject.get(period)?.get(subject);
+        if (entry) row[period] = Math.round(entry.sum / entry.count);
+      }
+      return row;
+    });
+    return { radarData, periods };
+  })();
 
   // Calculate attendance rate from backend data
   const totalLessons = attendance?.reduce((sum, a) => sum + a.lessons_reported, 0) || 0;
@@ -220,7 +251,7 @@ function StudentDetailPage() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">{grades?.length || 0}</p>
-              <p className="text-sm text-muted-foreground">{t("detail.exams")}</p>
+              <p className="text-sm text-muted-foreground">{t("detail.gradesCount")}</p>
             </div>
           </CardContent>
         </Card>
@@ -239,37 +270,7 @@ function StudentDetailPage() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Radar Chart - Performance by Subject */}
-        <Card>
-          <div className="p-6 border-b">
-            <h3 className="text-lg font-bold flex items-center gap-2">
-              <TrendingUp className="size-4 text-muted-foreground" />
-              {t("detail.performanceBySubject")}
-            </h3>
-          </div>
-          <CardContent className="p-4">
-            {radarData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <RadarChart data={radarData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
-                  <PolarRadiusAxis domain={[0, 100]} />
-                  <Radar
-                    name={t("detail.gradeTooltip")}
-                    dataKey="grade"
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--primary))"
-                    fillOpacity={0.3}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[280px] flex items-center justify-center text-muted-foreground">
-                {t("detail.noGradeData")}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <SubjectRadarChart data={radarData} periods={periods} />
 
         {/* Line Chart - Grade Trend */}
         <Card>
@@ -316,6 +317,9 @@ function StudentDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Period Comparison */}
+      <PeriodComparisonSection grades={grades} attendance={attendance} periods={periods} />
 
       {/* Attendance Gauge */}
       <Card>
@@ -439,5 +443,251 @@ function StudentDetailPage() {
         </Table>
       </Card>
     </div>
+  );
+}
+
+function PeriodComparisonSection({
+  grades,
+  attendance,
+  periods,
+}: {
+  grades?: GradeResponse[];
+  attendance?: AttendanceResponse[];
+  periods: string[];
+}) {
+  const { t } = useTranslation("students");
+  const [period1, setPeriod1] = useState<string>(periods[0] ?? "");
+  const [period2, setPeriod2] = useState<string>(periods[1] ?? periods[0] ?? "");
+
+  if (!periods.length) return null;
+
+  function computePeriodStats(period: string) {
+    const periodGrades = grades?.filter((g) => g.period === period) ?? [];
+    const periodAttendance = attendance?.filter((a) => a.period === period) ?? [];
+
+    const avgGrade =
+      periodGrades.length > 0
+        ? periodGrades.reduce((s, g) => s + g.grade, 0) / periodGrades.length
+        : null;
+
+    const totalLessons = periodAttendance.reduce((s, a) => s + a.lessons_reported, 0);
+    const totalPresent = periodAttendance.reduce((s, a) => s + a.attendance, 0);
+    const attRate = totalLessons > 0 ? (totalPresent / totalLessons) * 100 : null;
+    const totalAbsences = periodAttendance.reduce((s, a) => s + a.total_absences, 0);
+
+    // Subject averages
+    const bySubject = new Map<string, { sum: number; count: number }>();
+    for (const g of periodGrades) {
+      const entry = bySubject.get(g.subject);
+      if (entry) {
+        entry.sum += g.grade;
+        entry.count += 1;
+      } else {
+        bySubject.set(g.subject, { sum: g.grade, count: 1 });
+      }
+    }
+    const subjectAvgs = Array.from(bySubject, ([subject, { sum, count }]) => ({
+      subject,
+      avg: Math.round(sum / count),
+    }));
+
+    return { avgGrade, attRate, totalAbsences, subjectAvgs };
+  }
+
+  function renderPeriodCard(period: string) {
+    const stats = computePeriodStats(period);
+
+    if (stats.avgGrade === null && stats.attRate === null) {
+      return (
+        <div className="flex items-center justify-center h-40 text-muted-foreground">
+          {t("detail.noPeriodData")}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Mini stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="text-center p-2 bg-accent/30 rounded-lg">
+            <p className="text-lg font-bold tabular-nums">
+              {stats.avgGrade !== null ? stats.avgGrade.toFixed(1) : "—"}
+            </p>
+            <p className="text-xs text-muted-foreground">{t("detail.avgGrade")}</p>
+          </div>
+          <div className="text-center p-2 bg-accent/30 rounded-lg">
+            <p className="text-lg font-bold tabular-nums">
+              {stats.attRate !== null ? `${stats.attRate.toFixed(0)}%` : "—"}
+            </p>
+            <p className="text-xs text-muted-foreground">{t("detail.attendanceRate")}</p>
+          </div>
+          <div className="text-center p-2 bg-accent/30 rounded-lg">
+            <p className="text-lg font-bold tabular-nums">{stats.totalAbsences}</p>
+            <p className="text-xs text-muted-foreground">{t("detail.totalAbsences")}</p>
+          </div>
+        </div>
+
+        {/* Subject grades table */}
+        {stats.subjectAvgs.length > 0 && (
+          <div>
+            <p className="text-sm font-medium mb-2">{t("detail.gradesBySubject")}</p>
+            <Table>
+              <TableBody>
+                {stats.subjectAvgs.map((s) => (
+                  <TableRow key={s.subject}>
+                    <TableCell className="py-1.5 text-sm">{s.subject}</TableCell>
+                    <TableCell
+                      className={`py-1.5 text-sm font-bold text-left ${
+                        s.avg < 55
+                          ? "text-red-600"
+                          : s.avg >= 80
+                            ? "text-green-600"
+                            : ""
+                      }`}
+                    >
+                      {s.avg}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="p-6 border-b">
+        <h3 className="text-lg font-bold flex items-center gap-2">
+          <ArrowLeftRight className="size-4 text-muted-foreground" />
+          {t("detail.periodComparison")}
+        </h3>
+      </div>
+      <CardContent className="p-6">
+        {/* Period selectors */}
+        <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="space-y-1">
+            <label className="text-sm font-medium">{t("detail.period1")}</label>
+            <Select value={period1} onValueChange={setPeriod1}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("detail.selectPeriod")} />
+              </SelectTrigger>
+              <SelectContent>
+                {periods.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">{t("detail.period2")}</label>
+            <Select value={period2} onValueChange={setPeriod2}>
+              <SelectTrigger>
+                <SelectValue placeholder={t("detail.selectPeriod")} />
+              </SelectTrigger>
+              <SelectContent>
+                {periods.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Comparison columns */}
+        {period1 && period2 ? (
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-6">
+            <Card>
+              <div className="p-4 border-b">
+                <h4 className="font-bold text-center">{period1}</h4>
+              </div>
+              <CardContent className="p-4">{renderPeriodCard(period1)}</CardContent>
+            </Card>
+            <div className="w-px bg-border self-stretch" />
+            <Card>
+              <div className="p-4 border-b">
+                <h4 className="font-bold text-center">{period2}</h4>
+              </div>
+              <CardContent className="p-4">{renderPeriodCard(period2)}</CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground py-8">
+            {t("detail.selectTwoPeriods")}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const RADAR_COLORS = [
+  "hsl(245, 58%, 51%)",
+  "hsl(160, 60%, 45%)",
+  "hsl(30, 90%, 55%)",
+  "hsl(340, 65%, 50%)",
+  "hsl(200, 70%, 50%)",
+  "hsl(50, 80%, 45%)",
+];
+
+function SubjectRadarChart({
+  data,
+  periods,
+}: {
+  data: Record<string, string | number>[];
+  periods: string[];
+}) {
+  const { t } = useTranslation("students");
+
+  return (
+    <Card>
+      <div className="p-6 border-b">
+        <h3 className="text-lg font-bold flex items-center gap-2">
+          <TrendingUp className="size-4 text-muted-foreground" />
+          {t("detail.performanceBySubject")}
+        </h3>
+      </div>
+      <CardContent className="p-4">
+        {data.length > 0 ? (
+          <ResponsiveContainer width="100%" height={320}>
+            <RadarChart data={data} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+              <PolarGrid />
+              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
+              <PolarRadiusAxis domain={[0, 100]} />
+              {periods.map((period, i) => (
+                <Radar
+                  key={period}
+                  name={period}
+                  dataKey={period}
+                  stroke={RADAR_COLORS[i % RADAR_COLORS.length]}
+                  fill={RADAR_COLORS[i % RADAR_COLORS.length]}
+                  fillOpacity={0.15}
+                />
+              ))}
+              <Legend />
+              <Tooltip
+                contentStyle={{
+                  direction: "rtl",
+                  textAlign: "right",
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "8px",
+                }}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-[320px] flex items-center justify-center text-muted-foreground">
+            {t("detail.noGradeData")}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
