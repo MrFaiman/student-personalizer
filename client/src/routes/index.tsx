@@ -13,7 +13,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Cell,
+  Rectangle,
 } from "recharts";
 
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -32,14 +32,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { CLASS_COLORS } from "@/lib/utils";
 import { useFilters } from "@/components/FilterContext";
 import { type StudentListItem } from "@/lib/types";
 import { analyticsApi, studentsApi } from "@/lib/api";
-
-const CLASS_COLORS = [
-  "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6",
-  "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6",
-];
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -223,11 +219,13 @@ function ChartsSection() {
                       }}
                       formatter={(value) => [`${Number(value).toFixed(1)}`, t("charts.average")]}
                     />
-                    <Bar dataKey="average" radius={[4, 4, 0, 0]}>
-                      {chartData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={CLASS_COLORS[index % CLASS_COLORS.length]} />
-                      ))}
-                    </Bar>
+                    <Bar
+                      dataKey="average"
+                      radius={[4, 4, 0, 0]}
+                      shape={(props) => (
+                        <Rectangle {...props} fill={CLASS_COLORS[props.index % CLASS_COLORS.length]} />
+                      )}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -277,11 +275,13 @@ function ChartsSection() {
                       }}
                       formatter={(value) => [value, t("charts.students")]}
                     />
-                    <Bar dataKey="students" radius={[4, 4, 0, 0]}>
-                      {chartData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={CLASS_COLORS[index % CLASS_COLORS.length]} />
-                      ))}
-                    </Bar>
+                    <Bar
+                      dataKey="students"
+                      radius={[4, 4, 0, 0]}
+                      shape={(props) => (
+                        <Rectangle {...props} fill={CLASS_COLORS[props.index % CLASS_COLORS.length]} />
+                      )}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

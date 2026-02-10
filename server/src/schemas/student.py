@@ -40,11 +40,13 @@ class AttendanceResponse(BaseModel):
     """Response model for attendance data."""
 
     id: int
+    lessons_reported: int
     absence: int
     absence_justified: int
     late: int
     disturbance: int
     total_absences: int
+    attendance: int
     total_negative_events: int
     total_positive_events: int
     period: str

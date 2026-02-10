@@ -77,10 +77,10 @@ function StudentDetailPage() {
       return acc;
     }, []) || [];
 
-  // Calculate attendance rate
-  const totalSessions = attendance?.length || 0;
-  const presentCount = attendance?.filter((a) => a.event_type === "נוכח" || a.event_type === "present").length || 0;
-  const attendanceRate = totalSessions > 0 ? (presentCount / totalSessions) * 100 : 0;
+  // Calculate attendance rate from backend data
+  const totalLessons = attendance?.reduce((sum, a) => sum + a.lessons_reported, 0) || 0;
+  const totalAttendance = attendance?.reduce((sum, a) => sum + a.attendance, 0) || 0;
+  const attendanceRate = totalLessons > 0 ? (totalAttendance / totalLessons) * 100 : 0;
 
   // Prepare grade trend data
   const gradeTrend =
@@ -335,9 +335,9 @@ function StudentDetailPage() {
             </div>
           </div>
           <div className="flex justify-between mt-4 text-sm text-muted-foreground">
-            <span>{t("detail.totalLessons", { count: totalSessions })}</span>
-            <span>{t("detail.presentCount", { count: presentCount })}</span>
-            <span>{t("detail.absentCount", { count: totalSessions - presentCount })}</span>
+            <span>{t("detail.totalLessons", { count: totalLessons })}</span>
+            <span>{t("detail.presentCount", { count: totalAttendance })}</span>
+            <span>{t("detail.absentCount", { count: totalLessons - totalAttendance })}</span>
           </div>
         </CardContent>
       </Card>
@@ -409,36 +409,28 @@ function StudentDetailPage() {
           <TableHeader>
             <TableRow className="bg-accent/50">
               <TableHead className="text-right font-bold w-12">#</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.date")}</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.hour")}</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.subject")}</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.status")}</TableHead>
+              <TableHead className="text-right font-bold">{tc("table.period")}</TableHead>
+              <TableHead className="text-right font-bold">{tc("table.absences")}</TableHead>
+              <TableHead className="text-right font-bold">{t("detail.attendance")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {attendance?.length ? (
-              attendance.slice(0, 20).map((record, i) => (
-                <TableRow key={i}>
+              attendance.map((record, i) => (
+                <TableRow key={record.id}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                  <TableCell>{record.period}</TableCell>
+                  <TableCell>{record.total_absences}</TableCell>
                   <TableCell>
-                    {record.date
-                      ? new Date(record.date).toLocaleDateString("he-IL")
+                    {record.lessons_reported > 0
+                      ? `${record.attendance}/${record.lessons_reported}`
                       : "—"}
-                  </TableCell>
-                  <TableCell>{record.hours || "—"}</TableCell>
-                  <TableCell>{record.event_type || "—"}</TableCell>
-                  <TableCell>
-                    {record.event_type === "נוכח" || record.event_type === "present" ? (
-                      <Badge className="bg-green-100 text-green-700">{tc("status.present")}</Badge>
-                    ) : (
-                      <Badge className="bg-red-100 text-red-700">{tc("status.absent")}</Badge>
-                    )}
                   </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-12">
                   {t("detail.noAttendance")}
                 </TableCell>
               </TableRow>

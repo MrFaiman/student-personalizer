@@ -112,9 +112,16 @@ export interface GradeResponse {
 }
 
 export interface AttendanceResponse {
-    event_type: string;
-    hours: number;
-    date: string;
+    id: number;
+    lessons_reported: number;
+    absence: number;
+    absence_justified: number;
+    late: number;
+    disturbance: number;
+    total_absences: number;
+    attendance: number;
+    total_negative_events: number;
+    total_positive_events: number;
     period: string;
 }
 

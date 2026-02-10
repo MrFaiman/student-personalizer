@@ -385,8 +385,9 @@ def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         else:
             df[col] = 0
 
-    # Business logic calculations
-    df["total_absences"] = df["absence"] + df["absence_justified"] + df["skipped_class"] + df["skipped_class_justified"]
+    # Business logic calculations — חיסור is already unjustified only
+    df["total_absences"] = df["absence"]
+    df["attendance"] = df["lessons_reported"] - df["total_absences"]
 
     df["total_negative_events"] = df[negative_cols].sum(axis=1)
     df["total_positive_events"] = df[positive_cols].sum(axis=1)
@@ -469,11 +470,13 @@ def ingest_events_file(
             # Create attendance record using pre-calculated values
             attendance_record = AttendanceRecord(
                 student_tz=student_tz,
+                lessons_reported=int(row.get("lessons_reported", 0)),
                 absence=int(row.get("absence", 0)),
                 absence_justified=int(row.get("absence_justified", 0)),
                 late=int(row.get("late", 0)) + int(row.get("late_justified", 0)),
                 disturbance=int(row.get("disturbance", 0)),
                 total_absences=int(row.get("total_absences", 0)),
+                attendance=int(row.get("attendance", 0)),
                 total_negative_events=int(row.get("total_negative_events", 0)),
                 total_positive_events=int(row.get("total_positive_events", 0)),
                 period=period,

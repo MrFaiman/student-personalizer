@@ -150,19 +150,21 @@ def _load_events_csv(session: Session, file_path: Path) -> int:
         if not student:
             continue
 
+        lessons_reported = _safe_int(row.get("שיעורים שדווחו", 0))
         absence = _safe_int(row.get("חיסור", 0))
         absence_justified = _safe_int(row.get("חיסור (מוצדק)", 0))
         late = _safe_int(row.get("איחור", 0))
         disturbance = _safe_int(row.get("הפרעה", 0))
         positive = _safe_int(row.get("חיזוק חיובי", 0))
-
         record = AttendanceRecord(
             student_tz=tz,
+            lessons_reported=lessons_reported,
             absence=absence,
             absence_justified=absence_justified,
             late=late,
             disturbance=disturbance,
-            total_absences=absence + absence_justified,
+            total_absences=absence,
+            attendance=lessons_reported - absence,
             total_negative_events=absence + late + disturbance,
             total_positive_events=positive,
             period="Default",

@@ -47,11 +47,13 @@ class AttendanceRecord(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     student_tz: str = Field(foreign_key="student.student_tz", index=True)
+    lessons_reported: int = 0
     absence: int = 0
     absence_justified: int = 0
     late: int = 0
     disturbance: int = 0
-    total_absences: int = 0
+    total_absences: int = 0  # absence - absence_justified (unjustified only)
+    attendance: int = 0  # lessons_reported - total_absences
     total_negative_events: int = 0
     total_positive_events: int = 0
     period: str  # e.g. "Quarter 1", "סמסטר א'"

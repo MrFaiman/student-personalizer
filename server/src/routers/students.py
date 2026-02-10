@@ -370,11 +370,13 @@ async def get_student_attendance(
     return [
         AttendanceResponse(
             id=r.id,
+            lessons_reported=r.lessons_reported,
             absence=r.absence,
             absence_justified=r.absence_justified,
             late=r.late,
             disturbance=r.disturbance,
             total_absences=r.total_absences,
+            attendance=r.attendance,
             total_negative_events=r.total_negative_events,
             total_positive_events=r.total_positive_events,
             period=r.period,
