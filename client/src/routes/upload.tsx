@@ -1,35 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import {
-    Upload,
+	Upload,
     FileSpreadsheet,
     CheckCircle,
     XCircle,
     Clock,
     AlertTriangle,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import { ingestionApi } from "@/lib/api";
 import { TablePagination } from "@/components/TablePagination";
 import type { ImportResponse } from "@/lib/types";
@@ -38,11 +40,13 @@ export const Route = createFileRoute("/upload")({
     component: UploadPage,
 });
 
+
 function UploadPage() {
+    const { t } = useTranslation("upload");
     const queryClient = useQueryClient();
     const [dragActive, setDragActive] = useState(false);
     const [fileType, setFileType] = useState<"grades" | "events" | "__auto__">("__auto__");
-    const [period, setPeriod] = useState("Default");
+    const [period, setPeriod] = useState("Q1");
     const [uploadResult, setUploadResult] = useState<ImportResponse | null>(null);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [logPage, setLogPage] = useState(1);
@@ -109,9 +113,9 @@ function UploadPage() {
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold">טעינת נתונים</h1>
+                <h1 className="text-2xl font-bold">{t("title")}</h1>
                 <p className="text-muted-foreground">
-                    העלאת קבצי Excel של ציונים ונוכחות למערכת
+                    {t("subtitle")}
                 </p>
             </div>
 
@@ -119,27 +123,33 @@ function UploadPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card>
                     <CardContent className="p-4">
-                        <label className="block text-sm font-medium mb-2">סוג קובץ</label>
+                        <label className="block text-sm font-medium mb-2">{t("fileType.label")}</label>
                         <Select value={fileType} onValueChange={(v) => setFileType(v as typeof fileType)}>
                             <SelectTrigger>
-                                <SelectValue placeholder="זיהוי אוטומטי" />
+                                <SelectValue placeholder={t("fileType.placeholder")} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="__auto__">זיהוי אוטומטי</SelectItem>
-                                <SelectItem value="grades">ציונים</SelectItem>
-                                <SelectItem value="events">נוכחות/אירועים</SelectItem>
+                                <SelectItem value="__auto__">{t("fileType.auto")}</SelectItem>
+                                <SelectItem value="grades">{t("fileType.grades")}</SelectItem>
+                                <SelectItem value="events">{t("fileType.events")}</SelectItem>
                             </SelectContent>
                         </Select>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-4">
-                        <label className="block text-sm font-medium mb-2">תקופה</label>
-                        <Input
-                            value={period}
-                            onChange={(e) => setPeriod(e.target.value)}
-                            placeholder="לדוגמה: סמסטר א'"
-                        />
+                        <label className="block text-sm font-medium mb-2">{t("period.label")}</label>
+                        <Select value={period} onValueChange={setPeriod}>
+                            <SelectTrigger>
+                                <SelectValue placeholder={t("period.placeholder")} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Q1">{t("period.quarter", { number: 1 })}</SelectItem>
+                                <SelectItem value="Q2">{t("period.quarter", { number: 2 })}</SelectItem>
+                                <SelectItem value="Q3">{t("period.quarter", { number: 3 })}</SelectItem>
+                                <SelectItem value="Q4">{t("period.quarter", { number: 4 })}</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </CardContent>
                 </Card>
             </div>
@@ -162,14 +172,14 @@ function UploadPage() {
                                 <div className="animate-pulse">
                                     <FileSpreadsheet className="size-16 text-primary mb-4" />
                                 </div>
-                                <p className="text-lg font-medium">מעלה קובץ...</p>
+                                <p className="text-lg font-medium">{t("dropzone.uploading")}</p>
                                 <Progress className="w-64 mt-4" value={undefined} />
                             </>
                         ) : (
                             <>
                                 <Upload className="size-16 text-muted-foreground mb-4" />
-                                <p className="text-lg font-medium mb-2">גרור קובץ Excel או CSV לכאן</p>
-                                <p className="text-muted-foreground mb-4">או לחץ לבחירת קובץ</p>
+                                <p className="text-lg font-medium mb-2">{t("dropzone.dragHere")}</p>
+                                <p className="text-muted-foreground mb-4">{t("dropzone.orClick")}</p>
                                 <input
                                     type="file"
                                     accept=".xlsx,.xls,.csv"
@@ -179,7 +189,7 @@ function UploadPage() {
                                 />
                                 <label htmlFor="file-upload">
                                     <Button asChild>
-                                        <span>בחר קובץ</span>
+                                        <span>{t("dropzone.button")}</span>
                                     </Button>
                                 </label>
                             </>
@@ -195,22 +205,22 @@ function UploadPage() {
                         <div className="flex items-start gap-4">
                             <CheckCircle className="size-8 text-green-600 shrink-0" />
                             <div className="flex-1">
-                                <h3 className="text-lg font-bold text-green-800">הקובץ נטען בהצלחה!</h3>
+                                <h3 className="text-lg font-bold text-green-800">{t("success.title")}</h3>
                                 <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div>
-                                        <p className="text-sm text-green-700">סוג קובץ</p>
+                                        <p className="text-sm text-green-700">{t("success.fileType")}</p>
                                         <p className="font-semibold">{uploadResult.file_type}</p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-green-700">שורות שנטענו</p>
+                                        <p className="text-sm text-green-700">{t("success.rows")}</p>
                                         <p className="font-semibold">{uploadResult.rows_imported}</p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-green-700">תלמידים חדשים</p>
+                                        <p className="text-sm text-green-700">{t("success.newStudents")}</p>
                                         <p className="font-semibold">{uploadResult.students_created}</p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-green-700">כיתות חדשות</p>
+                                        <p className="text-sm text-green-700">{t("success.newClasses")}</p>
                                         <p className="font-semibold">{uploadResult.classes_created}</p>
                                     </div>
                                 </div>
@@ -218,13 +228,13 @@ function UploadPage() {
                                     <div className="mt-4 p-3 bg-yellow-100 rounded-lg">
                                         <p className="text-yellow-800 flex items-center gap-2">
                                             <AlertTriangle className="size-4" />
-                                            {uploadResult.rows_failed} שורות נכשלו
+                                            {t("success.partialSuccess", { count: uploadResult.rows_failed })}
                                         </p>
                                     </div>
                                 )}
                                 {uploadResult.errors.length > 0 && (
                                     <div className="mt-4">
-                                        <p className="text-sm font-medium text-red-700 mb-2">שגיאות:</p>
+                                        <p className="text-sm font-medium text-red-700 mb-2">{t("errors.title")}</p>
                                         <ul className="text-sm text-red-600 list-disc list-inside">
                                             {uploadResult.errors.slice(0, 5).map((err, i) => (
                                                 <li key={i}>{err}</li>
@@ -245,7 +255,7 @@ function UploadPage() {
                         <div className="flex items-center gap-4">
                             <XCircle className="size-8 text-red-600 shrink-0" />
                             <div>
-                                <h3 className="text-lg font-bold text-red-800">שגיאה בטעינת הקובץ</h3>
+                                <h3 className="text-lg font-bold text-red-800">{t("errors.uploadFailed")}</h3>
                                 <p className="text-red-700 mt-1">{uploadError}</p>
                             </div>
                         </div>
@@ -258,19 +268,19 @@ function UploadPage() {
                 <div className="p-6 border-b">
                     <h3 className="text-lg font-bold flex items-center gap-2">
                         <Clock className="size-5 text-muted-foreground" />
-                        היסטוריית טעינות
+                        {t("history.title")}
                     </h3>
                 </div>
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-accent/50">
                             <TableHead className="text-right font-bold w-12">#</TableHead>
-                            <TableHead className="text-right font-bold">קובץ</TableHead>
-                            <TableHead className="text-right font-bold">סוג</TableHead>
-                            <TableHead className="text-right font-bold">תקופה</TableHead>
-                            <TableHead className="text-right font-bold">שורות</TableHead>
-                            <TableHead className="text-right font-bold">תאריך</TableHead>
-                            <TableHead className="text-right font-bold">סטטוס</TableHead>
+                            <TableHead className="text-right font-bold">{t("history.file")}</TableHead>
+                            <TableHead className="text-right font-bold">{t("history.type")}</TableHead>
+                            <TableHead className="text-right font-bold">{t("history.period")}</TableHead>
+                            <TableHead className="text-right font-bold">{t("history.rows")}</TableHead>
+                            <TableHead className="text-right font-bold">{t("history.date")}</TableHead>
+                            <TableHead className="text-right font-bold">{t("history.status")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -293,14 +303,16 @@ function UploadPage() {
                                     <TableCell className="font-medium">{log.filename}</TableCell>
                                     <TableCell>
                                         <Badge variant="outline">
-                                            {log.file_type === "grades" ? "ציונים" : "אירועים"}
+                                            {log.file_type === "grades" ? t("fileType.grades") : t("fileType.events")}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>{log.period}</TableCell>
                                     <TableCell>
                                         {log.rows_imported}
                                         {log.rows_failed > 0 && (
-                                            <span className="text-red-600 mr-1">({log.rows_failed} נכשלו)</span>
+                                            <span className="text-red-600 mr-1">
+                                                {t("history.failedRows", { count: log.rows_failed })}
+                                            </span>
                                         )}
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">
@@ -308,9 +320,9 @@ function UploadPage() {
                                     </TableCell>
                                     <TableCell>
                                         {log.rows_failed === 0 ? (
-                                            <Badge className="bg-green-100 text-green-700">הצלחה</Badge>
+                                            <Badge className="bg-green-100 text-green-700">{t("history.success")}</Badge>
                                         ) : (
-                                            <Badge className="bg-yellow-100 text-yellow-700">חלקי</Badge>
+                                            <Badge className="bg-yellow-100 text-yellow-700">{t("history.partial")}</Badge>
                                         )}
                                     </TableCell>
                                 </TableRow>
@@ -318,7 +330,7 @@ function UploadPage() {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                                    אין היסטוריית טעינות
+                                    {t("history.noHistory")}
                                 </TableCell>
                             </TableRow>
                         )}

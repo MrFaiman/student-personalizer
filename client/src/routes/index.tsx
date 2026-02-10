@@ -1,3 +1,21 @@
+import {
+  Star,
+  CalendarCheck,
+  AlertTriangle,
+  Eye,
+  Upload,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -13,36 +31,55 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Star,
-  CalendarCheck,
-  AlertTriangle,
-  Eye,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
+
+import { useFilters } from "@/components/FilterContext";
+import { type StudentListItem } from "@/lib/types";
+import { analyticsApi, studentsApi } from "@/lib/api";
 
 const CLASS_COLORS = [
   "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6",
   "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6",
 ];
-import { useFilters } from "@/components/FilterContext";
-import { type StudentListItem } from "@/lib/types";
-import { analyticsApi, studentsApi } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
+  const { t } = useTranslation("dashboard");
+  const { filters } = useFilters();
+
+  const { data: kpis, isLoading } = useQuery({
+    queryKey: ["kpis", filters.period, filters.gradeLevel],
+    queryFn: () =>
+      analyticsApi.getKPIs({
+        period: filters.period,
+        grade_level: filters.gradeLevel,
+      }),
+  });
+
+  if (!isLoading && kpis?.total_students === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 text-center">
+        <div className="bg-muted/30 p-6 rounded-full">
+          <Upload className="size-12 text-muted-foreground" />
+        </div>
+        <div className="space-y-2 max-w-md">
+          <h2 className="text-2xl font-bold tracking-tight">{t("emptyState.title")}</h2>
+          <p className="text-muted-foreground">
+            {t("emptyState.description")}
+          </p>
+        </div>
+        <Link to="/upload">
+          <Button size="lg" className="gap-2">
+            <Upload className="size-4" />
+            {t("emptyState.button")}
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <>
       <KPISection />

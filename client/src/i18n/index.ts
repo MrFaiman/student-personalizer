@@ -5,6 +5,7 @@ import commonHe from "./locales/he/common.json";
 import dashboardHe from "./locales/he/dashboard.json";
 import studentsHe from "./locales/he/students.json";
 import classesHe from "./locales/he/classes.json";
+import uploadHe from "./locales/he/upload.json";
 
 i18n.use(initReactI18next).init({
   lng: "he",
@@ -16,6 +17,7 @@ i18n.use(initReactI18next).init({
       dashboard: dashboardHe,
       students: studentsHe,
       classes: classesHe,
+      upload: uploadHe,
     },
   },
   interpolation: {

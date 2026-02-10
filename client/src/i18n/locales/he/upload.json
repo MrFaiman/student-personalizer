@@ -1,0 +1,47 @@
+{
+  "title": "טעינת נתונים",
+  "subtitle": "העלאת קבצי Excel של ציונים ונוכחות למערכת",
+  "fileType": {
+    "label": "סוג קובץ",
+    "placeholder": "זיהוי אוטומטי",
+    "auto": "זיהוי אוטומטי",
+    "grades": "ציונים",
+    "events": "נוכחות/אירועים"
+  },
+  "period": {
+    "label": "תקופה",
+    "placeholder": "בחר תקופה",
+    "quarter": "רבעון {{number}} (Q{{number}})"
+  },
+  "dropzone": {
+    "dragHere": "גרור קובץ Excel או CSV לכאן",
+    "orClick": "או לחץ לבחירת קובץ",
+    "button": "בחר קובץ",
+    "uploading": "מעלה קובץ..."
+  },
+  "success": {
+    "title": "הקובץ נטען בהצלחה!",
+    "fileType": "סוג קובץ",
+    "rows": "שורות שנטענו",
+    "newStudents": "תלמידים חדשים",
+    "newClasses": "כיתות חדשות",
+    "partialSuccess": "{{count}} שורות נכשלו"
+  },
+  "errors": {
+    "title": "שגיאות:",
+    "uploadFailed": "שגיאה בטעינת הקובץ"
+  },
+  "history": {
+    "title": "היסטוריית טעינות",
+    "file": "קובץ",
+    "type": "סוג",
+    "period": "תקופה",
+    "rows": "שורות",
+    "date": "תאריך",
+    "status": "סטטוס",
+    "failedRows": "({{count}} נכשלו)",
+    "success": "הצלחה",
+    "partial": "חלקי",
+    "noHistory": "אין היסטוריית טעינות"
+  }
+}

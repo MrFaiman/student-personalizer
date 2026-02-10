@@ -40,8 +40,8 @@ const navItems = [
     { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
     { icon: Users, labelKey: "nav.students", path: "/students" },
     { icon: School, labelKey: "nav.classes", path: "/classes" },
-    { icon: Upload, labelKey: "nav.upload", path: "/upload" },
     { icon: Brain, labelKey: "nav.predictions", path: "/predictions" },
+    { icon: Upload, labelKey: "nav.upload", path: "/upload" },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -69,6 +69,13 @@ function Sidebar() {
         queryFn: analyticsApi.getMetadata,
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     });
+
+    const { data: kpis, isLoading: kpisLoading } = useQuery({
+        queryKey: ["kpis-global"],
+        queryFn: () => analyticsApi.getKPIs({}),
+    });
+
+    const isEmptyState = !kpisLoading && kpis?.total_students === 0;
 
     const resetMutation = useMutation({
         mutationFn: () => ingestionApi.resetDatabase({ reload_data: true }),
@@ -103,14 +110,17 @@ function Sidebar() {
                         {navItems.map((item) => {
                             const isActive = currentPath === item.path ||
                                 (item.path !== "/" && currentPath.startsWith(item.path));
+                            const isDisabled = isEmptyState && item.path !== "/upload";
+
                             return (
                                 <Link
                                     key={item.path}
                                     to={item.path}
+                                    disabled={isDisabled}
                                     className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
                                         ? "bg-primary/10 text-primary"
                                         : "text-muted-foreground hover:bg-accent"
-                                        }`}
+                                        } ${isDisabled ? "opacity-50 pointer-events-none grayscale" : ""}`}
                                 >
                                     <item.icon className="size-5" aria-hidden="true" />
                                     <span className={`text-sm ${isActive ? "font-semibold" : "font-medium"}`}>
@@ -122,7 +132,7 @@ function Sidebar() {
                     </nav>
 
                     {/* Filters */}
-                    <div className="pt-4 border-t border-border">
+                    <div className={`pt-4 border-t border-border ${isEmptyState ? "opacity-50 pointer-events-none grayscale" : ""}`}>
                         <p className="text-xs font-bold text-muted-foreground px-3 mb-3 uppercase tracking-wider">
                             {t("filters.title")}
                         </p>
@@ -131,6 +141,7 @@ function Sidebar() {
                             <Select
                                 value={filters.period || "__all__"}
                                 onValueChange={(v) => setFilter("period", v === "__all__" ? undefined : v)}
+                                disabled={isEmptyState}
                             >
                                 <SelectTrigger className="h-9 text-sm">
                                     <SelectValue placeholder={t("filters.allPeriods")} />
@@ -149,6 +160,7 @@ function Sidebar() {
                             <Select
                                 value={filters.gradeLevel || "__all__"}
                                 onValueChange={(v) => setFilter("gradeLevel", v === "__all__" ? undefined : v)}
+                                disabled={isEmptyState}
                             >
                                 <SelectTrigger className="h-9 text-sm">
                                     <SelectValue placeholder={t("filters.allGradeLevels")} />
@@ -168,8 +180,8 @@ function Sidebar() {
 
                 {/* Bottom Actions */}
                 <div className="flex flex-col gap-3">
-                    <Link to="/students">
-                        <Button className="w-full gap-2">
+                    <Link to="/students" className={isEmptyState ? "pointer-events-none" : ""}>
+                        <Button className="w-full gap-2" disabled={isEmptyState}>
                             <Search className="size-4" />
                             <span>{t("filters.searchStudent")}</span>
                         </Button>
