@@ -28,7 +28,7 @@ async def get_layer_kpis(
 ):
     """
     Get Dashboard KPIs for a layer/grade level.
-    
+
     Returns:
     - layer_average: Average grade across all students
     - avg_absences: Average number of absences per student
@@ -47,7 +47,7 @@ async def get_class_comparison(
 ):
     """
     Get class comparison data for bar chart.
-    
+
     Returns list of classes with their average grades.
     """
     analytics = DashboardAnalytics(session)
@@ -62,16 +62,16 @@ async def get_class_heatmap(
 ):
     """
     Get heatmap data for a specific class.
-    
+
     Returns a matrix of students x subjects with grades.
     Each row represents a student with their grades per subject.
     """
     analytics = DashboardAnalytics(session)
     data = analytics.get_class_heatmap(class_id=class_id, period=period)
-    
+
     if not data:
         raise HTTPException(status_code=404, detail=f"Class ID '{class_id}' not found or has no data")
-    
+
     return data
 
 
@@ -85,7 +85,7 @@ async def get_class_rankings(
 ):
     """
     Get top and bottom students in a class.
-    
+
     Returns:
     - top: List of top N students by average grade
     - bottom: List of bottom N students by average grade
@@ -107,7 +107,7 @@ async def get_teacher_stats(
 ):
     """
     Get grade distribution statistics for a teacher.
-    
+
     Returns distribution of grades in categories:
     - Fail (<55)
     - Medium (55-75)
@@ -116,10 +116,10 @@ async def get_teacher_stats(
     """
     analytics = DashboardAnalytics(session)
     result = analytics.get_teacher_stats(teacher_name=teacher_name, period=period)
-    
+
     if result["total_students"] == 0:
         raise HTTPException(status_code=404, detail=f"Teacher '{teacher_name}' not found or has no grades")
-    
+
     return result
 
 
@@ -131,15 +131,15 @@ async def get_student_radar(
 ):
     """
     Get radar chart data for a student.
-    
+
     Returns list of subjects with the student's average grade in each.
     """
     analytics = DashboardAnalytics(session)
     data = analytics.get_student_radar(student_tz=student_tz, period=period)
-    
+
     if not data:
         raise HTTPException(status_code=404, detail=f"Student '{student_tz}' not found or has no grades")
-    
+
     return data
 
 
@@ -159,7 +159,7 @@ async def get_metadata(
 ):
     """
     Get available filter options.
-    
+
     Returns:
     - periods: Available time periods
     - grade_levels: Available grade levels (e.g., "י", "יא")

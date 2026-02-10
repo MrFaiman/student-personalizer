@@ -11,6 +11,7 @@ from .routers import analytics, ingestion, ml, students
 PORT = int(os.getenv("PORT", 3000))
 ORIGIN_URL = os.getenv("ORIGIN_URL", "http://localhost:5173")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize database on startup."""

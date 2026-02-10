@@ -23,6 +23,7 @@ class StudentDetailResponse(StudentResponse):
     total_negative_events: int
     total_positive_events: int
     is_at_risk: bool
+    performance_score: float | None = None
 
 
 class GradeResponse(BaseModel):

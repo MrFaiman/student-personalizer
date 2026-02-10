@@ -97,11 +97,11 @@ def parse_subject_teacher_header(header_str: str) -> tuple[str, str | None]:
     E.g., "אנגלית- ישראל ישראלי" -> ("אנגלית", "ישראל ישראלי")
     """
     # Remove pandas duplicate suffixes like ".1", ".2"
-    clean_header = re.sub(r'\.\d+$', '', str(header_str))
+    clean_header = re.sub(r"\.\d+$", "", str(header_str))
 
     # Split by hyphen (with optional spaces)
-    if '-' in clean_header:
-        parts = clean_header.split('-', 1)
+    if "-" in clean_header:
+        parts = clean_header.split("-", 1)
         subject = parts[0].strip()
         teacher = parts[1].strip() if len(parts) > 1 else None
         return subject, teacher if teacher else None
@@ -129,10 +129,12 @@ def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     # Build full class_name from grade_level + class_num (e.g., "י" + "3" = "י-3")
     df["class_name"] = df.apply(
-        lambda row: f"{row['grade_level']}-{int(row['class_num'])}"
-        if pd.notna(row.get('class_num')) and pd.notna(row.get('grade_level'))
-        else str(row.get('class_num', '')),
-        axis=1
+        lambda row: (
+            f"{row['grade_level']}-{int(row['class_num'])}"
+            if pd.notna(row.get("class_num")) and pd.notna(row.get("grade_level"))
+            else str(row.get("class_num", ""))
+        ),
+        axis=1,
     )
 
     # Generate student_tz if missing (use serial_num)
@@ -152,10 +154,7 @@ def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     existing_meta_cols = [c for c in metadata_cols if c in df.columns]
 
     # Grade columns: everything except metadata and average (ממוצע)
-    grade_cols = [
-        c for c in df.columns
-        if c not in existing_meta_cols and "ממוצע" not in str(c)
-    ]
+    grade_cols = [c for c in df.columns if c not in existing_meta_cols and "ממוצע" not in str(c)]
 
     # Melt from wide to long format
     df_long = df.melt(
@@ -177,10 +176,7 @@ def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df_long = df_long.dropna(subset=["grade"])
 
     # Select final columns
-    final_cols = [
-        "student_tz", "student_name", "class_name", "grade_level",
-        "subject", "teacher_name", "grade"
-    ]
+    final_cols = ["student_tz", "student_name", "class_name", "grade_level", "subject", "teacher_name", "grade"]
     available_cols = [c for c in final_cols if c in df_long.columns]
 
     return df_long[available_cols]
@@ -256,9 +252,7 @@ def ingest_grades_file(
 
             # Get or create student (once per student)
             if student_tz not in students_processed:
-                _, created = get_or_create_student(
-                    session, student_tz, student_name, class_name
-                )
+                _, created = get_or_create_student(session, student_tz, student_name, class_name)
                 if created:
                     result.students_created += 1
                 students_processed.add(student_tz)
@@ -339,10 +333,12 @@ def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     # Build full class_name from grade_level + class_num (e.g., "י" + "3" = "י-3")
     df["class_name"] = df.apply(
-        lambda row: f"{row['grade_level']}-{int(row['class_num'])}"
-        if pd.notna(row.get('class_num')) and pd.notna(row.get('grade_level'))
-        else str(row.get('class_num', '')),
-        axis=1
+        lambda row: (
+            f"{row['grade_level']}-{int(row['class_num'])}"
+            if pd.notna(row.get("class_num")) and pd.notna(row.get("grade_level"))
+            else str(row.get("class_num", ""))
+        ),
+        axis=1,
     )
 
     # Generate student_tz if missing (use serial_num)
@@ -359,14 +355,24 @@ def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     # Define column lists for logic
     negative_cols = [
-        "absence", "absence_justified", "late", "late_justified",
-        "disturbance", "skipped_class", "skipped_class_justified",
-        "uniform_issue", "no_homework", "no_equipment",
-        "no_classwork", "phone_usage", "private_lesson_absence_justified",
+        "absence",
+        "absence_justified",
+        "late",
+        "late_justified",
+        "disturbance",
+        "skipped_class",
+        "skipped_class_justified",
+        "uniform_issue",
+        "no_homework",
+        "no_equipment",
+        "no_classwork",
+        "phone_usage",
+        "private_lesson_absence_justified",
     ]
 
     positive_cols = [
-        "positive_reinforcement", "positive_reinforcement_class",
+        "positive_reinforcement",
+        "positive_reinforcement_class",
         "private_lesson_presence",
     ]
 
@@ -380,12 +386,7 @@ def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = 0
 
     # Business logic calculations
-    df["total_absences"] = (
-        df["absence"]
-        + df["absence_justified"]
-        + df["skipped_class"]
-        + df["skipped_class_justified"]
-    )
+    df["total_absences"] = df["absence"] + df["absence_justified"] + df["skipped_class"] + df["skipped_class_justified"]
 
     df["total_negative_events"] = df[negative_cols].sum(axis=1)
     df["total_positive_events"] = df[positive_cols].sum(axis=1)
@@ -461,9 +462,7 @@ def ingest_events_file(
                 result.classes_created += 1
 
             # Get or create student
-            _, created = get_or_create_student(
-                session, student_tz, student_name, class_name
-            )
+            _, created = get_or_create_student(session, student_tz, student_name, class_name)
             if created:
                 result.students_created += 1
 

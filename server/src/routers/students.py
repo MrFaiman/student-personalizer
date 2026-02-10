@@ -70,9 +70,7 @@ async def list_students(
             avg_grade = sum(g.grade for g in grades) / len(grades)
 
         # Get attendance for this student (optionally filtered by period)
-        att_query = select(AttendanceRecord).where(
-            AttendanceRecord.student_tz == student.student_tz
-        )
+        att_query = select(AttendanceRecord).where(AttendanceRecord.student_tz == student.student_tz)
         if period:
             att_query = att_query.where(AttendanceRecord.period == period)
         attendance_records = session.exec(att_query).all()
@@ -185,9 +183,7 @@ async def list_classes(
     result = []
 
     for cls in classes:
-        students = session.exec(
-            select(Student).where(Student.class_id == cls.id)
-        ).all()
+        students = session.exec(select(Student).where(Student.class_id == cls.id)).all()
 
         grades = []
         at_risk = 0
@@ -245,9 +241,7 @@ async def get_student(
         avg_grade = sum(g.grade for g in grades) / len(grades)
 
     # Get attendance
-    att_query = select(AttendanceRecord).where(
-        AttendanceRecord.student_tz == student_tz
-    )
+    att_query = select(AttendanceRecord).where(AttendanceRecord.student_tz == student_tz)
     if period:
         att_query = att_query.where(AttendanceRecord.period == period)
     attendance_records = session.exec(att_query).all()
@@ -255,6 +249,62 @@ async def get_student(
     total_absences = sum(a.total_absences for a in attendance_records)
     total_negative = sum(a.total_negative_events for a in attendance_records)
     total_positive = sum(a.total_positive_events for a in attendance_records)
+
+    # Compute performance score (percentile-based, 0–100)
+    performance_score = None
+    all_students = session.exec(select(Student)).all()
+    if len(all_students) > 1:
+        student_stats = []
+        for s in all_students:
+            s_grade_query = select(Grade).where(Grade.student_tz == s.student_tz)
+            if period:
+                s_grade_query = s_grade_query.where(Grade.period == period)
+            s_grades = session.exec(s_grade_query).all()
+            s_avg_grade = sum(g.grade for g in s_grades) / len(s_grades) if s_grades else None
+
+            s_att_query = select(AttendanceRecord).where(AttendanceRecord.student_tz == s.student_tz)
+            if period:
+                s_att_query = s_att_query.where(AttendanceRecord.period == period)
+            s_attendance = session.exec(s_att_query).all()
+            s_absences = sum(a.total_absences for a in s_attendance)
+            s_negative = sum(a.total_negative_events for a in s_attendance)
+            s_positive = sum(a.total_positive_events for a in s_attendance)
+
+            student_stats.append(
+                {
+                    "tz": s.student_tz,
+                    "avg_grade": s_avg_grade,
+                    "absences": s_absences,
+                    "negative": s_negative,
+                    "positive": s_positive,
+                }
+            )
+
+        def percentile_rank(values: list[float], target: float) -> float:
+            """Percentage of values strictly less than target."""
+            below = sum(1 for v in values if v < target)
+            return (below / len(values)) * 100
+
+        target = next(s for s in student_stats if s["tz"] == student_tz)
+
+        # Grade percentile (higher = better)
+        grade_values = [s["avg_grade"] for s in student_stats if s["avg_grade"] is not None]
+        grade_pct = percentile_rank(grade_values, target["avg_grade"]) if target["avg_grade"] is not None and grade_values else None
+
+        # Attendance percentile (fewer absences = better, so invert: rank by negative absences)
+        absence_values = [-s["absences"] for s in student_stats]
+        absence_pct = percentile_rank(absence_values, -target["absences"])
+
+        # Behavior percentile (fewer negative + more positive = better)
+        behavior_values = [s["positive"] - s["negative"] for s in student_stats]
+        target_behavior = target["positive"] - target["negative"]
+        behavior_pct = percentile_rank(behavior_values, target_behavior)
+
+        if grade_pct is not None:
+            performance_score = round(grade_pct * 0.60 + absence_pct * 0.25 + behavior_pct * 0.15, 1)
+        else:
+            # No grade data — use only attendance and behavior
+            performance_score = round(absence_pct * 0.625 + behavior_pct * 0.375, 1)
 
     return StudentDetailResponse(
         student_tz=student.student_tz,
@@ -267,6 +317,7 @@ async def get_student(
         total_negative_events=total_negative,
         total_positive_events=total_positive,
         is_at_risk=avg_grade is not None and avg_grade < 55,
+        performance_score=performance_score,
     )
 
 

@@ -52,38 +52,38 @@ async def reset_database(
             if grades_file.exists():
                 students_loaded = _load_grades_csv(new_session, grades_file)
                 result["students_loaded"] = students_loaded
-            
+
             # Load events.csv
             events_file = DATA_DIR / "events.csv"
             if events_file.exists():
                 events_loaded = _load_events_csv(new_session, events_file)
                 result["events_loaded"] = events_loaded
-            
+
             result["data_reloaded"] = True
-    
+
     return result
 
 
 def _load_grades_csv(session: Session, file_path: Path) -> int:
     """Load grades from CSV file."""
     df = pd.read_csv(file_path, encoding="utf-8")
-    
+
     # Skip summary row (last row with empty מס')
     df = df[df["מס'"].notna() & (df["מס'"] != "")]
-    
+
     students_created = 0
-    
+
     for _, row in df.iterrows():
         tz = str(row.get("ת.ז", "")).strip()
         name = str(row.get("שם התלמיד", "")).strip()
         grade_level = str(row.get("שכבה", "")).strip()
         class_num = str(row.get("כיתה", "")).strip()
-        
+
         if not tz or not name:
             continue
-        
+
         class_name = f"{grade_level}{class_num}"
-        
+
         # Create or get class
         existing_class = session.exec(select(Class).where(Class.class_name == class_name)).first()
         if not existing_class:
@@ -91,14 +91,14 @@ def _load_grades_csv(session: Session, file_path: Path) -> int:
             session.add(new_class)
             session.flush()
             existing_class = new_class
-        
+
         # Create student
         existing_student = session.get(Student, tz)
         if not existing_student:
             student = Student(student_tz=tz, student_name=name, class_id=existing_class.id)
             session.add(student)
             students_created += 1
-        
+
         # Parse grades from columns (skip first 5 metadata columns and last column)
         avg_col = "ממוצע"
         if avg_col in df.columns:
@@ -115,7 +115,7 @@ def _load_grades_csv(session: Session, file_path: Path) -> int:
                     session.add(grade)
                 except (ValueError, TypeError):
                     pass
-    
+
     session.commit()
     return students_created
 
@@ -155,7 +155,7 @@ def _load_events_csv(session: Session, file_path: Path) -> int:
         late = _safe_int(row.get("איחור", 0))
         disturbance = _safe_int(row.get("הפרעה", 0))
         positive = _safe_int(row.get("חיזוק חיובי", 0))
-        
+
         record = AttendanceRecord(
             student_tz=tz,
             absence=absence,
@@ -169,7 +169,7 @@ def _load_events_csv(session: Session, file_path: Path) -> int:
         )
         session.add(record)
         events_created += 1
-    
+
     session.commit()
     return events_created
 
@@ -242,12 +242,7 @@ async def get_import_logs(
     total = session.exec(select(func.count(ImportLog.id))).one()
 
     offset = (page - 1) * page_size
-    statement = (
-        select(ImportLog)
-        .order_by(ImportLog.created_at.desc())
-        .offset(offset)
-        .limit(page_size)
-    )
+    statement = select(ImportLog).order_by(ImportLog.created_at.desc()).offset(offset).limit(page_size)
     logs = session.exec(statement).all()
 
     return ImportLogListResponse(

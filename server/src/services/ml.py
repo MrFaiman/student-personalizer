@@ -88,24 +88,26 @@ class MLService:
             total_negative = sum(a.total_negative_events for a in attendance)
             total_positive = sum(a.total_positive_events for a in attendance)
 
-            rows.append({
-                "student_tz": student.student_tz,
-                "student_name": student.student_name,
-                "average_grade": round(float(avg_grade), 2),
-                "min_grade": float(min_grade),
-                "max_grade": float(max_grade),
-                "grade_std": round(grade_std, 2),
-                "grade_trend_slope": round(grade_trend_slope, 4),
-                "num_subjects": num_subjects,
-                "failing_subjects": failing_subjects,
-                "absence": absence,
-                "absence_justified": absence_justified,
-                "late": late,
-                "disturbance": disturbance,
-                "total_absences": total_absences,
-                "total_negative_events": total_negative,
-                "total_positive_events": total_positive,
-            })
+            rows.append(
+                {
+                    "student_tz": student.student_tz,
+                    "student_name": student.student_name,
+                    "average_grade": round(float(avg_grade), 2),
+                    "min_grade": float(min_grade),
+                    "max_grade": float(max_grade),
+                    "grade_std": round(grade_std, 2),
+                    "grade_trend_slope": round(grade_trend_slope, 4),
+                    "num_subjects": num_subjects,
+                    "failing_subjects": failing_subjects,
+                    "absence": absence,
+                    "absence_justified": absence_justified,
+                    "late": late,
+                    "disturbance": disturbance,
+                    "total_absences": total_absences,
+                    "total_negative_events": total_negative,
+                    "total_positive_events": total_positive,
+                }
+            )
 
         return pd.DataFrame(rows)
 
@@ -127,9 +129,10 @@ class MLService:
         median_negative = df["total_negative_events"].median()
         median_absences = df["total_absences"].median()
         y_dropout = (
-            (df["average_grade"] < 55)
-            & ((df["total_negative_events"] > median_negative) | (df["total_absences"] > median_absences))
-        ).astype(int).values
+            ((df["average_grade"] < 55) & ((df["total_negative_events"] > median_negative) | (df["total_absences"] > median_absences)))
+            .astype(int)
+            .values
+        )
 
         # Train grade predictor
         grade_model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
@@ -265,14 +268,16 @@ class MLService:
 
             features = {col: _convert_value(row[col]) for col in FEATURE_COLUMNS}
 
-            all_predictions.append({
-                "student_tz": row["student_tz"],
-                "student_name": row["student_name"],
-                "predicted_grade": round(float(predicted_grades[i]), 2),
-                "dropout_risk": dropout_risk,
-                "risk_level": risk_level,
-                "features": features,
-            })
+            all_predictions.append(
+                {
+                    "student_tz": row["student_tz"],
+                    "student_name": row["student_name"],
+                    "predicted_grade": round(float(predicted_grades[i]), 2),
+                    "dropout_risk": dropout_risk,
+                    "risk_level": risk_level,
+                    "features": features,
+                }
+            )
 
         all_predictions.sort(key=lambda p: p["dropout_risk"], reverse=True)
         _prediction_cache[cache_key] = all_predictions
