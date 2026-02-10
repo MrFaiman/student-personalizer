@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 from sqlmodel import Session, select
 
@@ -35,6 +35,8 @@ FEATURE_COLUMNS = [
     "total_absences",
     "total_negative_events",
     "total_positive_events",
+    "negative_positive_ratio",
+    "fail_ratio",
 ]
 
 
@@ -88,6 +90,11 @@ class MLService:
             total_negative = sum(a.total_negative_events for a in attendance)
             total_positive = sum(a.total_positive_events for a in attendance)
 
+            # Feature Engineering
+            total_events = total_negative + total_positive
+            negative_positive_ratio = total_negative / total_events if total_events > 0 else 0.0
+            fail_ratio = failing_subjects / num_subjects if num_subjects > 0 else 0.0
+
             rows.append(
                 {
                     "student_tz": student.student_tz,
@@ -106,6 +113,8 @@ class MLService:
                     "total_absences": total_absences,
                     "total_negative_events": total_negative,
                     "total_positive_events": total_positive,
+                    "negative_positive_ratio": round(negative_positive_ratio, 4),
+                    "fail_ratio": round(fail_ratio, 4),
                 }
             )
 
@@ -134,14 +143,9 @@ class MLService:
             .values
         )
 
-        # Train grade predictor
-        grade_model = RandomForestRegressor(
-            n_estimators=300,
-            min_samples_split=2,
-            min_samples_leaf=1,
-            max_features=None,
-            max_depth=None,
-            n_jobs=-1,
+        # Train grade predictor (Gradient Boosting)
+        grade_model = GradientBoostingRegressor(
+            n_estimators=100, learning_rate=0.05, max_depth=3, subsample=0.9, min_samples_split=2, random_state=42
         )
         grade_model.fit(X, y_grade)
         grade_cv = cross_val_score(grade_model, X, y_grade, cv=min(5, len(df)), scoring="neg_mean_absolute_error")
