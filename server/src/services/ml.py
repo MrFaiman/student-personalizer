@@ -135,13 +135,27 @@ class MLService:
         )
 
         # Train grade predictor
-        grade_model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)
+        grade_model = RandomForestRegressor(
+            n_estimators=300,
+            min_samples_split=2,
+            min_samples_leaf=1,
+            max_features=None,
+            max_depth=None,
+            n_jobs=-1,
+        )
         grade_model.fit(X, y_grade)
         grade_cv = cross_val_score(grade_model, X, y_grade, cv=min(5, len(df)), scoring="neg_mean_absolute_error")
         grade_mae = round(float(-grade_cv.mean()), 2)
 
         # Train dropout classifier
-        dropout_model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+        dropout_model = RandomForestClassifier(
+            n_estimators=100,
+            min_samples_split=2,
+            min_samples_leaf=2,
+            max_features="sqrt",
+            max_depth=5,
+            n_jobs=-1,
+        )
         dropout_model.fit(X, y_dropout)
         dropout_cv = cross_val_score(dropout_model, X, y_dropout, cv=min(5, len(df)), scoring="accuracy")
         dropout_accuracy = round(float(dropout_cv.mean()), 4)
