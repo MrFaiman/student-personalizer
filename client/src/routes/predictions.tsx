@@ -24,7 +24,7 @@ import {
   Users,
   Eye,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useFilters } from "@/components/FilterContext";
 import { TablePagination } from "@/components/TablePagination";
 import { mlApi } from "@/lib/api";
@@ -40,13 +40,11 @@ function PredictionsPage() {
   const pageSize = 20;
 
   // Reset page to 1 when global filters change
-  const prevPeriod = useRef(filters.period);
-  useEffect(() => {
-    if (prevPeriod.current !== filters.period) {
-      prevPeriod.current = filters.period;
-      setPage(1);
-    }
-  }, [filters.period]);
+  const [prevPeriod, setPrevPeriod] = useState(filters.period);
+  if (prevPeriod !== filters.period) {
+    setPrevPeriod(filters.period);
+    setPage(1);
+  }
 
   const { data: status, isLoading: statusLoading } = useQuery({
     queryKey: ["ml-status"],
@@ -81,7 +79,6 @@ function PredictionsPage() {
 
   const totalPredictions = predictions?.total || 0;
   const highRiskCount = predictions?.high_risk_count ?? 0;
-  const mediumRiskCount = predictions?.medium_risk_count ?? 0;
 
   return (
     <div className="space-y-6">
@@ -133,20 +130,30 @@ function PredictionsPage() {
             </Button>
           </div>
 
-          {status?.trained && (
-            <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t">
+          {!statusLoading && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
               <div className="text-center">
-                <div className="text-2xl font-bold">{status.samples_trained || 0}</div>
+                <div className="text-2xl font-bold tabular-nums">{status?.samples ?? "—"}</div>
                 <div className="text-sm text-muted-foreground">דגימות באימון</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold">{status.model_version || "—"}</div>
-                <div className="text-sm text-muted-foreground">גרסת מודל</div>
+                <div className="text-2xl font-bold tabular-nums">
+                  {status?.grade_model_mae != null ? status.grade_model_mae.toFixed(2) : "—"}
+                </div>
+                <div className="text-sm text-muted-foreground">MAE ציונים</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold tabular-nums">
+                  {status?.dropout_model_accuracy != null
+                    ? `${(status.dropout_model_accuracy * 100).toFixed(1)}%`
+                    : "—"}
+                </div>
+                <div className="text-sm text-muted-foreground">דיוק נשירה</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold">
-                  {status.last_trained_at
-                    ? new Date(status.last_trained_at).toLocaleDateString("he-IL")
+                  {status?.trained_at
+                    ? new Date(status.trained_at).toLocaleString("he-IL")
                     : "—"}
                 </div>
                 <div className="text-sm text-muted-foreground">תאריך אימון אחרון</div>
@@ -174,14 +181,14 @@ function PredictionsPage() {
 
       {/* Stats Cards */}
       {status?.trained && predictions && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
               <div className="bg-primary/10 rounded-lg p-2">
                 <Users className="size-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalPredictions}</p>
+                <p className="text-2xl font-bold tabular-nums">{totalPredictions}</p>
                 <p className="text-sm text-muted-foreground">תלמידים בתחזית</p>
               </div>
             </CardContent>
@@ -192,19 +199,8 @@ function PredictionsPage() {
                 <AlertTriangle className="size-5 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-600">{highRiskCount}</p>
+                <p className="text-2xl font-bold text-red-600 tabular-nums">{highRiskCount}</p>
                 <p className="text-sm text-muted-foreground">סיכון גבוה לנשירה</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="bg-yellow-100 rounded-lg p-2">
-                <TrendingDown className="size-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-yellow-600">{mediumRiskCount}</p>
-                <p className="text-sm text-muted-foreground">סיכון בינוני</p>
               </div>
             </CardContent>
           </Card>
@@ -248,7 +244,7 @@ function PredictionsPage() {
               ) : predictions?.predictions.length ? (
                 predictions.predictions
                   .map((pred, index) => (
-                    <TableRow key={pred.student_tz} className="hover:bg-accent/30">
+                    <TableRow key={pred.student_tz} className="hover:bg-accent/30 transition-colors">
                       <TableCell className="text-muted-foreground">{(page - 1) * pageSize + index + 1}</TableCell>
                       <TableCell className="font-medium">{pred.student_name || "—"}</TableCell>
                       <TableCell
@@ -278,7 +274,7 @@ function PredictionsPage() {
                       </TableCell>
                       <TableCell>
                         <Link to="/students/$studentTz" params={{ studentTz: pred.student_tz }}>
-                          <Button variant="ghost" size="icon" className="text-primary">
+                          <Button variant="ghost" size="icon" aria-label="צפה בתלמיד" className="text-primary">
                             <Eye className="size-4" />
                           </Button>
                         </Link>
@@ -298,8 +294,7 @@ function PredictionsPage() {
           {predictions && (
             <div className="p-4 border-t text-sm text-muted-foreground flex items-center gap-2">
               <Clock className="size-4" />
-              נוצר ב: {new Date(predictions.generated_at).toLocaleString("he-IL")} | גרסה:{" "}
-              {predictions.model_version}
+              נוצר ב: {new Date(predictions.generated_at).toLocaleString("he-IL")}
             </div>
           )}
           <TablePagination

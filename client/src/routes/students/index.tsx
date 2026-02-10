@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,8 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 }
 
 function StudentsListPage() {
+    const { t } = useTranslation("students");
+    const { t: tc } = useTranslation();
     const { filters } = useFilters();
     const [search, setSearch] = useState("");
     const debouncedSearch = useDebouncedValue(search, 300);
@@ -50,13 +53,11 @@ function StudentsListPage() {
     const pageSize = 20;
 
     // Reset page to 1 when global filters change
-    const prevPeriod = useRef(filters.period);
-    useEffect(() => {
-        if (prevPeriod.current !== filters.period) {
-            prevPeriod.current = filters.period;
-            setPage(1);
-        }
-    }, [filters.period]);
+    const [prevPeriod, setPrevPeriod] = useState(filters.period);
+    if (prevPeriod !== filters.period) {
+        setPrevPeriod(filters.period);
+        setPage(1);
+    }
 
     const { data: classes } = useQuery({
         queryKey: ["classes", filters.period],
@@ -92,11 +93,11 @@ function StudentsListPage() {
     const getStatusBadge = (status: string) => {
         switch (status) {
             case "at_risk":
-                return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">סיכון גבוה</Badge>;
+                return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{tc("status.highRisk")}</Badge>;
             case "watch":
-                return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">במעקב</Badge>;
+                return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">{tc("status.watch")}</Badge>;
             default:
-                return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">תקין</Badge>;
+                return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">{tc("status.normal")}</Badge>;
         }
     };
 
@@ -107,8 +108,8 @@ function StudentsListPage() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold">ניהול תלמידים</h1>
-                    <p className="text-muted-foreground">צפייה ומעקב אחר כל התלמידים במערכת</p>
+                    <h1 className="text-2xl font-bold">{t("list.title")}</h1>
+                    <p className="text-muted-foreground">{t("list.subtitle")}</p>
                 </div>
             </div>
 
@@ -120,8 +121,8 @@ function StudentsListPage() {
                             <Users className="size-5 text-primary" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold">{dashboardStats?.total_students ?? students?.total ?? 0}</p>
-                            <p className="text-sm text-muted-foreground">סה"כ תלמידים</p>
+                            <p className="text-2xl font-bold tabular-nums">{dashboardStats?.total_students ?? students?.total ?? 0}</p>
+                            <p className="text-sm text-muted-foreground">{t("list.totalStudents")}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -131,8 +132,8 @@ function StudentsListPage() {
                             <AlertTriangle className="size-5 text-red-600" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-red-600">{dashboardStats?.at_risk_count ?? 0}</p>
-                            <p className="text-sm text-muted-foreground">תלמידים בסיכון</p>
+                            <p className="text-2xl font-bold text-red-600 tabular-nums">{dashboardStats?.at_risk_count ?? 0}</p>
+                            <p className="text-sm text-muted-foreground">{t("list.atRiskStudents")}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -142,8 +143,8 @@ function StudentsListPage() {
                             <Users className="size-5 text-orange-600" />
                         </div>
                         <div>
-                            <p className="text-2xl font-bold">{classes?.length || 0}</p>
-                            <p className="text-sm text-muted-foreground">כיתות</p>
+                            <p className="text-2xl font-bold tabular-nums">{classes?.length || 0}</p>
+                            <p className="text-sm text-muted-foreground">{t("list.classes")}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -157,17 +158,18 @@ function StudentsListPage() {
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                             <Input
                                 className="pr-10"
-                                placeholder="חיפוש לפי שם תלמיד..."
+                                aria-label={tc("filters.searchByStudentName")}
+                                placeholder={tc("filters.searchByStudentName")}
                                 value={search}
                                 onChange={(e) => { setSearch(e.target.value); resetPage(); }}
                             />
                         </div>
                         <Select value={selectedClassId} onValueChange={(v) => { setSelectedClassId(v); resetPage(); }}>
                             <SelectTrigger className="w-40">
-                                <SelectValue placeholder="כל הכיתות" />
+                                <SelectValue placeholder={tc("filters.allClasses")} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="__all__">כל הכיתות</SelectItem>
+                                <SelectItem value="__all__">{tc("filters.allClasses")}</SelectItem>
                                 {classes?.map((c) => (
                                     <SelectItem key={`class-select-${c.id}`} value={String(c.id)}>
                                         {c.class_name}
@@ -180,7 +182,7 @@ function StudentsListPage() {
                             onClick={() => { setShowAtRiskOnly(!showAtRiskOnly); resetPage(); }}
                         >
                             <AlertTriangle className="size-4 ml-2" />
-                            תלמידים בסיכון בלבד
+                            {tc("filters.atRiskOnly")}
                         </Button>
                     </div>
                 </CardContent>
@@ -192,13 +194,13 @@ function StudentsListPage() {
                     <TableHeader>
                         <TableRow className="bg-accent/50">
                             <TableHead className="text-right font-bold w-12">#</TableHead>
-                            <TableHead className="text-right font-bold">שם התלמיד</TableHead>
-                            <TableHead className="text-right font-bold">ת.ז.</TableHead>
-                            <TableHead className="text-right font-bold">כיתה</TableHead>
-                            <TableHead className="text-right font-bold">ממוצע ציונים</TableHead>
-                            <TableHead className="text-right font-bold">חיסורים</TableHead>
-                            <TableHead className="text-right font-bold">סטטוס</TableHead>
-                            <TableHead className="text-right font-bold">פעולות</TableHead>
+                            <TableHead className="text-right font-bold">{tc("table.studentName")}</TableHead>
+                            <TableHead className="text-right font-bold">{tc("table.idNumber")}</TableHead>
+                            <TableHead className="text-right font-bold">{tc("table.class")}</TableHead>
+                            <TableHead className="text-right font-bold">{tc("table.averageGrade")}</TableHead>
+                            <TableHead className="text-right font-bold">{tc("table.absences")}</TableHead>
+                            <TableHead className="text-right font-bold">{tc("table.status")}</TableHead>
+                            <TableHead className="text-right font-bold">{tc("table.actions")}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -232,7 +234,7 @@ function StudentsListPage() {
                                     <TableCell>{getStatusBadge(student.is_at_risk ? "at_risk" : "normal")}</TableCell>
                                     <TableCell>
                                         <Link to="/students/$studentTz" params={{ studentTz: student.student_tz }}>
-                                            <Button variant="ghost" size="icon" className="text-primary hover:text-primary">
+                                            <Button variant="ghost" size="icon" aria-label={tc("viewStudent")} className="text-primary hover:text-primary">
                                                 <Eye className="size-5" />
                                             </Button>
                                         </Link>
@@ -242,7 +244,7 @@ function StudentsListPage() {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                                    לא נמצאו תלמידים
+                                    {t("list.noStudents")}
                                 </TableCell>
                             </TableRow>
                         )}

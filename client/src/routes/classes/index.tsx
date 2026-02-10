@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +13,8 @@ export const Route = createFileRoute("/classes/")({
 });
 
 function ClassesListPage() {
+    const { t } = useTranslation("classes");
+    const { t: tc } = useTranslation();
     const { filters } = useFilters();
 
     const { data: classes, isLoading } = useQuery({
@@ -26,8 +29,8 @@ function ClassesListPage() {
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-bold">כיתות</h1>
-                <p className="text-muted-foreground">צפייה וניתוח נתונים לפי כיתות</p>
+                <h1 className="text-2xl font-bold">{t("list.title")}</h1>
+                <p className="text-muted-foreground">{t("list.subtitle")}</p>
             </div>
 
             {/* Stats */}
@@ -39,7 +42,7 @@ function ClassesListPage() {
                         </div>
                         <div>
                             <p className="text-2xl font-bold">{classes?.length || 0}</p>
-                            <p className="text-sm text-muted-foreground">כיתות</p>
+                            <p className="text-sm text-muted-foreground">{t("list.classes")}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -50,7 +53,7 @@ function ClassesListPage() {
                         </div>
                         <div>
                             <p className="text-2xl font-bold">{totalStudents}</p>
-                            <p className="text-sm text-muted-foreground">תלמידים</p>
+                            <p className="text-sm text-muted-foreground">{t("list.students")}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -61,7 +64,7 @@ function ClassesListPage() {
                         </div>
                         <div>
                             <p className="text-2xl font-bold text-red-600">{totalAtRisk}</p>
-                            <p className="text-sm text-muted-foreground">תלמידים בסיכון</p>
+                            <p className="text-sm text-muted-foreground">{t("list.atRisk")}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -87,11 +90,11 @@ function ClassesListPage() {
                                     <div className="flex justify-between items-start mb-4">
                                         <div>
                                             <h3 className="text-xl font-bold">{cls.class_name}</h3>
-                                            <p className="text-sm text-muted-foreground">שכבה {cls.grade_level}</p>
+                                            <p className="text-sm text-muted-foreground">{t("list.gradeLevel", { level: cls.grade_level })}</p>
                                         </div>
                                         {cls.at_risk_count > 0 && (
                                             <Badge className="bg-red-100 text-red-700">
-                                                {cls.at_risk_count} בסיכון
+                                                {t("list.atRiskCount", { count: cls.at_risk_count })}
                                             </Badge>
                                         )}
                                     </div>
@@ -100,17 +103,17 @@ function ClassesListPage() {
                                         <span className="text-4xl font-bold text-primary">
                                             {cls.average_grade?.toFixed(1) || "—"}
                                         </span>
-                                        <span className="text-muted-foreground">ממוצע</span>
+                                        <span className="text-muted-foreground">{tc("table.average")}</span>
                                     </div>
 
                                     <div className="flex items-center justify-between text-sm border-t pt-4">
                                         <div className="flex items-center gap-1">
                                             <Users className="size-4 text-muted-foreground" />
-                                            <span>{cls.student_count} תלמידים</span>
+                                            <span>{t("list.studentCount", { count: cls.student_count })}</span>
                                         </div>
                                         <div className="flex items-center gap-1 text-primary">
                                             <TrendingUp className="size-4" />
-                                            <span>צפה בפרטים</span>
+                                            <span>{tc("viewDetails")}</span>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -119,7 +122,7 @@ function ClassesListPage() {
                     ))
                 ) : (
                     <div className="col-span-full text-center py-12 text-muted-foreground">
-                        לא נמצאו כיתות
+                        {t("list.noClasses")}
                     </div>
                 )}
             </div>

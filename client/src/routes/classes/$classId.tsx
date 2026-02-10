@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,8 @@ export const Route = createFileRoute("/classes/$classId")({
 });
 
 function ClassDetailPage() {
+    const { t } = useTranslation("classes");
+    const { t: tc } = useTranslation();
     const { classId } = Route.useParams();
     const { filters } = useFilters();
 
@@ -56,31 +59,31 @@ function ClassDetailPage() {
             <Link to="/classes">
                 <Button variant="ghost" className="gap-2">
                     <ArrowRight className="size-4" />
-                    חזרה לרשימת הכיתות
+                    {t("detail.backToList")}
                 </Button>
             </Link>
 
             {/* Header */}
             <div className="flex justify-between items-start">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">{classInfo?.class_name || `כיתה ${classId}`}</h2>
+                    <h1 className="text-2xl font-bold">{classInfo?.class_name || t("detail.classTitle", { id: classId })}</h1>
                     <p className="text-muted-foreground">
-                        {classInfo?.student_count || 0} תלמידים | שכבה {classInfo?.grade_level || ""}
+                        {t("detail.studentsAndLevel", { count: classInfo?.student_count || 0, level: classInfo?.grade_level || "" })}
                     </p>
                 </div>
                 <div className="flex gap-4">
                     <Card className="px-4 py-2">
                         <div className="text-center">
-                            <div className="text-2xl font-bold text-primary">
+                            <div className="text-2xl font-bold text-primary tabular-nums">
                                 {classInfo?.average_grade?.toFixed(1) || "—"}
                             </div>
-                            <div className="text-xs text-muted-foreground">ממוצע</div>
+                            <div className="text-xs text-muted-foreground">{t("detail.average")}</div>
                         </div>
                     </Card>
                     <Card className="px-4 py-2">
                         <div className="text-center">
-                            <div className="text-2xl font-bold text-red-600">{classInfo?.at_risk_count || 0}</div>
-                            <div className="text-xs text-muted-foreground">בסיכון</div>
+                            <div className="text-2xl font-bold text-red-600 tabular-nums">{classInfo?.at_risk_count || 0}</div>
+                            <div className="text-xs text-muted-foreground">{t("detail.atRisk")}</div>
                         </div>
                     </Card>
                 </div>
@@ -91,7 +94,7 @@ function ClassDetailPage() {
                 <CardContent className="p-6">
                     <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                         <Users className="size-5 text-primary" />
-                        מפת חום: תלמידים × מקצועות
+                        {t("detail.heatmapTitle")}
                     </h3>
                     {isLoadingHeatmap ? (
                         <Skeleton className="h-96" />
@@ -101,14 +104,14 @@ function ClassDetailPage() {
                                 <thead>
                                     <tr>
                                         <th className="text-right p-2 font-semibold sticky right-0 bg-background">
-                                            תלמיד
+                                            {tc("table.student")}
                                         </th>
                                         {heatmapData.subjects.map((subject: string) => (
                                             <th key={subject} className="p-2 font-semibold text-center min-w-[60px]">
                                                 {subject}
                                             </th>
                                         ))}
-                                        <th className="p-2 font-semibold text-center">ממוצע</th>
+                                        <th className="p-2 font-semibold text-center">{tc("table.average")}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -143,9 +146,8 @@ function ClassDetailPage() {
                             </table>
                         </div>
                     ) : (
-                        <div className="text-center py-12 text-muted-foreground">אין נתונים להצגה</div>
+                        <div className="text-center py-12 text-muted-foreground">{tc("noData")}</div>
                     )}
-                    {/* ... legend ... */}
                 </CardContent>
             </Card>
 
@@ -156,7 +158,7 @@ function ClassDetailPage() {
                     <CardContent className="p-6">
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                             <Trophy className="size-5 text-yellow-500" />
-                            מצטיינים
+                            {t("detail.topStudents")}
                         </h3>
                         {isLoadingRankings ? (
                             <div className="space-y-2">
@@ -168,9 +170,9 @@ function ClassDetailPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="text-right">מקום</TableHead>
-                                        <TableHead className="text-right">שם</TableHead>
-                                        <TableHead className="text-right">ממוצע</TableHead>
+                                        <TableHead className="text-right">{tc("table.rank")}</TableHead>
+                                        <TableHead className="text-right">{tc("table.name")}</TableHead>
+                                        <TableHead className="text-right">{tc("table.average")}</TableHead>
                                         <TableHead></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -188,7 +190,7 @@ function ClassDetailPage() {
                                             </TableCell>
                                             <TableCell>
                                                 <Link to="/students/$studentTz" params={{ studentTz: student.student_tz }}>
-                                                    <Button variant="ghost" size="icon">
+                                                    <Button variant="ghost" size="icon" aria-label={tc("viewStudent")}>
                                                         <Eye className="size-4" />
                                                     </Button>
                                                 </Link>
@@ -198,7 +200,7 @@ function ClassDetailPage() {
                                 </TableBody>
                             </Table>
                         ) : (
-                            <div className="text-center py-8 text-muted-foreground">אין נתונים</div>
+                            <div className="text-center py-8 text-muted-foreground">{t("detail.noData")}</div>
                         )}
                     </CardContent>
                 </Card>
@@ -208,7 +210,7 @@ function ClassDetailPage() {
                     <CardContent className="p-6">
                         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                             <AlertCircle className="size-5 text-red-500" />
-                            דורשים תשומת לב
+                            {t("detail.bottomStudents")}
                         </h3>
                         {isLoadingRankings ? (
                             <div className="space-y-2">
@@ -220,8 +222,8 @@ function ClassDetailPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="text-right">שם</TableHead>
-                                        <TableHead className="text-right">ממוצע</TableHead>
+                                        <TableHead className="text-right">{tc("table.name")}</TableHead>
+                                        <TableHead className="text-right">{tc("table.average")}</TableHead>
                                         <TableHead></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -236,7 +238,7 @@ function ClassDetailPage() {
                                             </TableCell>
                                             <TableCell>
                                                 <Link to="/students/$studentTz" params={{ studentTz: student.student_tz }}>
-                                                    <Button variant="ghost" size="icon">
+                                                    <Button variant="ghost" size="icon" aria-label={tc("viewStudent")}>
                                                         <Eye className="size-4" />
                                                     </Button>
                                                 </Link>
@@ -246,7 +248,7 @@ function ClassDetailPage() {
                                 </TableBody>
                             </Table>
                         ) : (
-                            <div className="text-center py-8 text-muted-foreground">אין נתונים</div>
+                            <div className="text-center py-8 text-muted-foreground">{t("detail.noData")}</div>
                         )}
                     </CardContent>
                 </Card>

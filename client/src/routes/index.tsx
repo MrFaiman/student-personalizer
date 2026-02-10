@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,16 +31,8 @@ import {
 } from "recharts";
 
 const CLASS_COLORS = [
-  "#6366f1", // indigo
-  "#f59e0b", // amber
-  "#10b981", // emerald
-  "#ef4444", // red
-  "#8b5cf6", // violet
-  "#06b6d4", // cyan
-  "#ec4899", // pink
-  "#84cc16", // lime
-  "#f97316", // orange
-  "#14b8a6", // teal
+  "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6",
+  "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6",
 ];
 import { useFilters } from "@/components/FilterContext";
 import { type StudentListItem } from "@/lib/types";
@@ -60,6 +53,7 @@ function HomePage() {
 }
 
 function KPISection() {
+  const { t } = useTranslation("dashboard");
   const { filters } = useFilters();
 
   const { data: kpis, isLoading } = useQuery({
@@ -77,24 +71,23 @@ function KPISection() {
     isLoading: boolean;
     icon: LucideIcon;
     iconColor: string;
-    showTrend?: boolean;
   }[] = [
       {
-        title: "ממוצע ציונים שכבתי",
+        title: t("kpi.layerAverage"),
         value: kpis?.layer_average?.toFixed(1) || "—",
         isLoading,
         icon: Star,
         iconColor: "text-primary bg-primary/10",
       },
       {
-        title: "ממוצע חיסורים לתלמיד",
+        title: t("kpi.avgAbsences"),
         value: kpis?.avg_absences?.toFixed(1) || "—",
         isLoading,
         icon: CalendarCheck,
         iconColor: "text-orange-500 bg-orange-500/10",
       },
       {
-        title: "תלמידים בסיכון (מתחת ל-55)",
+        title: t("kpi.atRiskStudents"),
         value: kpis?.at_risk_students?.toString() || "0",
         isLoading,
         icon: AlertTriangle,
@@ -110,17 +103,17 @@ function KPISection() {
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-start">
                 <p className="text-muted-foreground text-sm font-semibold">{kpi.title}</p>
-                <div className={`${kpi.iconColor} rounded-lg p-1`}>
+                <div className={`${kpi.iconColor} rounded-lg p-2`}>
                   <kpi.icon className="size-5" />
                 </div>
               </div>
               {kpi.isLoading ? (
                 <Skeleton className="h-9 w-20" />
               ) : (
-                <p className="text-3xl font-bold leading-tight">{kpi.value}</p>
+                <p className="text-3xl font-bold leading-tight tabular-nums">{kpi.value}</p>
               )}
               <div className="flex items-center gap-1 mt-1 text-muted-foreground text-xs">
-                {kpis?.total_students && `${kpis.total_students} תלמידים בסה"כ`}
+                {kpis?.total_students && t("kpi.totalStudents", { count: kpis.total_students })}
               </div>
             </div>
           </CardContent>
@@ -131,6 +124,8 @@ function KPISection() {
 }
 
 function ChartsSection() {
+  const { t } = useTranslation("dashboard");
+  const { t: tc } = useTranslation();
   const { filters } = useFilters();
 
   const { data: classComparison, isLoading } = useQuery({
@@ -158,9 +153,9 @@ function ChartsSection() {
         <CardContent className="p-8">
           <div className="flex flex-col gap-6">
             <div>
-              <h3 className="text-lg font-bold">השוואת ממוצע ציונים לפי כיתות</h3>
+              <h3 className="text-lg font-bold">{t("charts.gradeComparisonTitle")}</h3>
               <p className="text-muted-foreground text-sm">
-                {filters.period || "כל התקופות"} | {filters.gradeLevel ? `שכבה ${filters.gradeLevel}` : "כל השכבות"}
+                {filters.period || tc("filters.allPeriods")} | {filters.gradeLevel ? tc("filters.gradeLevel", { level: filters.gradeLevel }) : tc("filters.allGradeLevels")}
               </p>
             </div>
             <div className="flex items-baseline gap-2">
@@ -168,8 +163,8 @@ function ChartsSection() {
                 <Skeleton className="h-10 w-24" />
               ) : (
                 <>
-                  <p className="text-4xl font-bold">{avgGrade}</p>
-                  <p className="text-muted-foreground text-base">ממוצע כללי</p>
+                  <p className="text-4xl font-bold tabular-nums">{avgGrade}</p>
+                  <p className="text-muted-foreground text-base">{t("charts.overallAverage")}</p>
                 </>
               )}
             </div>
@@ -189,7 +184,7 @@ function ChartsSection() {
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
                       }}
-                      formatter={(value) => [`${Number(value).toFixed(1)}`, "ממוצע"]}
+                      formatter={(value) => [`${Number(value).toFixed(1)}`, t("charts.average")]}
                     />
                     <Bar dataKey="average" radius={[4, 4, 0, 0]}>
                       {chartData.map((_, index) => (
@@ -200,7 +195,7 @@ function ChartsSection() {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  אין נתונים להצגה
+                  {tc("noData")}
                 </div>
               )}
             </div>
@@ -212,18 +207,18 @@ function ChartsSection() {
         <CardContent className="p-8">
           <div className="flex flex-col gap-6">
             <div>
-              <h3 className="text-lg font-bold">תלמידים לפי כיתה</h3>
-              <p className="text-muted-foreground text-sm">כמות תלמידים בכל כיתה</p>
+              <h3 className="text-lg font-bold">{t("charts.studentsByClass")}</h3>
+              <p className="text-muted-foreground text-sm">{t("charts.studentsByClassDesc")}</p>
             </div>
             <div className="flex items-baseline gap-2">
               {isLoading ? (
                 <Skeleton className="h-10 w-24" />
               ) : (
                 <>
-                  <p className="text-4xl font-bold">
+                  <p className="text-4xl font-bold tabular-nums">
                     {chartData.reduce((sum, c) => sum + c.students, 0)}
                   </p>
-                  <p className="text-muted-foreground text-base">תלמידים</p>
+                  <p className="text-muted-foreground text-base">{t("charts.students")}</p>
                 </>
               )}
             </div>
@@ -243,7 +238,7 @@ function ChartsSection() {
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
                       }}
-                      formatter={(value) => [value, "תלמידים"]}
+                      formatter={(value) => [value, t("charts.students")]}
                     />
                     <Bar dataKey="students" radius={[4, 4, 0, 0]}>
                       {chartData.map((_, index) => (
@@ -254,7 +249,7 @@ function ChartsSection() {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  אין נתונים להצגה
+                  {tc("noData")}
                 </div>
               )}
             </div>
@@ -266,6 +261,8 @@ function ChartsSection() {
 }
 
 function StudentsTable() {
+  const { t } = useTranslation("dashboard");
+  const { t: tc } = useTranslation();
   const { filters } = useFilters();
 
   const { data: students, isLoading } = useQuery({
@@ -281,19 +278,19 @@ function StudentsTable() {
   const getStatusBadge = (isAtRisk: boolean) => {
     if (isAtRisk) {
       return (
-        <Badge className="bg-red-100 text-red-700 hover:bg-red-100">סיכון גבוה</Badge>
+        <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{tc("status.highRisk")}</Badge>
       );
     }
-    return <Badge variant="secondary">תקין</Badge>;
+    return <Badge variant="secondary">{tc("status.normal")}</Badge>;
   };
 
   return (
     <Card className="shadow-sm overflow-hidden">
       <div className="p-6 border-b border-border flex justify-between items-center">
-        <h3 className="text-lg font-bold">תלמידים בטיפול דחוף</h3>
+        <h3 className="text-lg font-bold">{t("urgentStudents.title")}</h3>
         <Link to="/students" search={{ at_risk: true }}>
           <Button variant="link" className="text-primary p-0 h-auto">
-            צפה בכל התלמידים
+            {t("urgentStudents.viewAll")}
           </Button>
         </Link>
       </div>
@@ -301,12 +298,12 @@ function StudentsTable() {
         <TableHeader>
           <TableRow className="bg-accent/50">
             <TableHead className="text-right font-bold w-12">#</TableHead>
-            <TableHead className="text-right font-bold">שם התלמיד</TableHead>
-            <TableHead className="text-right font-bold">כיתה</TableHead>
-            <TableHead className="text-right font-bold">ממוצע ציונים</TableHead>
-            <TableHead className="text-right font-bold">חיסורים</TableHead>
-            <TableHead className="text-right font-bold">סטטוס</TableHead>
-            <TableHead className="text-right font-bold">פעולות</TableHead>
+            <TableHead className="text-right font-bold">{tc("table.studentName")}</TableHead>
+            <TableHead className="text-right font-bold">{tc("table.class")}</TableHead>
+            <TableHead className="text-right font-bold">{tc("table.averageGrade")}</TableHead>
+            <TableHead className="text-right font-bold">{tc("table.absences")}</TableHead>
+            <TableHead className="text-right font-bold">{tc("table.status")}</TableHead>
+            <TableHead className="text-right font-bold">{tc("table.actions")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -335,7 +332,7 @@ function StudentsTable() {
                 <TableCell>{getStatusBadge(student.is_at_risk)}</TableCell>
                 <TableCell>
                   <Link to="/students/$studentTz" params={{ studentTz: student.student_tz }}>
-                    <Button variant="ghost" size="icon" className="text-primary hover:text-primary">
+                    <Button variant="ghost" size="icon" aria-label={tc("viewStudent")} className="text-primary hover:text-primary">
                       <Eye className="size-5" />
                     </Button>
                   </Link>
@@ -344,8 +341,8 @@ function StudentsTable() {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                אין תלמידים בסיכון
+              <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                {t("urgentStudents.noAtRisk")}
               </TableCell>
             </TableRow>
           )}

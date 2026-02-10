@@ -1,5 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
     Select,
@@ -36,11 +37,11 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 
 const navItems = [
-    { icon: LayoutDashboard, label: "לוח בקרה", path: "/" },
-    { icon: Users, label: "תלמידים", path: "/students" },
-    { icon: School, label: "כיתות", path: "/classes" },
-    { icon: Upload, label: "טעינת נתונים", path: "/upload" },
-    { icon: Brain, label: "תחזיות ML", path: "/predictions" },
+    { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
+    { icon: Users, labelKey: "nav.students", path: "/students" },
+    { icon: School, labelKey: "nav.classes", path: "/classes" },
+    { icon: Upload, labelKey: "nav.upload", path: "/upload" },
+    { icon: Brain, labelKey: "nav.predictions", path: "/predictions" },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -56,6 +57,7 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 function Sidebar() {
+    const { t } = useTranslation();
     const routerState = useRouterState();
     const currentPath = routerState.location.pathname;
     const { filters, setFilter } = useFilters();
@@ -74,10 +76,10 @@ function Sidebar() {
             // Invalidate all queries to refresh data
             queryClient.invalidateQueries();
             setIsResetOpen(false);
-            alert(`איפוס בוצע בהצלחה!\nנטענו ${data.students_loaded} תלמידים ו-${data.events_loaded} אירועים`);
+            alert(t("reset.success", { students: data.students_loaded, events: data.events_loaded }));
         },
         onError: (error) => {
-            alert(`שגיאה באיפוס: ${error.message}`);
+            alert(t("reset.error", { message: error.message }));
         },
     });
 
@@ -91,8 +93,8 @@ function Sidebar() {
                             <GraduationCap className="size-7 text-primary" />
                         </div>
                         <div className="flex flex-col">
-                            <h1 className="text-lg font-bold leading-tight">מבט על שכבתי</h1>
-                            <p className="text-muted-foreground text-xs">דשבורד פדגוגי</p>
+                            <h1 className="text-lg font-bold leading-tight">{t("appName")}</h1>
+                            <p className="text-muted-foreground text-xs">{t("appTagline")}</p>
                         </div>
                     </div>
 
@@ -110,9 +112,9 @@ function Sidebar() {
                                         : "text-muted-foreground hover:bg-accent"
                                         }`}
                                 >
-                                    <item.icon className="size-5" />
+                                    <item.icon className="size-5" aria-hidden="true" />
                                     <span className={`text-sm ${isActive ? "font-semibold" : "font-medium"}`}>
-                                        {item.label}
+                                        {t(item.labelKey)}
                                     </span>
                                 </Link>
                             );
@@ -122,7 +124,7 @@ function Sidebar() {
                     {/* Filters */}
                     <div className="pt-4 border-t border-border">
                         <p className="text-xs font-bold text-muted-foreground px-3 mb-3 uppercase tracking-wider">
-                            סינונים
+                            {t("filters.title")}
                         </p>
                         <div className="flex flex-col gap-3 px-1">
                             {/* Period Filter */}
@@ -131,10 +133,10 @@ function Sidebar() {
                                 onValueChange={(v) => setFilter("period", v === "__all__" ? undefined : v)}
                             >
                                 <SelectTrigger className="h-9 text-sm">
-                                    <SelectValue placeholder="כל התקופות" />
+                                    <SelectValue placeholder={t("filters.allPeriods")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="__all__">כל התקופות</SelectItem>
+                                    <SelectItem value="__all__">{t("filters.allPeriods")}</SelectItem>
                                     {metadata?.periods.map((period) => (
                                         <SelectItem key={period} value={period}>
                                             {period}
@@ -149,13 +151,13 @@ function Sidebar() {
                                 onValueChange={(v) => setFilter("gradeLevel", v === "__all__" ? undefined : v)}
                             >
                                 <SelectTrigger className="h-9 text-sm">
-                                    <SelectValue placeholder="כל השכבות" />
+                                    <SelectValue placeholder={t("filters.allGradeLevels")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="__all__">כל השכבות</SelectItem>
+                                    <SelectItem value="__all__">{t("filters.allGradeLevels")}</SelectItem>
                                     {metadata?.grade_levels.map((level) => (
                                         <SelectItem key={level} value={level}>
-                                            שכבה {level}
+                                            {t("filters.gradeLevel", { level })}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -169,7 +171,7 @@ function Sidebar() {
                     <Link to="/students">
                         <Button className="w-full gap-2">
                             <Search className="size-4" />
-                            <span>חיפוש תלמיד</span>
+                            <span>{t("filters.searchStudent")}</span>
                         </Button>
                     </Link>
 
@@ -182,25 +184,24 @@ function Sidebar() {
                                 ) : (
                                     <RotateCcw className="size-4" />
                                 )}
-                                <span>איפוס מסד נתונים</span>
+                                <span>{t("reset.button")}</span>
                             </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent dir="rtl">
                             <AlertDialogHeader>
-                                <AlertDialogTitle>איפוס מסד הנתונים</AlertDialogTitle>
+                                <AlertDialogTitle>{t("reset.title")}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    פעולה זו תמחק את כל הנתונים הקיימים ותטען מחדש את הנתונים מקבצי ה-CSV.
-                                    האם אתה בטוח שברצונך להמשיך?
+                                    {t("reset.description")}
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter className="flex-row-reverse gap-2">
-                                <AlertDialogCancel>ביטול</AlertDialogCancel>
+                                <AlertDialogCancel>{t("reset.cancel")}</AlertDialogCancel>
                                 <AlertDialogAction
                                     onClick={() => resetMutation.mutate()}
                                     disabled={resetMutation.isPending}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
-                                    {resetMutation.isPending ? "מאפס..." : "איפוס"}
+                                    {resetMutation.isPending ? t("reset.pending") : t("reset.confirm")}
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
