@@ -36,7 +36,7 @@ import {
 import { useFilters } from "./FilterContext";
 import { analyticsApi, ingestionApi } from "@/lib/api";
 import type { ReactNode } from "react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const navItems = [
     { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
@@ -48,13 +48,6 @@ const navItems = [
 
 export function Layout({ children }: { children: ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
-    const routerState = useRouterState();
-    const pathname = routerState.location.pathname;
-
-    // Auto-close mobile sidebar on navigation
-    useEffect(() => {
-        setSidebarOpen(false);
-    }, [pathname]);
 
     return (
         <div className="flex h-screen overflow-hidden" dir="rtl">
@@ -67,7 +60,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
                 <SheetContent side="right" className="w-72 p-0" showCloseButton={true}>
                     <SheetTitle className="sr-only">Navigation</SheetTitle>
-                    <SidebarContent />
+                    <SidebarContent onNavigate={() => setSidebarOpen(false)} />
                 </SheetContent>
             </Sheet>
 
@@ -79,7 +72,7 @@ export function Layout({ children }: { children: ReactNode }) {
     );
 }
 
-function SidebarContent() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
     const { t } = useTranslation();
     const routerState = useRouterState();
     const currentPath = routerState.location.pathname;
@@ -138,6 +131,7 @@ function SidebarContent() {
                                 key={item.path}
                                 to={item.path}
                                 disabled={isDisabled}
+                                onClick={onNavigate}
                                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
                                     ? "bg-primary/10 text-primary"
                                     : "text-muted-foreground hover:bg-accent"
