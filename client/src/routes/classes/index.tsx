@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { School, Users, AlertTriangle, TrendingUp } from "lucide-react";
 import { useFilters } from "@/components/FilterContext";
+import { StatCard } from "@/components/StatCard";
 import { studentsApi } from "@/lib/api";
 
-export const Route = createFileRoute("/classes/")({
-    component: ClassesListPage,
-});
+export const Route = createFileRoute("/classes/")(
+    { component: ClassesListPage },
+);
 
 function ClassesListPage() {
     const { t } = useTranslation("classes");
@@ -35,39 +36,28 @@ function ClassesListPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="bg-primary/10 rounded-lg p-2">
-                            <School className="size-5 text-primary" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold">{classes?.length || 0}</p>
-                            <p className="text-sm text-muted-foreground">{t("list.classes")}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="bg-blue-100 rounded-lg p-2">
-                            <Users className="size-5 text-blue-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold">{totalStudents}</p>
-                            <p className="text-sm text-muted-foreground">{t("list.students")}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="bg-red-100 rounded-lg p-2">
-                            <AlertTriangle className="size-5 text-red-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-red-600">{totalAtRisk}</p>
-                            <p className="text-sm text-muted-foreground">{t("list.atRisk")}</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <StatCard
+                    icon={School}
+                    iconClassName="text-primary"
+                    iconBgClassName="bg-primary/10"
+                    value={classes?.length || 0}
+                    label={t("list.classes")}
+                />
+                <StatCard
+                    icon={Users}
+                    iconClassName="text-blue-600"
+                    iconBgClassName="bg-blue-100"
+                    value={totalStudents}
+                    label={t("list.students")}
+                />
+                <StatCard
+                    icon={AlertTriangle}
+                    iconClassName="text-red-600"
+                    iconBgClassName="bg-red-100"
+                    value={totalAtRisk}
+                    valueClassName="text-red-600"
+                    label={t("list.atRisk")}
+                />
             </div>
 
             {/* Classes Grid */}

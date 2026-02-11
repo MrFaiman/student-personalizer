@@ -1,8 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
     Select,
@@ -11,7 +10,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { ArrowRight, BookOpen, School, BarChart3 } from "lucide-react";
+import { BookOpen, School, BarChart3 } from "lucide-react";
 import {
     AreaChart,
     Area,
@@ -25,21 +24,15 @@ import {
     CartesianGrid,
 } from "recharts";
 import { useFilters } from "@/components/FilterContext";
+import { PageHeader } from "@/components/PageHeader";
 import { CLASS_COLORS } from "@/lib/utils";
+import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 import { analyticsApi } from "@/lib/api";
 import { useState } from "react";
 
-export const Route = createFileRoute("/teachers/$teacherId")({
-    component: TeacherDetailPage,
-});
-
-const TOOLTIP_STYLE = {
-    direction: "rtl" as const,
-    textAlign: "right" as const,
-    background: "hsl(var(--card))",
-    border: "1px solid hsl(var(--border))",
-    borderRadius: "8px",
-};
+export const Route = createFileRoute("/teachers/$teacherId")(
+    { component: TeacherDetailPage },
+);
 
 function TeacherDetailPage() {
     const { t } = useTranslation("teachers");
@@ -93,42 +86,19 @@ function TeacherDetailPage() {
 
     return (
         <div className="space-y-6">
-            {/* Back Button */}
-            <Link to="/teachers">
-                <Button variant="ghost" className="gap-2">
-                    <ArrowRight className="size-4" />
-                    {t("detail.backToList")}
-                </Button>
-            </Link>
-
-            {/* Header */}
-            <div className="flex justify-between items-start">
-                <div>
-                    <h1 className="text-2xl font-bold">{teacher.name}</h1>
-                    <p className="text-muted-foreground">
-                        {t("detail.subtitle", {
-                            subjects: teacher.subjects.length,
-                            classes: teacher.classes.length,
-                        })}
-                    </p>
-                </div>
-                <div className="flex gap-4">
-                    <Card className="px-4 py-2">
-                        <div className="text-center">
-                            <div className="text-2xl font-bold text-primary tabular-nums">
-                                {teacher.average_grade?.toFixed(1) || "—"}
-                            </div>
-                            <div className="text-xs text-muted-foreground">{tc("table.average")}</div>
-                        </div>
-                    </Card>
-                    <Card className="px-4 py-2">
-                        <div className="text-center">
-                            <div className="text-2xl font-bold tabular-nums">{teacher.student_count}</div>
-                            <div className="text-xs text-muted-foreground">{tc("general.students")}</div>
-                        </div>
-                    </Card>
-                </div>
-            </div>
+            <PageHeader
+                backTo="/teachers"
+                backLabel={t("detail.backToList")}
+                title={teacher.name}
+                subtitle={t("detail.subtitle", {
+                    subjects: teacher.subjects.length,
+                    classes: teacher.classes.length,
+                })}
+                stats={[
+                    { value: teacher.average_grade?.toFixed(1) || "—", label: tc("table.average") },
+                    { value: teacher.student_count, label: tc("general.students") },
+                ]}
+            />
 
             {/* Grade Distribution with Class Selector */}
             <Card>

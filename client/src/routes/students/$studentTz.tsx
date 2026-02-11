@@ -50,11 +50,13 @@ import {
   Clock,
 } from "lucide-react";
 import { studentsApi } from "@/lib/api";
+import { StatCard } from "@/components/StatCard";
+import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 import type { GradeResponse, AttendanceResponse } from "@/lib/types";
 
-export const Route = createFileRoute("/students/$studentTz")({
-  component: StudentDetailPage,
-});
+export const Route = createFileRoute("/students/$studentTz")(
+  { component: StudentDetailPage },
+);
 
 function StudentDetailPage() {
   const { t } = useTranslation("students");
@@ -124,13 +126,6 @@ function StudentDetailPage() {
         subject: g.subject,
       })) || [];
 
-  const getStatusBadge = (isAtRisk?: boolean) => {
-    if (isAtRisk) {
-      return <Badge className="bg-red-100 text-red-700">{tc("status.atRisk")}</Badge>;
-    }
-    return <Badge className="bg-green-100 text-green-700">{tc("status.normal")}</Badge>;
-  };
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -171,7 +166,11 @@ function StudentDetailPage() {
             {t("detail.classAndId", { className: student.class_name, tz: student.student_tz })}
           </p>
         </div>
-        {getStatusBadge(student.is_at_risk)}
+        {student.is_at_risk ? (
+          <Badge className="bg-red-100 text-red-700">{tc("status.atRisk")}</Badge>
+        ) : (
+          <Badge className="bg-green-100 text-green-700">{tc("status.normal")}</Badge>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -183,24 +182,15 @@ function StudentDetailPage() {
               <>
                 <div className="relative size-20">
                   <svg viewBox="0 0 36 36" className="size-20 -rotate-90">
+                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
                     <circle
-                      cx="18" cy="18" r="15.5"
-                      fill="none"
-                      stroke="hsl(var(--muted))"
-                      strokeWidth="3"
-                    />
-                    <circle
-                      cx="18" cy="18" r="15.5"
-                      fill="none"
+                      cx="18" cy="18" r="15.5" fill="none"
                       stroke={
-                        student.performance_score >= 70
-                          ? "#22c55e"
-                          : student.performance_score >= 40
-                            ? "#f59e0b"
+                        student.performance_score >= 70 ? "#22c55e"
+                          : student.performance_score >= 40 ? "#f59e0b"
                             : "#ef4444"
                       }
-                      strokeWidth="3"
-                      strokeLinecap="round"
+                      strokeWidth="3" strokeLinecap="round"
                       strokeDasharray={`${student.performance_score * 0.9738} 97.38`}
                     />
                   </svg>
@@ -220,52 +210,34 @@ function StudentDetailPage() {
             )}
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="bg-primary/10 rounded-lg p-2">
-              <GraduationCap className="size-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold tabular-nums">
-                {student.average_grade?.toFixed(1) ?? "—"}
-              </p>
-              <p className="text-sm text-muted-foreground">{tc("general.averageGrade")}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="bg-green-100 rounded-lg p-2">
-              <Calendar className="size-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold tabular-nums">{attendanceRate.toFixed(0)}%</p>
-              <p className="text-sm text-muted-foreground">{tc("general.attendance")}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="bg-blue-100 rounded-lg p-2">
-              <BookOpen className="size-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold tabular-nums">{grades?.length || 0}</p>
-              <p className="text-sm text-muted-foreground">{t("detail.gradesCount")}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="bg-orange-100 rounded-lg p-2">
-              <AlertTriangle className="size-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold tabular-nums">{student.total_absences || 0}</p>
-              <p className="text-sm text-muted-foreground">{tc("general.absences")}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          icon={GraduationCap}
+          iconClassName="text-primary"
+          iconBgClassName="bg-primary/10"
+          value={student.average_grade?.toFixed(1) ?? "—"}
+          label={tc("general.averageGrade")}
+        />
+        <StatCard
+          icon={Calendar}
+          iconClassName="text-green-600"
+          iconBgClassName="bg-green-100"
+          value={`${attendanceRate.toFixed(0)}%`}
+          label={tc("general.attendance")}
+        />
+        <StatCard
+          icon={BookOpen}
+          iconClassName="text-blue-600"
+          iconBgClassName="bg-blue-100"
+          value={grades?.length || 0}
+          label={t("detail.gradesCount")}
+        />
+        <StatCard
+          icon={AlertTriangle}
+          iconClassName="text-orange-600"
+          iconBgClassName="bg-orange-100"
+          value={student.total_absences || 0}
+          label={tc("general.absences")}
+        />
       </div>
 
       {/* Charts Row */}
@@ -288,13 +260,7 @@ function StudentDetailPage() {
                   <XAxis dataKey="index" />
                   <YAxis domain={[0, 100]} />
                   <Tooltip
-                    contentStyle={{
-                      direction: "rtl",
-                      textAlign: "right",
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "8px",
-                    }}
+                    contentStyle={TOOLTIP_STYLE}
                     formatter={(value) => [Number(value ?? 0).toFixed(0), t("detail.gradeTooltip")]}
                     labelFormatter={(label) => t("detail.examTooltip", { label })}
                   />
@@ -373,19 +339,12 @@ function StudentDetailPage() {
                   <TableCell className="font-medium">{grade.subject}</TableCell>
                   <TableCell>{grade.teacher || "—"}</TableCell>
                   <TableCell
-                    className={`font-bold ${grade.grade < 55
-                      ? "text-red-600"
-                      : grade.grade >= 80
-                        ? "text-green-600"
-                        : ""
-                      }`}
+                    className={`font-bold ${grade.grade < 55 ? "text-red-600" : grade.grade >= 80 ? "text-green-600" : ""}`}
                   >
                     {grade.grade}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {grade.date
-                      ? new Date(grade.date).toLocaleDateString("he-IL")
-                      : "—"}
+                    {grade.date ? new Date(grade.date).toLocaleDateString("he-IL") : "—"}
                   </TableCell>
                   <TableCell>{grade.period || "—"}</TableCell>
                 </TableRow>
@@ -538,13 +497,8 @@ function PeriodComparisonSection({
                   <TableRow key={s.subject}>
                     <TableCell className="py-1.5 text-sm">{s.subject}</TableCell>
                     <TableCell
-                      className={`py-1.5 text-sm font-bold text-left ${
-                        s.avg < 55
-                          ? "text-red-600"
-                          : s.avg >= 80
-                            ? "text-green-600"
-                            : ""
-                      }`}
+                      className={`py-1.5 text-sm font-bold text-left ${s.avg < 55 ? "text-red-600" : s.avg >= 80 ? "text-green-600" : ""
+                        }`}
                     >
                       {s.avg}
                     </TableCell>
@@ -577,9 +531,7 @@ function PeriodComparisonSection({
               </SelectTrigger>
               <SelectContent>
                 {periods.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -592,9 +544,7 @@ function PeriodComparisonSection({
               </SelectTrigger>
               <SelectContent>
                 {periods.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -672,15 +622,7 @@ function SubjectRadarChart({
                 />
               ))}
               <Legend />
-              <Tooltip
-                contentStyle={{
-                  direction: "rtl",
-                  textAlign: "right",
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                }}
-              />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
             </RadarChart>
           </ResponsiveContainer>
         ) : (

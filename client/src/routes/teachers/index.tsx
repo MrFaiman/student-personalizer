@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserCheck, Users, BookOpen, TrendingUp } from "lucide-react";
 import { useFilters } from "@/components/FilterContext";
+import { StatCard } from "@/components/StatCard";
 import { analyticsApi } from "@/lib/api";
 
-export const Route = createFileRoute("/teachers/")({
-    component: TeachersListPage,
-});
+export const Route = createFileRoute("/teachers/")(
+    { component: TeachersListPage },
+);
 
 function TeachersListPage() {
     const { t } = useTranslation("teachers");
@@ -30,9 +31,9 @@ function TeachersListPage() {
     const overallAverage =
         teachers && teachers.length > 0
             ? (
-                  teachers.reduce((sum, t) => sum + (t.average_grade || 0), 0) /
-                  teachers.filter((t) => t.average_grade !== null).length
-              ).toFixed(1)
+                teachers.reduce((sum, t) => sum + (t.average_grade || 0), 0) /
+                teachers.filter((t) => t.average_grade !== null).length
+            ).toFixed(1)
             : "—";
 
     return (
@@ -45,28 +46,20 @@ function TeachersListPage() {
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="bg-primary/10 rounded-lg p-2">
-                            <UserCheck className="size-5 text-primary" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold">{totalTeachers}</p>
-                            <p className="text-sm text-muted-foreground">{t("list.totalTeachers")}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="bg-blue-100 rounded-lg p-2">
-                            <TrendingUp className="size-5 text-blue-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold">{overallAverage}</p>
-                            <p className="text-sm text-muted-foreground">{t("list.overallAverage")}</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <StatCard
+                    icon={UserCheck}
+                    iconClassName="text-primary"
+                    iconBgClassName="bg-primary/10"
+                    value={totalTeachers}
+                    label={t("list.totalTeachers")}
+                />
+                <StatCard
+                    icon={TrendingUp}
+                    iconClassName="text-blue-600"
+                    iconBgClassName="bg-blue-100"
+                    value={overallAverage}
+                    label={t("list.overallAverage")}
+                />
             </div>
 
             {/* Teachers Grid */}

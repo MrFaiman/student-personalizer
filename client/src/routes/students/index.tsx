@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
     Select,
@@ -25,12 +24,14 @@ import {
 import { Search, Eye, Users, AlertTriangle } from "lucide-react";
 import { useFilters } from "@/components/FilterContext";
 import { TablePagination } from "@/components/TablePagination";
+import { StatCard } from "@/components/StatCard";
+import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { type StudentListItem } from "@/lib/types";
 import { studentsApi } from "@/lib/api";
 
-export const Route = createFileRoute("/students/")({
-    component: StudentsListPage,
-});
+export const Route = createFileRoute("/students/")(
+    { component: StudentsListPage },
+);
 
 function useDebouncedValue<T>(value: T, delay: number): T {
     const [debounced, setDebounced] = useState(value);
@@ -90,17 +91,6 @@ function StudentsListPage() {
     // Reset page when filters change (not on page change itself)
     const resetPage = () => setPage(1);
 
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case "at_risk":
-                return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">{tc("status.highRisk")}</Badge>;
-            case "watch":
-                return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">{tc("status.watch")}</Badge>;
-            default:
-                return <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">{tc("status.normal")}</Badge>;
-        }
-    };
-
     const studentsList = students?.items || [];
 
     return (
@@ -115,39 +105,28 @@ function StudentsListPage() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="bg-primary/10 rounded-lg p-2">
-                            <Users className="size-5 text-primary" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold tabular-nums">{dashboardStats?.total_students ?? students?.total ?? 0}</p>
-                            <p className="text-sm text-muted-foreground">{t("list.totalStudents")}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="bg-red-100 rounded-lg p-2">
-                            <AlertTriangle className="size-5 text-red-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-red-600 tabular-nums">{dashboardStats?.at_risk_count ?? 0}</p>
-                            <p className="text-sm text-muted-foreground">{t("list.atRiskStudents")}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="bg-orange-100 rounded-lg p-2">
-                            <Users className="size-5 text-orange-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold tabular-nums">{classes?.length || 0}</p>
-                            <p className="text-sm text-muted-foreground">{t("list.classes")}</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <StatCard
+                    icon={Users}
+                    iconClassName="text-primary"
+                    iconBgClassName="bg-primary/10"
+                    value={dashboardStats?.total_students ?? students?.total ?? 0}
+                    label={t("list.totalStudents")}
+                />
+                <StatCard
+                    icon={AlertTriangle}
+                    iconClassName="text-red-600"
+                    iconBgClassName="bg-red-100"
+                    value={dashboardStats?.at_risk_count ?? 0}
+                    valueClassName="text-red-600"
+                    label={t("list.atRiskStudents")}
+                />
+                <StatCard
+                    icon={Users}
+                    iconClassName="text-orange-600"
+                    iconBgClassName="bg-orange-100"
+                    value={classes?.length || 0}
+                    label={t("list.classes")}
+                />
             </div>
 
             {/* Filters */}
@@ -225,13 +204,12 @@ function StudentsListPage() {
                                     <TableCell className="font-mono text-sm">{student.student_tz}</TableCell>
                                     <TableCell>{student.class_name}</TableCell>
                                     <TableCell
-                                        className={`font-bold ${student.average_grade && student.average_grade < 55 ? "text-red-600" : ""
-                                            }`}
+                                        className={`font-bold ${student.average_grade && student.average_grade < 55 ? "text-red-600" : ""}`}
                                     >
                                         {student.average_grade?.toFixed(1) || "—"}
                                     </TableCell>
                                     <TableCell>{student.total_absences}</TableCell>
-                                    <TableCell>{getStatusBadge(student.is_at_risk ? "at_risk" : "normal")}</TableCell>
+                                    <TableCell><StatusBadge isAtRisk={student.is_at_risk} /></TableCell>
                                     <TableCell>
                                         <Link to="/students/$studentTz" params={{ studentTz: student.student_tz }}>
                                             <Button variant="ghost" size="icon" aria-label={tc("viewStudent")} className="text-primary hover:text-primary">

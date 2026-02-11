@@ -13,14 +13,15 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { ArrowRight, Users, Trophy, AlertCircle, Eye } from "lucide-react";
+import { Users, Trophy, AlertCircle, Eye } from "lucide-react";
 import { useFilters } from "@/components/FilterContext";
+import { PageHeader } from "@/components/PageHeader";
 import type { HeatmapStudent, StudentRanking } from "@/lib/types";
 import { analyticsApi, studentsApi } from "@/lib/api";
 
-export const Route = createFileRoute("/classes/$classId")({
-    component: ClassDetailPage,
-});
+export const Route = createFileRoute("/classes/$classId")(
+    { component: ClassDetailPage },
+);
 
 function ClassDetailPage() {
     const { t } = useTranslation("classes");
@@ -55,39 +56,16 @@ function ClassDetailPage() {
 
     return (
         <div className="space-y-6">
-            {/* Back Button */}
-            <Link to="/classes">
-                <Button variant="ghost" className="gap-2">
-                    <ArrowRight className="size-4" />
-                    {t("detail.backToList")}
-                </Button>
-            </Link>
-
-            {/* Header */}
-            <div className="flex justify-between items-start">
-                <div>
-                    <h1 className="text-2xl font-bold">{classInfo?.class_name || t("detail.classTitle", { id: classId })}</h1>
-                    <p className="text-muted-foreground">
-                        {t("detail.studentsAndLevel", { count: classInfo?.student_count || 0, level: classInfo?.grade_level || "" })}
-                    </p>
-                </div>
-                <div className="flex gap-4">
-                    <Card className="px-4 py-2">
-                        <div className="text-center">
-                            <div className="text-2xl font-bold text-primary tabular-nums">
-                                {classInfo?.average_grade?.toFixed(1) || "—"}
-                            </div>
-                            <div className="text-xs text-muted-foreground">{t("detail.average")}</div>
-                        </div>
-                    </Card>
-                    <Card className="px-4 py-2">
-                        <div className="text-center">
-                            <div className="text-2xl font-bold text-red-600 tabular-nums">{classInfo?.at_risk_count || 0}</div>
-                            <div className="text-xs text-muted-foreground">{t("detail.atRisk")}</div>
-                        </div>
-                    </Card>
-                </div>
-            </div>
+            <PageHeader
+                backTo="/classes"
+                backLabel={t("detail.backToList")}
+                title={classInfo?.class_name || t("detail.classTitle", { id: classId })}
+                subtitle={t("detail.studentsAndLevel", { count: classInfo?.student_count || 0, level: classInfo?.grade_level || "" })}
+                stats={[
+                    { value: classInfo?.average_grade?.toFixed(1) || "—", label: t("detail.average") },
+                    { value: classInfo?.at_risk_count || 0, label: t("detail.atRisk"), valueClassName: "text-red-600" },
+                ]}
+            />
 
             {/* Heatmap */}
             <Card>
