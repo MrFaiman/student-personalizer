@@ -334,7 +334,7 @@ async def delete_import_log(
     session.commit()
 
     return {
-        "message": f"Import log deleted successfully",
+        "message": "Import log deleted successfully",
         "batch_id": batch_id,
         "records_deleted": deleted_records,
     }

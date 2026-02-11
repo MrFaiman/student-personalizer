@@ -1,7 +1,6 @@
 """Tests for the ML prediction service and API endpoints."""
 
 import json
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
