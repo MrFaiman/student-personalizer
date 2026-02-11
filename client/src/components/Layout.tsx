@@ -32,6 +32,7 @@ import {
     RotateCcw,
     Loader2,
     Menu,
+    UserCheck,
 } from "lucide-react";
 import { useFilters } from "./FilterContext";
 import { analyticsApi, ingestionApi } from "@/lib/api";
@@ -42,6 +43,7 @@ const navItems = [
     { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
     { icon: Users, labelKey: "nav.students", path: "/students" },
     { icon: School, labelKey: "nav.classes", path: "/classes" },
+    { icon: UserCheck, labelKey: "nav.teachers", path: "/teachers" },
     { icon: Brain, labelKey: "nav.predictions", path: "/predictions" },
     { icon: Upload, labelKey: "nav.upload", path: "/upload" },
 ];

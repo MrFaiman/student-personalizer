@@ -1,0 +1,27 @@
+{
+  "list": {
+    "title": "מורים",
+    "subtitle": "צפייה וניתוח ביצועי מורים",
+    "totalTeachers": "סה״כ מורים",
+    "overallAverage": "ממוצע כללי",
+    "subjectCount": "{{count}} מקצועות",
+    "studentCount": "{{count}} תלמידים",
+    "noTeachers": "לא נמצאו מורים"
+  },
+  "detail": {
+    "backToList": "חזרה לרשימת המורים",
+    "subtitle": "{{subjects}} מקצועות | {{classes}} כיתות",
+    "gradeDistribution": "התפלגות ציונים",
+    "allClasses": "כל הכיתות",
+    "classPerformance": "ביצועים לפי כיתה",
+    "subjectPerformance": "ביצועים לפי מקצוע",
+    "fail": "נכשל (<55)",
+    "medium": "בינוני (55-75)",
+    "good": "טוב (76-90)",
+    "excellent": "מצוין (90+)",
+    "notFound": "מורה לא נמצא",
+    "grades": "ציונים",
+    "gradeAxis": "ציון",
+    "studentCount": "מספר תלמידים"
+  }
+}

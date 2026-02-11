@@ -11,6 +11,8 @@ from ..schemas.analytics import (
     LayerKPIsResponse,
     MetadataResponse,
     SubjectGradeItem,
+    TeacherDetailResponse,
+    TeacherListItem,
     TeacherStatsResponse,
     TopBottomResponse,
 )
@@ -141,6 +143,33 @@ async def get_student_radar(
         raise HTTPException(status_code=404, detail=f"Student '{student_tz}' not found or has no grades")
 
     return data
+
+
+@router.get("/teachers/list", response_model=list[TeacherListItem])
+async def get_teachers_list(
+    period: str | None = Query(default=None, description="Period filter"),
+    grade_level: str | None = Query(default=None, description="Grade level filter"),
+    session: Session = Depends(get_session),
+):
+    """Get list of all teachers with summary stats."""
+    analytics = DashboardAnalytics(session)
+    return analytics.get_teachers_list(period=period, grade_level=grade_level)
+
+
+@router.get("/teacher/{teacher_id}/detail", response_model=TeacherDetailResponse)
+async def get_teacher_detail(
+    teacher_id: UUID,
+    period: str | None = Query(default=None, description="Period filter"),
+    session: Session = Depends(get_session),
+):
+    """Get detailed analytics for a specific teacher."""
+    analytics = DashboardAnalytics(session)
+    result = analytics.get_teacher_detail(teacher_id=teacher_id, period=period)
+
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Teacher '{teacher_id}' not found")
+
+    return result
 
 
 @router.get("/teachers", response_model=list[str])

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlmodel import Session, select
 
-from ..models import AttendanceRecord, Class, Grade, Student
+from ..models import AttendanceRecord, Class, Grade, Student, Teacher
 
 
 class DashboardAnalytics:
@@ -315,3 +315,176 @@ class DashboardAnalytics:
         """Get list of all grade levels."""
         levels = self.session.exec(select(Class.grade_level).distinct()).all()
         return list(set(levels))
+
+    def get_teachers_list(self, period: str | None = None, grade_level: str | None = None) -> list[dict]:
+        """Get list of teachers with summary stats."""
+        teachers = self.session.exec(select(Teacher)).all()
+
+        result = []
+        for teacher in teachers:
+            grade_query = select(Grade).where(Grade.teacher_id == teacher.id)
+            if period:
+                grade_query = grade_query.where(Grade.period == period)
+            if grade_level:
+                grade_query = (
+                    grade_query.join(Student, Grade.student_tz == Student.student_tz)
+                    .join(Class, Student.class_id == Class.id)
+                    .where(Class.grade_level == grade_level)
+                )
+
+            grades = self.session.exec(grade_query).all()
+            if not grades:
+                continue
+
+            subjects = set(g.subject for g in grades)
+            students = set(g.student_tz for g in grades)
+            avg = round(sum(g.grade for g in grades) / len(grades), 2)
+
+            result.append({
+                "id": str(teacher.id),
+                "name": teacher.name,
+                "subject_count": len(subjects),
+                "student_count": len(students),
+                "average_grade": avg,
+            })
+
+        return sorted(result, key=lambda x: x["name"])
+
+    def get_teacher_detail(self, teacher_id: UUID, period: str | None = None) -> dict | None:
+        """Get detailed teacher analytics."""
+        teacher = self.session.exec(select(Teacher).where(Teacher.id == teacher_id)).first()
+        if not teacher:
+            return None
+
+        grade_query = select(Grade).where(Grade.teacher_id == teacher.id)
+        if period:
+            grade_query = grade_query.where(Grade.period == period)
+
+        grades = self.session.exec(grade_query).all()
+        if not grades:
+            return {
+                "id": str(teacher.id),
+                "name": teacher.name,
+                "subjects": [],
+                "classes": [],
+                "student_count": 0,
+                "average_grade": None,
+                "distribution": [],
+                "grade_histogram": [],
+                "class_performance": [],
+                "subject_performance": [],
+            }
+
+        subjects = sorted(set(g.subject for g in grades))
+        student_tzs = set(g.student_tz for g in grades)
+        avg = round(sum(g.grade for g in grades) / len(grades), 2)
+
+        # Grade distribution
+        categories = {
+            "Fail (<55)": 0,
+            "Medium (55-75)": 0,
+            "Good (76-90)": 0,
+            "Excellent (>90)": 0,
+        }
+        for g in grades:
+            if g.grade < 55:
+                categories["Fail (<55)"] += 1
+            elif g.grade <= 75:
+                categories["Medium (55-75)"] += 1
+            elif g.grade <= 90:
+                categories["Good (76-90)"] += 1
+            else:
+                categories["Excellent (>90)"] += 1
+
+        distribution = [{"category": cat, "count": count} for cat, count in categories.items()]
+
+        # Per-class performance
+        class_grades: dict[str, list[float]] = {}
+        class_students: dict[str, set[str]] = {}
+        class_ids: dict[str, str] = {}
+
+        for g in grades:
+            student = self.session.exec(select(Student).where(Student.student_tz == g.student_tz)).first()
+            if student and student.class_id:
+                cls = self.session.exec(select(Class).where(Class.id == student.class_id)).first()
+                if cls:
+                    if cls.class_name not in class_grades:
+                        class_grades[cls.class_name] = []
+                        class_students[cls.class_name] = set()
+                        class_ids[cls.class_name] = str(cls.id)
+                    class_grades[cls.class_name].append(g.grade)
+                    class_students[cls.class_name].add(g.student_tz)
+
+        def _build_distribution(grade_list: list[float]) -> list[dict]:
+            cats = {"Fail (<55)": 0, "Medium (55-75)": 0, "Good (76-90)": 0, "Excellent (>90)": 0}
+            for v in grade_list:
+                if v < 55:
+                    cats["Fail (<55)"] += 1
+                elif v <= 75:
+                    cats["Medium (55-75)"] += 1
+                elif v <= 90:
+                    cats["Good (76-90)"] += 1
+                else:
+                    cats["Excellent (>90)"] += 1
+            return [{"category": c, "count": n} for c, n in cats.items()]
+
+        def _build_histogram(grade_list: list[float], step: int = 5) -> list[dict]:
+            bins: dict[int, int] = {g: 0 for g in range(0, 101, step)}
+            for v in grade_list:
+                b = min(int(v // step) * step, 100)
+                bins[b] = bins.get(b, 0) + 1
+            return [{"grade": g, "count": c} for g, c in sorted(bins.items())]
+
+        grade_histogram = _build_histogram([g.grade for g in grades])
+
+        class_performance = sorted(
+            [
+                {
+                    "class_name": name,
+                    "class_id": class_ids[name],
+                    "average_grade": round(sum(gs) / len(gs), 2),
+                    "student_count": len(class_students[name]),
+                    "distribution": _build_distribution(gs),
+                    "grade_histogram": _build_histogram(gs),
+                }
+                for name, gs in class_grades.items()
+            ],
+            key=lambda x: x["class_name"],
+        )
+
+        classes_list = sorted(class_grades.keys())
+
+        # Per-subject performance
+        subject_grades: dict[str, list[float]] = {}
+        subject_students: dict[str, set[str]] = {}
+        for g in grades:
+            if g.subject not in subject_grades:
+                subject_grades[g.subject] = []
+                subject_students[g.subject] = set()
+            subject_grades[g.subject].append(g.grade)
+            subject_students[g.subject].add(g.student_tz)
+
+        subject_performance = sorted(
+            [
+                {
+                    "subject": subj,
+                    "average_grade": round(sum(gs) / len(gs), 2),
+                    "student_count": len(subject_students[subj]),
+                }
+                for subj, gs in subject_grades.items()
+            ],
+            key=lambda x: x["subject"],
+        )
+
+        return {
+            "id": str(teacher.id),
+            "name": teacher.name,
+            "subjects": subjects,
+            "classes": classes_list,
+            "student_count": len(student_tzs),
+            "average_grade": avg,
+            "distribution": distribution,
+            "grade_histogram": grade_histogram,
+            "class_performance": class_performance,
+            "subject_performance": subject_performance,
+        }

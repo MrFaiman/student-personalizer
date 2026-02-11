@@ -6,6 +6,7 @@ import dashboardHe from "./locales/he/dashboard.json";
 import studentsHe from "./locales/he/students.json";
 import classesHe from "./locales/he/classes.json";
 import uploadHe from "./locales/he/upload.json";
+import teachersHe from "./locales/he/teachers.json";
 
 i18n.use(initReactI18next).init({
   lng: "he",
@@ -18,6 +19,7 @@ i18n.use(initReactI18next).init({
       students: studentsHe,
       classes: classesHe,
       upload: uploadHe,
+      teachers: teachersHe,
     },
   },
   interpolation: {

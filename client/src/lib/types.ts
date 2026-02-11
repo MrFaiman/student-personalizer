@@ -2,9 +2,7 @@
  * TypeScript types matching backend Pydantic schemas.
  */
 
-// ========================
 // Analytics Types
-// ========================
 
 export interface LayerKPIsResponse {
     layer_average: number;
@@ -66,9 +64,7 @@ export interface MetadataResponse {
     teachers: string[];
 }
 
-// ========================
 // Student Types
-// ========================
 
 export interface StudentListItem {
     student_tz: string;
@@ -141,9 +137,7 @@ export interface DashboardStats {
     total_classes: number;
 }
 
-// ========================
 // Ingestion Types
-// ========================
 
 export interface ImportResponse {
     batch_id: string;
@@ -173,9 +167,7 @@ export interface ImportLogListResponse {
     page_size: number;
 }
 
-// ========================
 // ML Types
-// ========================
 
 export interface TrainResponse {
     success: boolean;
@@ -211,9 +203,56 @@ export interface ModelStatusResponse {
     dropout_model_accuracy: number | null;
 }
 
-// ========================
+// Teacher Types
+
+export interface TeacherListItem {
+    id: string;
+    name: string;
+    subject_count: number;
+    student_count: number;
+    average_grade: number | null;
+}
+
+export interface GradeHistogramBin {
+    grade: number;
+    count: number;
+}
+
+export interface TeacherClassPerformance {
+    class_name: string;
+    class_id: string;
+    average_grade: number;
+    student_count: number;
+    distribution: {
+        category: string;
+        count: number;
+    }[];
+    grade_histogram: GradeHistogramBin[];
+}
+
+export interface TeacherSubjectPerformance {
+    subject: string;
+    average_grade: number;
+    student_count: number;
+}
+
+export interface TeacherDetailResponse {
+    id: string;
+    name: string;
+    subjects: string[];
+    classes: string[];
+    student_count: number;
+    average_grade: number | null;
+    distribution: {
+        category: string;
+        count: number;
+    }[];
+    grade_histogram: GradeHistogramBin[];
+    class_performance: TeacherClassPerformance[];
+    subject_performance: TeacherSubjectPerformance[];
+}
+
 // Filter Types
-// ========================
 
 export interface FilterState {
     period: string | undefined;

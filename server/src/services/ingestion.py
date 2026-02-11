@@ -7,7 +7,7 @@ from io import BytesIO
 import pandas as pd
 from sqlmodel import Session, select
 
-from ..models import AttendanceRecord, Class, Grade, ImportLog, Student
+from ..models import AttendanceRecord, Class, Grade, ImportLog, Student, Teacher
 
 
 @dataclass
@@ -89,6 +89,20 @@ def get_or_create_student(
     session.add(student)
     session.flush()
     return student, True
+
+
+def get_or_create_teacher(session: Session, teacher_name: str) -> Teacher:
+    """Get existing teacher or create new one."""
+    statement = select(Teacher).where(Teacher.name == teacher_name)
+    teacher = session.exec(statement).first()
+
+    if teacher:
+        return teacher
+
+    teacher = Teacher(name=teacher_name)
+    session.add(teacher)
+    session.flush()
+    return teacher
 
 
 def parse_subject_teacher_header(header_str: str) -> tuple[str, str | None]:
@@ -226,6 +240,7 @@ def ingest_grades_file(
 
     classes_created: set[str] = set()
     students_processed: set[str] = set()
+    teachers_cache: dict[str, Teacher] = {}
     grades_imported = 0
 
     for idx, row in df_long.iterrows():
@@ -257,11 +272,20 @@ def ingest_grades_file(
                     result.students_created += 1
                 students_processed.add(student_tz)
 
+            # Get or create teacher
+            teacher_id = None
+            clean_teacher = teacher_name if pd.notna(teacher_name) else None
+            if clean_teacher:
+                if clean_teacher not in teachers_cache:
+                    teachers_cache[clean_teacher] = get_or_create_teacher(session, clean_teacher)
+                teacher_id = teachers_cache[clean_teacher].id
+
             # Create grade record
             grade_record = Grade(
                 student_tz=student_tz,
                 subject=subject,
-                teacher_name=teacher_name if pd.notna(teacher_name) else None,
+                teacher_name=clean_teacher,
+                teacher_id=teacher_id,
                 grade=float(grade_value),
                 period=period,
             )

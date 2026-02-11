@@ -4,6 +4,16 @@ from uuid import UUID, uuid4
 from sqlmodel import Field, Relationship, SQLModel
 
 
+class Teacher(SQLModel, table=True):
+    """Teacher record."""
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(index=True, unique=True)
+
+    # Relationships
+    grades: list["Grade"] = Relationship(back_populates="teacher")
+
+
 class Class(SQLModel, table=True):
     """Class/homeroom."""
 
@@ -35,11 +45,13 @@ class Grade(SQLModel, table=True):
     student_tz: str = Field(foreign_key="student.student_tz", index=True)
     subject: str
     teacher_name: str | None = None
+    teacher_id: UUID | None = Field(default=None, foreign_key="teacher.id", index=True)
     grade: float
     period: str  # e.g. "Quarter 1", "סמסטר א'"
 
     # Relationships
     student: Student = Relationship(back_populates="grades")
+    teacher: Teacher | None = Relationship(back_populates="grades")
 
 
 class AttendanceRecord(SQLModel, table=True):

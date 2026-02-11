@@ -47,9 +47,7 @@ function buildQueryString(params: Record<string, string | number | boolean | und
   return qs ? `?${qs}` : "";
 }
 
-// ========================
 // Analytics API
-// ========================
 
 import type {
   LayerKPIsResponse,
@@ -59,6 +57,8 @@ import type {
   TeacherStatsResponse,
   SubjectGradeItem,
   MetadataResponse,
+  TeacherListItem,
+  TeacherDetailResponse,
 } from "./types";
 
 export const analyticsApi = {
@@ -92,12 +92,18 @@ export const analyticsApi = {
   getTeachers: (params: { period?: string } = {}) =>
     fetchApi<string[]>(`/api/analytics/teachers${buildQueryString(params)}`),
 
+  getTeachersList: (params: { period?: string; grade_level?: string } = {}) =>
+    fetchApi<TeacherListItem[]>(`/api/analytics/teachers/list${buildQueryString(params)}`),
+
+  getTeacherDetail: (teacherId: string, params: { period?: string } = {}) =>
+    fetchApi<TeacherDetailResponse>(
+      `/api/analytics/teacher/${encodeURIComponent(teacherId)}/detail${buildQueryString(params)}`
+    ),
+
   getMetadata: () => fetchApi<MetadataResponse>("/api/analytics/metadata"),
 };
 
-// ========================
 // Students API
-// ========================
 
 import type {
   StudentListResponse,
@@ -142,9 +148,7 @@ export const studentsApi = {
     fetchApi<ClassResponse[]>(`/api/students/classes${buildQueryString(params)}`),
 };
 
-// ========================
 // Ingestion API
-// ========================
 
 import type { ImportResponse, ImportLogListResponse, ImportLogResponse } from "./types";
 
@@ -189,9 +193,7 @@ export const ingestionApi = {
     ),
 };
 
-// ========================
 // ML API
-// ========================
 
 import type {
   TrainResponse,
