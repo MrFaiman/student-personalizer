@@ -10,6 +10,14 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import cross_val_score
 from sqlmodel import Session, select
 
+from ..constants import (
+    AT_RISK_GRADE_THRESHOLD,
+    CROSS_VALIDATION_FOLDS,
+    DEFAULT_PAGE_SIZE,
+    HIGH_RISK_THRESHOLD,
+    MEDIUM_RISK_THRESHOLD,
+    MIN_TRAINING_SAMPLES,
+)
 from ..models import AttendanceRecord, Grade, Student
 
 MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models"
@@ -47,69 +55,102 @@ class MLService:
     def _build_feature_dataframe(self, period: str | None = None) -> pd.DataFrame:
         """Extract feature vectors for all students from the database."""
         students = self.session.exec(select(Student)).all()
-        rows = []
+        student_map = {s.student_tz: s.student_name for s in students}
 
-        for student in students:
-            grade_query = select(Grade).where(Grade.student_tz == student.student_tz)
-            if period:
-                grade_query = grade_query.where(Grade.period == period)
-            grade_query = grade_query.order_by(Grade.id)
-            grades = self.session.exec(grade_query).all()
+        if not students:
+             return pd.DataFrame(columns=FEATURE_COLUMNS + ["student_tz", "student_name"])
 
-            if not grades:
-                continue
+        grade_query = select(Grade).order_by(Grade.id)
+        if period:
+            grade_query = grade_query.where(Grade.period == period)
+        grades = self.session.exec(grade_query).all()
 
-            grade_values = [g.grade for g in grades]
-            avg_grade = np.mean(grade_values)
-            min_grade = np.min(grade_values)
-            max_grade = np.max(grade_values)
-            grade_std = float(np.std(grade_values)) if len(grade_values) > 1 else 0.0
-            num_subjects = len(grade_values)
-            failing_subjects = sum(1 for g in grade_values if g < 55)
+        att_query = select(AttendanceRecord)
+        if period:
+            att_query = att_query.where(AttendanceRecord.period == period)
+        attendance = self.session.exec(att_query).all()
 
-            # Trend slope: linear fit of grades over their temporal index.
-            # Positive slope = improving, negative = declining. 0.0 if single grade.
-            if len(grade_values) >= 2:
-                x = np.arange(len(grade_values), dtype=float)
-                grade_trend_slope = float(np.polyfit(x, grade_values, 1)[0])
-            else:
-                grade_trend_slope = 0.0
+        if grades:
+            g_data = [{"student_tz": g.student_tz, "grade": g.grade, "id": g.id} for g in grades]
+            gdf = pd.DataFrame(g_data)
 
-            att_query = select(AttendanceRecord).where(AttendanceRecord.student_tz == student.student_tz)
-            if period:
-                att_query = att_query.where(AttendanceRecord.period == period)
-            attendance = self.session.exec(att_query).all()
+            g_stats = gdf.groupby("student_tz")["grade"].agg(
+                average_grade="mean",
+                min_grade="min",
+                max_grade="max",
+                grade_std="std",
+                num_subjects="count"
+            ).reset_index()
 
-            absence = sum(a.absence for a in attendance)
-            absence_justified = sum(a.absence_justified for a in attendance)
-            late = sum(a.late for a in attendance)
-            disturbance = sum(a.disturbance for a in attendance)
-            total_absences = sum(a.total_absences for a in attendance)
-            total_negative = sum(a.total_negative_events for a in attendance)
-            total_positive = sum(a.total_positive_events for a in attendance)
+            failing = gdf[gdf["grade"] < AT_RISK_GRADE_THRESHOLD].groupby("student_tz").size().reset_index(name="failing_subjects")
+            g_stats = pd.merge(g_stats, failing, on="student_tz", how="left").fillna({"failing_subjects": 0})
 
-            rows.append(
+            def calc_slope(x):
+                if len(x) < 2:
+                    return 0.0
+                indices = np.arange(len(x))
+                return np.polyfit(indices, x, 1)[0]
+
+            slopes = gdf.groupby("student_tz")["grade"].apply(calc_slope).reset_index(name="grade_trend_slope")
+            g_stats = pd.merge(g_stats, slopes, on="student_tz", how="left")
+            
+        else:
+            g_stats = pd.DataFrame(columns=["student_tz", "average_grade", "min_grade", "max_grade", "grade_std", "num_subjects", "failing_subjects", "grade_trend_slope"])
+
+        if attendance:
+            a_data = [
                 {
-                    "student_tz": student.student_tz,
-                    "student_name": student.student_name,
-                    "average_grade": round(float(avg_grade), 2),
-                    "min_grade": float(min_grade),
-                    "max_grade": float(max_grade),
-                    "grade_std": round(grade_std, 2),
-                    "grade_trend_slope": round(grade_trend_slope, 4),
-                    "num_subjects": num_subjects,
-                    "failing_subjects": failing_subjects,
-                    "absence": absence,
-                    "absence_justified": absence_justified,
-                    "late": late,
-                    "disturbance": disturbance,
-                    "total_absences": total_absences,
-                    "total_negative_events": total_negative,
-                    "total_positive_events": total_positive,
+                    "student_tz": a.student_tz,
+                    "absence": a.absence,
+                    "absence_justified": a.absence_justified,
+                    "late": a.late,
+                    "disturbance": a.disturbance,
+                    "total_absences": a.total_absences,
+                    "total_negative_events": a.total_negative_events,
+                    "total_positive_events": a.total_positive_events
                 }
-            )
+                for a in attendance
+            ]
+            adf = pd.DataFrame(a_data)
+            
+            a_stats = adf.groupby("student_tz").sum().reset_index()
+        else:
+            a_stats = pd.DataFrame(columns=["student_tz", "absence", "absence_justified", "late", "disturbance", "total_absences", "total_negative_events", "total_positive_events"])
+            
+        feature_df = pd.DataFrame.from_dict({"student_tz": list(student_map.keys()), "student_name": list(student_map.values())})
+        
+        if not g_stats.empty:
+            feature_df = pd.merge(feature_df, g_stats, on="student_tz", how="left")
+        else:
+            for col in ["average_grade", "min_grade", "max_grade", "grade_std", "num_subjects", "failing_subjects", "grade_trend_slope"]:
+                feature_df[col] = np.nan
+            
+        if not a_stats.empty:
+            feature_df = pd.merge(feature_df, a_stats, on="student_tz", how="left")
+        else:
+             for col in ["absence", "absence_justified", "late", "disturbance", "total_absences", "total_negative_events", "total_positive_events"]:
+                feature_df[col] = 0
 
-        return pd.DataFrame(rows)
+        feature_df = feature_df.dropna(subset=["average_grade"])
+
+        values = {
+            "grade_std": 0.0,
+            "failing_subjects": 0,
+            "grade_trend_slope": 0.0,
+            "absence": 0,
+            "absence_justified": 0,
+            "late": 0,
+            "disturbance": 0, 
+            "total_absences": 0,
+            "total_negative_events": 0, 
+            "total_positive_events": 0
+        }
+        feature_df = feature_df.fillna(value=values)
+        feature_df["average_grade"] = feature_df["average_grade"].round(2)
+        feature_df["grade_std"] = feature_df["grade_std"].round(2)
+        feature_df["grade_trend_slope"] = feature_df["grade_trend_slope"].round(4)
+
+        return feature_df
 
     def train(self, period: str | None = None) -> dict:
         """Train both models and save to disk. Returns training metrics."""
@@ -119,22 +160,20 @@ class MLService:
 
         df = self._build_feature_dataframe(period=period)
 
-        if len(df) < 5:
-            raise ValueError(f"Not enough data to train: only {len(df)} students with grades found. Need at least 5.")
+        if len(df) < MIN_TRAINING_SAMPLES:
+            raise ValueError(f"Not enough data to train: only {len(df)} students with grades found. Need at least {MIN_TRAINING_SAMPLES}.")
 
         X = df[FEATURE_COLUMNS].values
         y_grade = df["average_grade"].values
 
-        # Dropout label: average < 55 AND (high absences OR high negative events)
         median_negative = df["total_negative_events"].median()
         median_absences = df["total_absences"].median()
         y_dropout = (
-            ((df["average_grade"] < 55) & ((df["total_negative_events"] > median_negative) | (df["total_absences"] > median_absences)))
+            ((df["average_grade"] < AT_RISK_GRADE_THRESHOLD) & ((df["total_negative_events"] > median_negative) | (df["total_absences"] > median_absences)))
             .astype(int)
             .values
         )
 
-        # Train grade predictor
         grade_model = RandomForestRegressor(
             n_estimators=300,
             min_samples_split=2,
@@ -144,10 +183,9 @@ class MLService:
             n_jobs=-1,
         )
         grade_model.fit(X, y_grade)
-        grade_cv = cross_val_score(grade_model, X, y_grade, cv=min(5, len(df)), scoring="neg_mean_absolute_error")
+        grade_cv = cross_val_score(grade_model, X, y_grade, cv=min(CROSS_VALIDATION_FOLDS, len(df)), scoring="neg_mean_absolute_error")
         grade_mae = round(float(-grade_cv.mean()), 2)
 
-        # Train dropout classifier
         dropout_model = RandomForestClassifier(
             n_estimators=100,
             min_samples_split=2,
@@ -157,15 +195,13 @@ class MLService:
             n_jobs=-1,
         )
         dropout_model.fit(X, y_dropout)
-        dropout_cv = cross_val_score(dropout_model, X, y_dropout, cv=min(5, len(df)), scoring="accuracy")
+        dropout_cv = cross_val_score(dropout_model, X, y_dropout, cv=min(CROSS_VALIDATION_FOLDS, len(df)), scoring="accuracy")
         dropout_accuracy = round(float(dropout_cv.mean()), 4)
 
-        # Save models
         MODELS_DIR.mkdir(parents=True, exist_ok=True)
         joblib.dump(grade_model, GRADE_MODEL_PATH)
         joblib.dump(dropout_model, DROPOUT_MODEL_PATH)
 
-        # Feature importances
         grade_importances = {name: round(float(imp), 4) for name, imp in zip(FEATURE_COLUMNS, grade_model.feature_importances_)}
         dropout_importances = {name: round(float(imp), 4) for name, imp in zip(FEATURE_COLUMNS, dropout_model.feature_importances_)}
 
@@ -214,7 +250,6 @@ class MLService:
         X = row[FEATURE_COLUMNS].values.reshape(1, -1)
 
         predicted_grade = round(float(grade_model.predict(X)[0]), 2)
-        # Handle case when model was trained with only one class
         proba = dropout_model.predict_proba(X)
         if proba.shape[1] == 1:
             dropout_proba = 0.0
@@ -222,9 +257,9 @@ class MLService:
             dropout_proba = float(proba[0][1])
         dropout_risk = round(dropout_proba, 4)
 
-        if dropout_risk > 0.7:
+        if dropout_risk > HIGH_RISK_THRESHOLD:
             risk_level = "high"
-        elif dropout_risk > 0.3:
+        elif dropout_risk > MEDIUM_RISK_THRESHOLD:
             risk_level = "medium"
         else:
             risk_level = "low"
@@ -273,9 +308,9 @@ class MLService:
         all_predictions = []
         for i, row in df.iterrows():
             dropout_risk = round(float(dropout_probas[i]), 4)
-            if dropout_risk > 0.7:
+            if dropout_risk > HIGH_RISK_THRESHOLD:
                 risk_level = "high"
-            elif dropout_risk > 0.3:
+            elif dropout_risk > MEDIUM_RISK_THRESHOLD:
                 risk_level = "medium"
             else:
                 risk_level = "low"
@@ -297,7 +332,7 @@ class MLService:
         _prediction_cache[cache_key] = all_predictions
         return all_predictions
 
-    def predict_all(self, period: str | None = None, page: int = 1, page_size: int = 20) -> dict:
+    def predict_all(self, period: str | None = None, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE) -> dict:
         """Predict for all students with pagination."""
         all_predictions = self._compute_all_predictions(period=period)
 

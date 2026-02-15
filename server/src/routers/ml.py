@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
+from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from ..database import get_session
 from ..schemas.ml import BatchPredictionResponse, ModelStatusResponse, StudentPrediction, TrainResponse
 from ..services.ml import MLService
@@ -45,7 +46,7 @@ async def predict_student(
 async def predict_all(
     period: str | None = Query(default=None, description="Period filter"),
     page: int = Query(default=1, ge=1, description="Page number"),
-    page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
+    page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
     session: Session = Depends(get_session),
 ):
     """Get predictions for all students."""

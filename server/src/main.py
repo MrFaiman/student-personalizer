@@ -1,18 +1,19 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 import os
 from contextlib import asynccontextmanager
 
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, DEFAULT_ORIGIN_URL, DEFAULT_PORT
 from .database import init_db
-from .routers import analytics, ingestion, ml, students
+from .routers import analytics, config, ingestion, ml, students
 
-PORT = int(os.getenv("PORT", 3000))
-ORIGIN_URL = os.getenv("ORIGIN_URL", "http://localhost:5173")
+load_dotenv()
+
+PORT = int(os.getenv("PORT", DEFAULT_PORT))
+ORIGIN_URL = os.getenv("ORIGIN_URL", DEFAULT_ORIGIN_URL)
 
 
 @asynccontextmanager
@@ -23,9 +24,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Student Personalizer API",
-    description="API for ingesting and analyzing student data",
-    version="0.1.0",
+    title=API_TITLE,
+    description=API_DESCRIPTION,
+    version=API_VERSION,
     lifespan=lifespan,
 )
 
@@ -39,6 +40,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(config.router)
 app.include_router(ingestion.router)
 app.include_router(students.router)
 app.include_router(analytics.router)
@@ -47,7 +49,7 @@ app.include_router(ml.router)
 
 @app.get("/")
 async def root():
-    return {"message": "Student Personalizer API"}
+    return {"message": API_TITLE}
 
 
 @app.get("/health")

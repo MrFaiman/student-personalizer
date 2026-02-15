@@ -7,7 +7,36 @@ from io import BytesIO
 import pandas as pd
 from sqlmodel import Session, select
 
+from ..constants import DEFAULT_PERIOD, MAX_STORED_ERRORS, VALID_MIME_TYPES
 from ..models import AttendanceRecord, Class, Grade, ImportLog, Student, Teacher
+
+
+def _read_file(file_content: bytes, content_type: str) -> pd.DataFrame:
+    """Read CSV or Excel bytes into a DataFrame based on MIME type."""
+    mime_format = VALID_MIME_TYPES.get(content_type, "")
+    if mime_format == "csv":
+        return pd.read_csv(BytesIO(file_content), encoding="utf-8")
+    return pd.read_excel(BytesIO(file_content), engine="openpyxl")
+
+
+def _build_class_name(row) -> str:
+    """Build 'grade_level-class_num' string (e.g. 'י-3')."""
+    gl = row.get("grade_level")
+    cn = row.get("class_num")
+    if pd.notna(cn) and pd.notna(gl):
+        return f"{gl}-{int(cn)}"
+    return str(cn or "")
+
+
+def _generate_student_tz(row, tz_col: str = "student_tz") -> str:
+    """Return cleaned TZ, falling back to serial_num or row index."""
+    tz = row.get(tz_col)
+    if pd.notna(tz) and str(tz).strip():
+        return str(tz).strip()
+    serial = row.get("serial_num", 0)
+    if pd.notna(serial):
+        return f"STU-{int(serial):04d}"
+    return f"STU-{row.name:04d}"
 
 
 @dataclass
@@ -27,11 +56,9 @@ def detect_file_type(df: pd.DataFrame) -> str | None:
     """Detect if the file is a grades or events file based on columns."""
     columns = set(df.columns)
 
-    # Check for grades-specific columns
     if "ממוצע" in columns or "ת.ז" in columns:
         return "grades"
 
-    # Check for events-specific columns
     if "שיעורים שדווחו" in columns or "חיסור" in columns or "ת.ז. התלמיד" in columns:
         return "events"
 
@@ -66,7 +93,6 @@ def get_or_create_student(
     class_name: str,
 ) -> tuple[Student, bool]:
     """Get existing student or create new one. Returns (student, created)."""
-    # Resolve class_name to class_id
     cls = session.exec(select(Class).where(Class.class_name == class_name)).first()
     class_id = cls.id if cls else None
 
@@ -110,10 +136,8 @@ def parse_subject_teacher_header(header_str: str) -> tuple[str, str | None]:
     Parse "Subject - Teacher" format from column header.
     E.g., "אנגלית- ישראל ישראלי" -> ("אנגלית", "ישראל ישראלי")
     """
-    # Remove pandas duplicate suffixes like ".1", ".2"
     clean_header = re.sub(r"\.\d+$", "", str(header_str))
 
-    # Split by hyphen (with optional spaces)
     if "-" in clean_header:
         parts = clean_header.split("-", 1)
         subject = parts[0].strip()
@@ -129,7 +153,6 @@ def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Transposes (melts) the data into a long format with columns:
     student_tz, student_name, class_name, grade_level, subject, teacher_name, grade
     """
-    # Define metadata columns mapping (Hebrew -> English)
     metadata_map = {
         "מס'": "serial_num",
         "ת.ז": "student_tz",
@@ -138,39 +161,16 @@ def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         "כיתה": "class_num",
     }
 
-    # Rename known columns
     df = df.rename(columns=metadata_map)
 
-    # Build full class_name from grade_level + class_num (e.g., "י" + "3" = "י-3")
-    df["class_name"] = df.apply(
-        lambda row: (
-            f"{row['grade_level']}-{int(row['class_num'])}"
-            if pd.notna(row.get("class_num")) and pd.notna(row.get("grade_level"))
-            else str(row.get("class_num", ""))
-        ),
-        axis=1,
-    )
+    df["class_name"] = df.apply(_build_class_name, axis=1)
+    df["student_tz"] = df.apply(_generate_student_tz, axis=1)
 
-    # Generate student_tz if missing (use serial_num)
-    def generate_student_tz(row):
-        tz = row.get("student_tz")
-        if pd.notna(tz) and str(tz).strip():
-            return str(tz).strip()
-        serial = row.get("serial_num", 0)
-        if pd.notna(serial):
-            return f"STU-{int(serial):04d}"
-        return f"STU-{row.name:04d}"  # Use row index as fallback
-
-    df["student_tz"] = df.apply(generate_student_tz, axis=1)
-
-    # Identify metadata vs grade columns
     metadata_cols = ["serial_num", "student_tz", "student_name", "grade_level", "class_num", "class_name"]
     existing_meta_cols = [c for c in metadata_cols if c in df.columns]
 
-    # Grade columns: everything except metadata and average (ממוצע)
     grade_cols = [c for c in df.columns if c not in existing_meta_cols and "ממוצע" not in str(c)]
 
-    # Melt from wide to long format
     df_long = df.melt(
         id_vars=existing_meta_cols,
         value_vars=grade_cols,
@@ -178,18 +178,14 @@ def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         value_name="grade",
     )
 
-    # Parse subject and teacher from header string
     parsed_data = [parse_subject_teacher_header(x) for x in df_long["subject_teacher_str"]]
     df_long["subject"] = [x[0] for x in parsed_data]
     df_long["teacher_name"] = [x[1] for x in parsed_data]
 
-    # Convert grades to numeric, coercing errors to NaN
     df_long["grade"] = pd.to_numeric(df_long["grade"], errors="coerce")
 
-    # Drop rows without a valid grade
     df_long = df_long.dropna(subset=["grade"])
 
-    # Select final columns
     final_cols = ["student_tz", "student_name", "class_name", "grade_level", "subject", "teacher_name", "grade"]
     available_cols = [c for c in final_cols if c in df_long.columns]
 
@@ -200,7 +196,8 @@ def ingest_grades_file(
     session: Session,
     file_content: bytes,
     filename: str,
-    period: str = "Default",
+    content_type: str,
+    period: str = DEFAULT_PERIOD,
 ) -> ImportResult:
     """
     Ingest a grades XLSX file.
@@ -218,16 +215,11 @@ def ingest_grades_file(
     result = ImportResult(batch_id=batch_id, file_type="grades")
 
     try:
-        # Detect file format and read accordingly
-        if filename.lower().endswith(".csv"):
-            df = pd.read_csv(BytesIO(file_content), encoding="utf-8")
-        else:
-            df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
+        df = _read_file(file_content, content_type)
     except Exception as e:
         result.errors.append(f"Failed to read file: {str(e)}")
         return result
 
-    # Transform to long format with subject/teacher parsing
     try:
         df_long = load_grades_dataframe(df)
     except Exception as e:
@@ -259,20 +251,17 @@ def ingest_grades_file(
             if not student_name or not class_name or not subject:
                 continue
 
-            # Get or create class (once per class)
             if class_name not in classes_created:
                 get_or_create_class(session, class_name, grade_level)
                 classes_created.add(class_name)
                 result.classes_created += 1
 
-            # Get or create student (once per student)
             if student_tz not in students_processed:
                 _, created = get_or_create_student(session, student_tz, student_name, class_name)
                 if created:
                     result.students_created += 1
                 students_processed.add(student_tz)
 
-            # Get or create teacher
             teacher_id = None
             clean_teacher = teacher_name if pd.notna(teacher_name) else None
             if clean_teacher:
@@ -280,7 +269,6 @@ def ingest_grades_file(
                     teachers_cache[clean_teacher] = get_or_create_teacher(session, clean_teacher)
                 teacher_id = teachers_cache[clean_teacher].id
 
-            # Create grade record
             grade_record = Grade(
                 student_tz=student_tz,
                 subject=subject,
@@ -298,14 +286,13 @@ def ingest_grades_file(
 
     result.rows_imported = grades_imported
 
-    # Log the import
     import_log = ImportLog(
         batch_id=batch_id,
         filename=filename,
         file_type="grades",
         rows_imported=result.rows_imported,
         rows_failed=result.rows_failed,
-        errors=json.dumps(result.errors[:100]) if result.errors else None,
+        errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
         period=period,
     )
     session.add(import_log)
@@ -319,7 +306,6 @@ def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Parse an attendance/events XLSX file.
     Maps Hebrew columns to English and calculates totals.
     """
-    # Complete column mapping (Hebrew -> English)
     column_map = {
         "מס'": "serial_num",
         "ת.ז. התלמיד": "student_tz_orig",
@@ -352,32 +338,11 @@ def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         "נוכחות בפרטני": "private_lesson_presence",
     }
 
-    # Apply renaming
     df = df.rename(columns=column_map)
 
-    # Build full class_name from grade_level + class_num (e.g., "י" + "3" = "י-3")
-    df["class_name"] = df.apply(
-        lambda row: (
-            f"{row['grade_level']}-{int(row['class_num'])}"
-            if pd.notna(row.get("class_num")) and pd.notna(row.get("grade_level"))
-            else str(row.get("class_num", ""))
-        ),
-        axis=1,
-    )
+    df["class_name"] = df.apply(_build_class_name, axis=1)
+    df["student_tz"] = df.apply(lambda row: _generate_student_tz(row, tz_col="student_tz_orig"), axis=1)
 
-    # Generate student_tz if missing (use serial_num)
-    def generate_student_tz(row):
-        tz = row.get("student_tz_orig")
-        if pd.notna(tz) and str(tz).strip():
-            return str(tz).strip()
-        serial = row.get("serial_num", 0)
-        if pd.notna(serial):
-            return f"STU-{int(serial):04d}"
-        return f"STU-{row.name:04d}"  # Use row index as fallback
-
-    df["student_tz"] = df.apply(generate_student_tz, axis=1)
-
-    # Define column lists for logic
     negative_cols = [
         "absence",
         "absence_justified",
@@ -400,7 +365,6 @@ def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         "private_lesson_presence",
     ]
 
-    # Numeric conversion & cleaning
     all_event_cols = negative_cols + positive_cols + ["lessons_reported"]
 
     for col in all_event_cols:
@@ -409,7 +373,6 @@ def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         else:
             df[col] = 0
 
-    # Business logic calculations — חיסור is already unjustified only
     df["total_absences"] = df["absence"]
     df["attendance"] = df["lessons_reported"] - df["total_absences"]
 
@@ -423,7 +386,8 @@ def ingest_events_file(
     session: Session,
     file_content: bytes,
     filename: str,
-    period: str = "Default",
+    content_type: str,
+    period: str = DEFAULT_PERIOD,
 ) -> ImportResult:
     """
     Ingest an events/attendance XLSX file.
@@ -440,16 +404,11 @@ def ingest_events_file(
     result = ImportResult(batch_id=batch_id, file_type="events")
 
     try:
-        # Detect file format and read accordingly
-        if filename.lower().endswith(".csv"):
-            df = pd.read_csv(BytesIO(file_content), encoding="utf-8")
-        else:
-            df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
+        df = _read_file(file_content, content_type)
     except Exception as e:
         result.errors.append(f"Failed to read file: {str(e)}")
         return result
 
-    # Transform dataframe with column mapping and calculations
     try:
         df = load_attendance_dataframe(df)
     except Exception as e:
@@ -480,18 +439,15 @@ def ingest_events_file(
                 result.rows_failed += 1
                 continue
 
-            # Get or create class
             if class_name not in classes_created:
                 get_or_create_class(session, class_name, grade_level)
                 classes_created.add(class_name)
                 result.classes_created += 1
 
-            # Get or create student
             _, created = get_or_create_student(session, student_tz, student_name, class_name)
             if created:
                 result.students_created += 1
 
-            # Create attendance record using pre-calculated values
             attendance_record = AttendanceRecord(
                 student_tz=student_tz,
                 lessons_reported=int(row.get("lessons_reported", 0)),
@@ -512,14 +468,13 @@ def ingest_events_file(
             result.errors.append(f"Row {idx + 2}: {str(e)}")
             result.rows_failed += 1
 
-    # Log the import
     import_log = ImportLog(
         batch_id=batch_id,
         filename=filename,
         file_type="events",
         rows_imported=result.rows_imported,
         rows_failed=result.rows_failed,
-        errors=json.dumps(result.errors[:100]) if result.errors else None,
+        errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
         period=period,
     )
     session.add(import_log)
@@ -532,16 +487,18 @@ def ingest_file(
     session: Session,
     file_content: bytes,
     filename: str,
+    content_type: str,
     file_type: str | None = None,
-    period: str = "Default",
+    period: str = DEFAULT_PERIOD,
 ) -> ImportResult:
     """
-    Ingest an XLSX file, auto-detecting type if not specified.
+    Ingest an XLSX/CSV file, auto-detecting type if not specified.
 
     Args:
         session: Database session
         file_content: Raw file bytes
         filename: Original filename
+        content_type: MIME type of the uploaded file
         file_type: "grades" or "events", or None for auto-detect
         period: Period name to associate with this import
 
@@ -549,11 +506,7 @@ def ingest_file(
         ImportResult with details of the import
     """
     try:
-        # Detect file format and read accordingly
-        if filename.lower().endswith(".csv"):
-            df = pd.read_csv(BytesIO(file_content), encoding="utf-8")
-        else:
-            df = pd.read_excel(BytesIO(file_content), engine="openpyxl")
+        df = _read_file(file_content, content_type)
     except Exception as e:
         return ImportResult(
             batch_id=str(uuid.uuid4()),
@@ -565,9 +518,9 @@ def ingest_file(
         file_type = detect_file_type(df)
 
     if file_type == "grades":
-        return ingest_grades_file(session, file_content, filename, period)
+        return ingest_grades_file(session, file_content, filename, content_type, period)
     elif file_type == "events":
-        return ingest_events_file(session, file_content, filename, period)
+        return ingest_events_file(session, file_content, filename, content_type, period)
     else:
         return ImportResult(
             batch_id=str(uuid.uuid4()),
