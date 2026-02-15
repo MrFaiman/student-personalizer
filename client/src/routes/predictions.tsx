@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,18 +30,23 @@ import { useState } from "react";
 import { useFilters } from "@/components/FilterContext";
 import { TablePagination } from "@/components/TablePagination";
 import { mlApi } from "@/lib/api";
+import { useConfigStore } from "@/lib/config-store";
 
 export const Route = createFileRoute("/predictions")({
   component: PredictionsPage,
 });
 
 function PredictionsPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { filters } = useFilters();
+  const defaultPageSize = useConfigStore((s) => s.defaultPageSize);
+  const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
+  const goodGradeThreshold = useConfigStore((s) => s.goodGradeThreshold);
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const pageSize = defaultPageSize;
 
-  // Reset page to 1 when global filters change
+
   const [prevPeriod, setPrevPeriod] = useState(filters.period);
   if (prevPeriod !== filters.period) {
     setPrevPeriod(filters.period);
@@ -82,6 +89,9 @@ function PredictionsPage() {
 
   return (
     <div className="space-y-6">
+      <Helmet>
+        <title>{`${t("nav.predictions")} | ${t("appName")}`}</title>
+      </Helmet>
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">תחזיות ML</h1>
@@ -248,9 +258,9 @@ function PredictionsPage() {
                       <TableCell className="text-muted-foreground">{(page - 1) * pageSize + index + 1}</TableCell>
                       <TableCell className="font-medium">{pred.student_name || "—"}</TableCell>
                       <TableCell
-                        className={`font-bold ${(pred.predicted_grade ?? 0) < 55
+                        className={`font-bold ${(pred.predicted_grade ?? 0) < atRiskGradeThreshold
                             ? "text-red-600"
-                            : (pred.predicted_grade ?? 0) >= 80
+                            : (pred.predicted_grade ?? 0) >= goodGradeThreshold
                               ? "text-green-600"
                               : ""
                           }`}

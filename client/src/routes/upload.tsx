@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
+import { Helmet } from "react-helmet-async";
 import {
     Upload,
     FileSpreadsheet,
@@ -46,6 +47,8 @@ import {
 import { ingestionApi } from "@/lib/api";
 import { TablePagination } from "@/components/TablePagination";
 import type { ImportResponse } from "@/lib/types";
+import { MAX_DISPLAYED_ERRORS } from "@/lib/constants";
+import { useConfigStore } from "@/lib/config-store";
 
 export const Route = createFileRoute("/upload")({
     component: UploadPage,
@@ -54,6 +57,7 @@ export const Route = createFileRoute("/upload")({
 
 function UploadPage() {
     const { t } = useTranslation("upload");
+    const { t: tc } = useTranslation();
     const queryClient = useQueryClient();
     const [dragActive, setDragActive] = useState(false);
     const [fileType, setFileType] = useState<"grades" | "events" | "__auto__">("__auto__");
@@ -62,8 +66,9 @@ function UploadPage() {
     const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
+    const defaultPageSize = useConfigStore((s) => s.defaultPageSize);
     const [logPage, setLogPage] = useState(1);
-    const logPageSize = 20;
+    const logPageSize = defaultPageSize;
 
     const { data: logs, isLoading: logsLoading } = useQuery({
         queryKey: ["import-logs", logPage],
@@ -101,7 +106,6 @@ function UploadPage() {
             setUploadResults(results);
             setUploadProgress(null);
 
-            // Invalidate queries after all uploads complete
             queryClient.invalidateQueries({ queryKey: ["import-logs"] });
             queryClient.invalidateQueries({ queryKey: ["students"] });
             queryClient.invalidateQueries({ queryKey: ["classes"] });
@@ -168,6 +172,9 @@ function UploadPage() {
 
     return (
         <div className="space-y-4">
+            <Helmet>
+                <title>{`${t("title")} | ${tc("appName")}`}</title>
+            </Helmet>
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold">{t("title")}</h1>
@@ -298,7 +305,7 @@ function UploadPage() {
                                                 <div className="mt-3">
                                                     <p className="text-xs font-medium text-red-700 mb-1">{t("errors.title")}</p>
                                                     <ul className="text-xs text-red-600 list-disc list-inside space-y-0.5">
-                                                        {item.result.errors.slice(0, 5).map((err: string, i: number) => (
+                                                        {item.result.errors.slice(0, MAX_DISPLAYED_ERRORS).map((err: string, i: number) => (
                                                             <li key={i}>{err}</li>
                                                         ))}
                                                     </ul>

@@ -2,6 +2,7 @@ import { Star, CalendarCheck, AlertTriangle, Eye } from "lucide-react";
 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +19,8 @@ import {
 import { useFilters } from "@/components/FilterContext";
 import { type StudentListItem } from "@/lib/types";
 import { analyticsApi, studentsApi } from "@/lib/api";
+import { AT_RISK_PREVIEW_COUNT } from "@/lib/constants";
+import { useConfigStore } from "@/lib/config-store";
 import {
   KPICard,
   DashboardBarChart,
@@ -30,6 +33,7 @@ export const Route = createFileRoute("/")(
 );
 
 function HomePage() {
+  const { t } = useTranslation();
   const { filters } = useFilters();
 
   const { data: kpis, isLoading } = useQuery({
@@ -47,6 +51,9 @@ function HomePage() {
 
   return (
     <>
+      <Helmet>
+        <title>{`${t("nav.dashboard")} | ${t("appName")}`}</title>
+      </Helmet>
       <KPISection />
       <ChartsSection />
       <StudentsTable />
@@ -167,6 +174,7 @@ function StudentsTable() {
   const { t } = useTranslation("dashboard");
   const { t: tc } = useTranslation();
   const { filters } = useFilters();
+  const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
 
   const { data: students, isLoading } = useQuery({
     queryKey: ["at-risk-students", filters.period, filters.classId],
@@ -214,12 +222,12 @@ function StudentsTable() {
               </TableRow>
             ))
           ) : students?.items?.length ? (
-            students.items.slice(0, 10).map((student: StudentListItem, index: number) => (
+            students.items.slice(0, AT_RISK_PREVIEW_COUNT).map((student: StudentListItem, index: number) => (
               <TableRow key={student.student_tz} className="hover:bg-accent/30 transition-colors">
                 <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                 <TableCell className="font-semibold">{student.student_name}</TableCell>
                 <TableCell>{student.class_name}</TableCell>
-                <TableCell className={`font-bold ${student.average_grade && student.average_grade < 55 ? "text-red-600" : ""}`}>
+                <TableCell className={`font-bold ${student.average_grade && student.average_grade < atRiskGradeThreshold ? "text-red-600" : ""}`}>
                   {student.average_grade?.toFixed(1) || "—"}
                 </TableCell>
                 <TableCell>{student.total_absences}</TableCell>

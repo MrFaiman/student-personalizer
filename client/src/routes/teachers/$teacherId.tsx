@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +29,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { CLASS_COLORS } from "@/lib/utils";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 import { analyticsApi } from "@/lib/api";
+import { useConfigStore } from "@/lib/config-store";
 import { useState } from "react";
 
 export const Route = createFileRoute("/teachers/$teacherId")(
@@ -39,6 +41,7 @@ function TeacherDetailPage() {
     const { t: tc } = useTranslation();
     const { teacherId } = Route.useParams();
     const { filters } = useFilters();
+    const gradeRange = useConfigStore((s) => s.gradeRange);
     const [selectedClassId, setSelectedClassId] = useState<string>("__all__");
 
     const { data: teacher, isLoading } = useQuery({
@@ -86,6 +89,9 @@ function TeacherDetailPage() {
 
     return (
         <div className="space-y-6">
+            <Helmet>
+                <title>{`${teacher.name} | ${tc("appName")}`}</title>
+            </Helmet>
             <PageHeader
                 backTo="/teachers"
                 backLabel={t("detail.backToList")}
@@ -138,7 +144,7 @@ function TeacherDetailPage() {
                                     <XAxis
                                         dataKey="grade"
                                         type="number"
-                                        domain={[0, 100]}
+                                        domain={gradeRange}
                                         tick={{ fontSize: 12 }}
                                         label={{ value: t("detail.gradeAxis"), position: "insideBottom", offset: -2, fontSize: 12 }}
                                     />
@@ -182,7 +188,7 @@ function TeacherDetailPage() {
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={classChartData}>
                                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                                    <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                                    <YAxis domain={gradeRange} tick={{ fontSize: 12 }} />
                                     <Tooltip
                                         contentStyle={TOOLTIP_STYLE}
                                         formatter={(value) => [
@@ -218,7 +224,7 @@ function TeacherDetailPage() {
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={subjectChartData}>
                                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                                    <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                                    <YAxis domain={gradeRange} tick={{ fontSize: 12 }} />
                                     <Tooltip
                                         contentStyle={TOOLTIP_STYLE}
                                         formatter={(value) => [

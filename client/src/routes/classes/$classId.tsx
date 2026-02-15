@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { useFilters } from "@/components/FilterContext";
 import { PageHeader } from "@/components/PageHeader";
 import type { HeatmapStudent, StudentRanking } from "@/lib/types";
 import { analyticsApi, studentsApi } from "@/lib/api";
+import { useConfigStore } from "@/lib/config-store";
 
 export const Route = createFileRoute("/classes/$classId")(
     { component: ClassDetailPage },
@@ -28,6 +30,9 @@ function ClassDetailPage() {
     const { t: tc } = useTranslation();
     const { classId } = Route.useParams();
     const { filters } = useFilters();
+    const excellentGradeThreshold = useConfigStore((s) => s.excellentGradeThreshold);
+    const mediumGradeThreshold = useConfigStore((s) => s.mediumGradeThreshold);
+    const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
 
     const { data: classes } = useQuery({
         queryKey: ["classes", filters.period],
@@ -48,14 +53,17 @@ function ClassDetailPage() {
 
     const getGradeColor = (grade: number | null) => {
         if (grade === null) return "bg-gray-100";
-        if (grade >= 85) return "bg-green-500 text-white";
-        if (grade >= 70) return "bg-green-300";
-        if (grade >= 55) return "bg-yellow-300";
+        if (grade >= excellentGradeThreshold) return "bg-green-500 text-white";
+        if (grade >= mediumGradeThreshold) return "bg-green-300";
+        if (grade >= atRiskGradeThreshold) return "bg-yellow-300";
         return "bg-red-400 text-white";
     };
 
     return (
         <div className="space-y-6">
+            <Helmet>
+                <title>{`${classInfo?.class_name || t("detail.classTitle", { id: classId })} | ${tc("appName")}`}</title>
+            </Helmet>
             <PageHeader
                 backTo="/classes"
                 backLabel={t("detail.backToList")}
@@ -210,7 +218,7 @@ function ClassDetailPage() {
                                         <TableRow key={student.student_tz}>
                                             <TableCell className="font-medium">{student.student_name}</TableCell>
                                             <TableCell
-                                                className={`font-bold ${student.average < 55 ? "text-red-600" : "text-orange-600"}`}
+                                                className={`font-bold ${student.average < atRiskGradeThreshold ? "text-red-600" : "text-orange-600"}`}
                                             >
                                                 {student.average.toFixed(1)}
                                             </TableCell>

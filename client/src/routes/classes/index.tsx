@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,9 @@ function ClassesListPage() {
 
     return (
         <div className="space-y-6">
+            <Helmet>
+                <title>{`${t("list.title")} | ${tc("appName")}`}</title>
+            </Helmet>
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold">{t("list.title")}</h1>

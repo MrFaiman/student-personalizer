@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useFilters } from "./FilterContext";
 import { analyticsApi, ingestionApi } from "@/lib/api";
+import { METADATA_STALE_TIME_MS } from "@/lib/constants";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
@@ -85,7 +86,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
     const { data: metadata } = useQuery({
         queryKey: ["metadata"],
         queryFn: analyticsApi.getMetadata,
-        staleTime: 5 * 60 * 1000,
+        staleTime: METADATA_STALE_TIME_MS,
     });
 
     const { data: kpis, isLoading: kpisLoading } = useQuery({

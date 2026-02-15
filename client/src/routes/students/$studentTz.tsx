@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,11 @@ import {
 import { studentsApi } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
+import {
+  RECENT_GRADES_COUNT,
+  GRADE_TABLE_PREVIEW_COUNT,
+} from "@/lib/constants";
+import { useConfigStore } from "@/lib/config-store";
 import type { GradeResponse, AttendanceResponse } from "@/lib/types";
 
 export const Route = createFileRoute("/students/$studentTz")(
@@ -62,6 +68,11 @@ function StudentDetailPage() {
   const { t } = useTranslation("students");
   const { t: tc } = useTranslation();
   const { studentTz } = Route.useParams();
+  const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
+  const goodGradeThreshold = useConfigStore((s) => s.goodGradeThreshold);
+  const performanceGoodThreshold = useConfigStore((s) => s.performanceGoodThreshold);
+  const performanceMediumThreshold = useConfigStore((s) => s.performanceMediumThreshold);
+  const gradeRange = useConfigStore((s) => s.gradeRange);
 
   const { data: student, isLoading } = useQuery({
     queryKey: ["student", studentTz],
@@ -78,7 +89,6 @@ function StudentDetailPage() {
     queryFn: () => studentsApi.getAttendance(studentTz),
   });
 
-  // Prepare radar chart data: average grade per subject per period
   const { radarData, periods } = (() => {
     if (!grades?.length) return { radarData: [], periods: [] as string[] };
     const byPeriodSubject = new Map<string, Map<string, { sum: number; count: number }>>();
@@ -110,16 +120,14 @@ function StudentDetailPage() {
     return { radarData, periods };
   })();
 
-  // Calculate attendance rate from backend data
   const totalLessons = attendance?.reduce((sum, a) => sum + a.lessons_reported, 0) || 0;
   const totalAttendance = attendance?.reduce((sum, a) => sum + a.attendance, 0) || 0;
   const attendanceRate = totalLessons > 0 ? (totalAttendance / totalLessons) * 100 : 0;
 
-  // Prepare grade trend data
   const gradeTrend =
     grades
       ?.sort((a, b) => new Date(a.date ?? "").getTime() - new Date(b.date ?? "").getTime())
-      .slice(-10)
+      .slice(-RECENT_GRADES_COUNT)
       .map((g, i) => ({
         index: i + 1,
         grade: g.grade,
@@ -153,6 +161,9 @@ function StudentDetailPage() {
 
   return (
     <div className="space-y-6">
+      <Helmet>
+        <title>{`${student.student_name} | ${tc("appName")}`}</title>
+      </Helmet>
       {/* Header with back button */}
       <div className="flex items-center gap-4">
         <Link to="/students">
@@ -186,8 +197,8 @@ function StudentDetailPage() {
                     <circle
                       cx="18" cy="18" r="15.5" fill="none"
                       stroke={
-                        student.performance_score >= 70 ? "#22c55e"
-                          : student.performance_score >= 40 ? "#f59e0b"
+                        student.performance_score >= performanceGoodThreshold ? "#22c55e"
+                          : student.performance_score >= performanceMediumThreshold ? "#f59e0b"
                             : "#ef4444"
                       }
                       strokeWidth="3" strokeLinecap="round"
@@ -258,7 +269,7 @@ function StudentDetailPage() {
                 <LineChart data={gradeTrend} margin={{ top: 20, right: 30, bottom: 20, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="index" />
-                  <YAxis domain={[0, 100]} />
+                  <YAxis domain={gradeRange} />
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
                     formatter={(value) => [Number(value ?? 0).toFixed(0), t("detail.gradeTooltip")]}
@@ -333,13 +344,13 @@ function StudentDetailPage() {
           </TableHeader>
           <TableBody>
             {grades?.length ? (
-              grades.slice(0, 20).map((grade, i) => (
+              grades.slice(0, GRADE_TABLE_PREVIEW_COUNT).map((grade, i) => (
                 <TableRow key={i}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">{grade.subject}</TableCell>
                   <TableCell>{grade.teacher || "—"}</TableCell>
                   <TableCell
-                    className={`font-bold ${grade.grade < 55 ? "text-red-600" : grade.grade >= 80 ? "text-green-600" : ""}`}
+                    className={`font-bold ${grade.grade < atRiskGradeThreshold ? "text-red-600" : grade.grade >= goodGradeThreshold ? "text-green-600" : ""}`}
                   >
                     {grade.grade}
                   </TableCell>
@@ -416,6 +427,8 @@ function PeriodComparisonSection({
 }) {
   const { t } = useTranslation("students");
   const { t: tc } = useTranslation();
+  const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
+  const goodGradeThreshold = useConfigStore((s) => s.goodGradeThreshold);
   const [period1, setPeriod1] = useState<string>(periods[0] ?? "");
   const [period2, setPeriod2] = useState<string>(periods[1] ?? periods[0] ?? "");
 
@@ -435,7 +448,6 @@ function PeriodComparisonSection({
     const attRate = totalLessons > 0 ? (totalPresent / totalLessons) * 100 : null;
     const totalAbsences = periodAttendance.reduce((s, a) => s + a.total_absences, 0);
 
-    // Subject averages
     const bySubject = new Map<string, { sum: number; count: number }>();
     for (const g of periodGrades) {
       const entry = bySubject.get(g.subject);
@@ -497,7 +509,7 @@ function PeriodComparisonSection({
                   <TableRow key={s.subject}>
                     <TableCell className="py-1.5 text-sm">{s.subject}</TableCell>
                     <TableCell
-                      className={`py-1.5 text-sm font-bold text-left ${s.avg < 55 ? "text-red-600" : s.avg >= 80 ? "text-green-600" : ""
+                      className={`py-1.5 text-sm font-bold text-left ${s.avg < atRiskGradeThreshold ? "text-red-600" : s.avg >= goodGradeThreshold ? "text-green-600" : ""
                         }`}
                     >
                       {s.avg}
@@ -595,6 +607,7 @@ function SubjectRadarChart({
   periods: string[];
 }) {
   const { t } = useTranslation("students");
+  const gradeRange = useConfigStore((s) => s.gradeRange);
 
   return (
     <Card>
@@ -610,7 +623,7 @@ function SubjectRadarChart({
             <RadarChart data={data} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
               <PolarGrid />
               <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
-              <PolarRadiusAxis domain={[0, 100]} />
+              <PolarRadiusAxis domain={gradeRange} />
               {periods.map((period, i) => (
                 <Radar
                   key={period}

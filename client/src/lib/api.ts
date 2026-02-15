@@ -213,4 +213,12 @@ export const mlApi = {
   getStatus: () => fetchApi<ModelStatusResponse>("/api/ml/status"),
 };
 
+// Config API
+
+import type { AppConfig } from "./types";
+
+export const configApi = {
+  get: () => fetchApi<AppConfig>("/api/config"),
+};
+
 export { ApiError };

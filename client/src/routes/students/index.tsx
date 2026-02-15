@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { type StudentListItem } from "@/lib/types";
 import { studentsApi } from "@/lib/api";
+import { DEBOUNCE_DELAY_MS } from "@/lib/constants";
+import { useConfigStore } from "@/lib/config-store";
 
 export const Route = createFileRoute("/students/")(
     { component: StudentsListPage },
@@ -46,14 +49,16 @@ function StudentsListPage() {
     const { t } = useTranslation("students");
     const { t: tc } = useTranslation();
     const { filters } = useFilters();
+    const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
+    const defaultPageSize = useConfigStore((s) => s.defaultPageSize);
     const [search, setSearch] = useState("");
-    const debouncedSearch = useDebouncedValue(search, 300);
+    const debouncedSearch = useDebouncedValue(search, DEBOUNCE_DELAY_MS);
     const [selectedClassId, setSelectedClassId] = useState<string>("__all__");
     const [showAtRiskOnly, setShowAtRiskOnly] = useState(false);
     const [page, setPage] = useState(1);
-    const pageSize = 20;
+    const pageSize = defaultPageSize;
 
-    // Reset page to 1 when global filters change
+
     const [prevPeriod, setPrevPeriod] = useState(filters.period);
     if (prevPeriod !== filters.period) {
         setPrevPeriod(filters.period);
@@ -88,13 +93,15 @@ function StudentsListPage() {
         placeholderData: keepPreviousData,
     });
 
-    // Reset page when filters change (not on page change itself)
     const resetPage = () => setPage(1);
 
     const studentsList = students?.items || [];
 
     return (
         <div className="space-y-6">
+            <Helmet>
+                <title>{`${t("list.title")} | ${tc("appName")}`}</title>
+            </Helmet>
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -204,7 +211,7 @@ function StudentsListPage() {
                                     <TableCell className="font-mono text-sm">{student.student_tz}</TableCell>
                                     <TableCell>{student.class_name}</TableCell>
                                     <TableCell
-                                        className={`font-bold ${student.average_grade && student.average_grade < 55 ? "text-red-600" : ""}`}
+                                        className={`font-bold ${student.average_grade && student.average_grade < atRiskGradeThreshold ? "text-red-600" : ""}`}
                                     >
                                         {student.average_grade?.toFixed(1) || "—"}
                                     </TableCell>

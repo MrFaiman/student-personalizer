@@ -4,3 +4,4 @@ export * from "./types/ingestion";
 export * from "./types/ml";
 export * from "./types/teacher";
 export * from "./types/filters";
+export * from "./types/config";
