@@ -20,7 +20,7 @@ async def list_classes(
     """Get all classes with statistics."""
     service = ClassService(session)
     view = ClassDefaultView()
-    
+
     data = service.list_classes_with_stats(period)
     return view.render_list(data)
 
@@ -34,16 +34,10 @@ async def get_class_heatmap(
     """Get heatmap data for a specific class."""
     service = ClassService(session)
     view = ClassDefaultView()
-    
+
     data = service.get_class_heatmap(class_id, period)
     if not data:
-        # In original analytics router, it checked `if not data` then 404.
-        # But empty class might return empty dict? 
-        # Refactoring note: Service returns empty dict if no students.
-        # Original logic: `if not students: return {}`. `if not data: raise 404`.
-        # So empty class raises 404 in original. I'll maintain behavior.
         raise HTTPException(status_code=404, detail=f"Class ID '{class_id}' not found or has no data")
-        
     return view.render_heatmap(data)
 
 
@@ -58,6 +52,6 @@ async def get_class_rankings(
     """Get top and bottom students in a class."""
     service = ClassService(session)
     view = ClassDefaultView()
-    
+
     data = service.get_top_bottom_students(class_id, period, top_n, bottom_n)
     return view.render_rankings(data)
