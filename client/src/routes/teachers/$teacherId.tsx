@@ -71,10 +71,10 @@ function TeacherDetailPage() {
 
     if (isLoading) {
         return (
-            <div className="space-y-6">
+            <div className="space-y-4">
                 <Skeleton className="h-10 w-40" />
                 <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-[30vh] w-full" />
             </div>
         );
     }
@@ -88,7 +88,7 @@ function TeacherDetailPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <Helmet>
                 <title>{`${teacher.name} | ${tc("appName")}`}</title>
             </Helmet>
@@ -130,7 +130,7 @@ function TeacherDetailPage() {
                             </Select>
                         )}
                     </div>
-                    <div className="h-64">
+                    <div className="h-[30vh]">
                         {activeHistogram.some((d) => d.count > 0) ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={activeHistogram}>
@@ -183,7 +183,7 @@ function TeacherDetailPage() {
                         <School className="size-5 text-primary" />
                         {t("detail.classPerformance")}
                     </h3>
-                    <div className="h-64">
+                    <div className="h-[30vh]">
                         {classChartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={classChartData}>
@@ -219,7 +219,7 @@ function TeacherDetailPage() {
                         <BookOpen className="size-5 text-primary" />
                         {t("detail.subjectPerformance")}
                     </h3>
-                    <div className="h-64">
+                    <div className="h-[30vh]">
                         {subjectChartData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={subjectChartData}>

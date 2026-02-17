@@ -38,7 +38,7 @@ function TeachersListPage() {
             : "—";
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <Helmet>
                 <title>{`${t("list.title")} | ${tc("appName")}`}</title>
             </Helmet>
