@@ -4,25 +4,18 @@ import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { BookOpen, School, BarChart3 } from "lucide-react";
+import { BarChart3, School } from "lucide-react";
 import {
     AreaChart,
     Area,
     BarChart,
     Bar,
+    CartesianGrid,
     Cell,
     XAxis,
     YAxis,
     Tooltip,
     ResponsiveContainer,
-    CartesianGrid,
 } from "recharts";
 import { useFilters } from "@/components/FilterContext";
 import { PageHeader } from "@/components/PageHeader";
@@ -30,7 +23,6 @@ import { CLASS_COLORS } from "@/lib/utils";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 import { analyticsApi } from "@/lib/api";
 import { useConfigStore } from "@/lib/config-store";
-import { useState } from "react";
 
 export const Route = createFileRoute("/teachers/$teacherId")(
     { component: TeacherDetailPage },
@@ -42,31 +34,17 @@ function TeacherDetailPage() {
     const { teacherId } = Route.useParams();
     const { filters } = useFilters();
     const gradeRange = useConfigStore((s) => s.gradeRange);
-    const [selectedClassId, setSelectedClassId] = useState<string>("__all__");
 
     const { data: teacher, isLoading } = useQuery({
         queryKey: ["teacher-detail", teacherId, filters.period],
         queryFn: () => analyticsApi.getTeacherDetail(teacherId, { period: filters.period }),
     });
 
-    const selectedClassData = teacher?.class_performance.find((c) => c.class_id === selectedClassId);
-    const activeHistogram = (
-        selectedClassId === "__all__"
-            ? teacher?.grade_histogram
-            : selectedClassData?.grade_histogram
-    ) ?? [];
-
-    const classChartData = teacher?.class_performance.map((cls) => ({
-        name: cls.class_name,
+    const classChartData = teacher?.classes.map((cls) => ({
+        name: cls.name,
         average: cls.average_grade,
         students: cls.student_count,
-        id: cls.class_id,
-    })) ?? [];
-
-    const subjectChartData = teacher?.subject_performance.map((s) => ({
-        name: s.subject,
-        average: s.average_grade,
-        students: s.student_count,
+        id: cls.id,
     })) ?? [];
 
     if (isLoading) {
@@ -101,39 +79,22 @@ function TeacherDetailPage() {
                     classes: teacher.classes.length,
                 })}
                 stats={[
-                    { value: teacher.average_grade?.toFixed(1) || "—", label: tc("table.average") },
-                    { value: teacher.student_count, label: tc("general.students") },
+                    { value: teacher.stats.average_grade?.toFixed(1) || "—", label: tc("table.average") },
+                    { value: teacher.stats.student_count, label: tc("general.students") },
                 ]}
             />
 
-            {/* Grade Distribution with Class Selector */}
+            {/* Grade Distribution */}
             <Card>
                 <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-bold flex items-center gap-2">
-                            <BarChart3 className="size-5 text-primary" />
-                            {t("detail.gradeDistribution")}
-                        </h3>
-                        {teacher.class_performance.length > 1 && (
-                            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-                                <SelectTrigger className="w-40 h-9 text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="__all__">{t("detail.allClasses")}</SelectItem>
-                                    {teacher.class_performance.map((cls) => (
-                                        <SelectItem key={cls.class_id} value={cls.class_id}>
-                                            {cls.class_name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    </div>
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                        <BarChart3 className="size-5 text-primary" />
+                        {t("detail.gradeDistribution")}
+                    </h3>
                     <div className="h-[30vh]">
-                        {activeHistogram.some((d) => d.count > 0) ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={activeHistogram}>
+                        {teacher.grade_histogram.some((d) => d.count > 0) ? (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <AreaChart data={teacher.grade_histogram}>
                                     <defs>
                                         <linearGradient id="distributionGrad" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
@@ -185,7 +146,7 @@ function TeacherDetailPage() {
                     </h3>
                     <div className="h-[30vh]">
                         {classChartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                 <BarChart data={classChartData}>
                                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                                     <YAxis domain={gradeRange} tick={{ fontSize: 12 }} />
@@ -198,42 +159,6 @@ function TeacherDetailPage() {
                                     />
                                     <Bar dataKey="average" radius={[4, 4, 0, 0]}>
                                         {classChartData.map((_, i) => (
-                                            <Cell key={i} fill={CLASS_COLORS[i % CLASS_COLORS.length]} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="flex items-center justify-center h-full text-muted-foreground">
-                                {tc("noData")}
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Per-Subject Performance */}
-            <Card>
-                <CardContent className="p-6">
-                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                        <BookOpen className="size-5 text-primary" />
-                        {t("detail.subjectPerformance")}
-                    </h3>
-                    <div className="h-[30vh]">
-                        {subjectChartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={subjectChartData}>
-                                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                                    <YAxis domain={gradeRange} tick={{ fontSize: 12 }} />
-                                    <Tooltip
-                                        contentStyle={TOOLTIP_STYLE}
-                                        formatter={(value) => [
-                                            `${Number(value).toFixed(1)}`,
-                                            tc("table.average"),
-                                        ]}
-                                    />
-                                    <Bar dataKey="average" radius={[4, 4, 0, 0]}>
-                                        {subjectChartData.map((_, i) => (
                                             <Cell key={i} fill={CLASS_COLORS[i % CLASS_COLORS.length]} />
                                         ))}
                                     </Bar>

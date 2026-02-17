@@ -126,8 +126,7 @@ function StudentDetailPage() {
 
   const gradeTrend =
     grades
-      ?.sort((a, b) => new Date(a.date ?? "").getTime() - new Date(b.date ?? "").getTime())
-      .slice(-RECENT_GRADES_COUNT)
+      ?.slice(-RECENT_GRADES_COUNT)
       .map((g, i) => ({
         index: i + 1,
         grade: g.grade,
@@ -338,7 +337,6 @@ function StudentDetailPage() {
               <TableHead className="text-right font-bold">{tc("table.subject")}</TableHead>
               <TableHead className="text-right font-bold">{tc("table.teacher")}</TableHead>
               <TableHead className="text-right font-bold">{tc("table.grade")}</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.date")}</TableHead>
               <TableHead className="text-right font-bold">{tc("table.period")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -348,21 +346,18 @@ function StudentDetailPage() {
                 <TableRow key={i}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">{grade.subject}</TableCell>
-                  <TableCell>{grade.teacher || "—"}</TableCell>
+                  <TableCell>{grade.teacher_name || "—"}</TableCell>
                   <TableCell
                     className={`font-bold ${grade.grade < atRiskGradeThreshold ? "text-red-600" : grade.grade >= goodGradeThreshold ? "text-green-600" : ""}`}
                   >
                     {grade.grade}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {grade.date ? new Date(grade.date).toLocaleDateString("he-IL") : "—"}
                   </TableCell>
                   <TableCell>{grade.period || "—"}</TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
                   {t("detail.noGrades")}
                 </TableCell>
               </TableRow>
