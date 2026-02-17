@@ -1,9 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -14,9 +14,10 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Users, Trophy, AlertCircle, Eye } from "lucide-react";
+import { Users, Trophy, AlertCircle } from "lucide-react";
 import { useFilters } from "@/components/FilterContext";
 import { PageHeader } from "@/components/PageHeader";
+import { StudentLink } from "@/components/StudentLink";
 import type { HeatmapStudent, StudentRanking } from "@/lib/types";
 import { analyticsApi, studentsApi } from "@/lib/api";
 import { useConfigStore } from "@/lib/config-store";
@@ -60,7 +61,7 @@ function ClassDetailPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <Helmet>
                 <title>{`${classInfo?.class_name || t("detail.classTitle", { id: classId })} | ${tc("appName")}`}</title>
             </Helmet>
@@ -83,9 +84,9 @@ function ClassDetailPage() {
                         {t("detail.heatmapTitle")}
                     </h3>
                     {isLoadingHeatmap ? (
-                        <Skeleton className="h-96" />
+                        <Skeleton className="h-[50vh]" />
                     ) : heatmapData?.students.length ? (
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr>
@@ -104,13 +105,10 @@ function ClassDetailPage() {
                                     {heatmapData.students.map((student: HeatmapStudent) => (
                                         <tr key={student.student_tz} className="border-t">
                                             <td className="p-2 sticky right-0 bg-background">
-                                                <Link
-                                                    to="/students/$studentTz"
-                                                    params={{ studentTz: student.student_tz }}
-                                                    className="hover:text-primary hover:underline"
-                                                >
-                                                    {student.student_name}
-                                                </Link>
+                                                <StudentLink
+                                                    studentTz={student.student_tz}
+                                                    studentName={student.student_name}
+                                                />
                                             </td>
                                             {heatmapData.subjects.map((subject: string) => (
                                                 <td key={subject} className="p-1 text-center">
@@ -159,7 +157,7 @@ function ClassDetailPage() {
                                         <TableHead className="text-right">{tc("table.rank")}</TableHead>
                                         <TableHead className="text-right">{tc("table.name")}</TableHead>
                                         <TableHead className="text-right">{tc("table.average")}</TableHead>
-                                        <TableHead></TableHead>
+
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -170,17 +168,16 @@ function ClassDetailPage() {
                                                     #{index + 1}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="font-medium">{student.student_name}</TableCell>
+                                            <TableCell className="font-medium">
+                                                <StudentLink
+                                                    studentTz={student.student_tz}
+                                                    studentName={student.student_name}
+                                                />
+                                            </TableCell>
                                             <TableCell className="font-bold text-green-600">
                                                 {student.average.toFixed(1)}
                                             </TableCell>
-                                            <TableCell>
-                                                <Link to="/students/$studentTz" params={{ studentTz: student.student_tz }}>
-                                                    <Button variant="ghost" size="icon" aria-label={tc("viewStudent")}>
-                                                        <Eye className="size-4" />
-                                                    </Button>
-                                                </Link>
-                                            </TableCell>
+
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -210,25 +207,24 @@ function ClassDetailPage() {
                                     <TableRow>
                                         <TableHead className="text-right">{tc("table.name")}</TableHead>
                                         <TableHead className="text-right">{tc("table.average")}</TableHead>
-                                        <TableHead></TableHead>
+
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {rankings.bottom.map((student: StudentRanking) => (
                                         <TableRow key={student.student_tz}>
-                                            <TableCell className="font-medium">{student.student_name}</TableCell>
+                                            <TableCell className="font-medium">
+                                                <StudentLink
+                                                    studentTz={student.student_tz}
+                                                    studentName={student.student_name}
+                                                />
+                                            </TableCell>
                                             <TableCell
                                                 className={`font-bold ${student.average < atRiskGradeThreshold ? "text-red-600" : "text-orange-600"}`}
                                             >
                                                 {student.average.toFixed(1)}
                                             </TableCell>
-                                            <TableCell>
-                                                <Link to="/students/$studentTz" params={{ studentTz: student.student_tz }}>
-                                                    <Button variant="ghost" size="icon" aria-label={tc("viewStudent")}>
-                                                        <Eye className="size-4" />
-                                                    </Button>
-                                                </Link>
-                                            </TableCell>
+
                                         </TableRow>
                                     ))}
                                 </TableBody>
