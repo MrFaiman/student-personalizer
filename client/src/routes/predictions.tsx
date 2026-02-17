@@ -1,5 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,13 +27,12 @@ import {
   XCircle,
   AlertTriangle,
   TrendingDown,
-  Clock,
   Users,
-  Eye,
 } from "lucide-react";
 import { useState } from "react";
 import { useFilters } from "@/components/FilterContext";
 import { TablePagination } from "@/components/TablePagination";
+import { StudentLink } from "@/components/StudentLink";
 import { mlApi } from "@/lib/api";
 import { useConfigStore } from "@/lib/config-store";
 
@@ -46,7 +50,6 @@ function PredictionsPage() {
   const [page, setPage] = useState(1);
   const pageSize = defaultPageSize;
 
-
   const [prevPeriod, setPrevPeriod] = useState(filters.period);
   if (prevPeriod !== filters.period) {
     setPrevPeriod(filters.period);
@@ -60,7 +63,8 @@ function PredictionsPage() {
 
   const { data: predictions, isLoading: predictionsLoading } = useQuery({
     queryKey: ["ml-predictions", filters.period, page],
-    queryFn: () => mlApi.predictAll({ period: filters.period, page, page_size: pageSize }),
+    queryFn: () =>
+      mlApi.predictAll({ period: filters.period, page, page_size: pageSize }),
     enabled: !!status?.trained,
     placeholderData: keepPreviousData,
   });
@@ -78,9 +82,13 @@ function PredictionsPage() {
       case "high":
         return <Badge className="bg-red-100 text-red-700">סיכון גבוה</Badge>;
       case "medium":
-        return <Badge className="bg-yellow-100 text-yellow-700">סיכון בינוני</Badge>;
+        return (
+          <Badge className="bg-yellow-100 text-yellow-700">סיכון בינוני</Badge>
+        );
       default:
-        return <Badge className="bg-green-100 text-green-700">סיכון נמוך</Badge>;
+        return (
+          <Badge className="bg-green-100 text-green-700">סיכון נמוך</Badge>
+        );
     }
   };
 
@@ -88,7 +96,7 @@ function PredictionsPage() {
   const highRiskCount = predictions?.high_risk_count ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Helmet>
         <title>{`${t("nav.predictions")} | ${t("appName")}`}</title>
       </Helmet>
@@ -106,8 +114,9 @@ function PredictionsPage() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div
-                className={`rounded-lg p-3 ${status?.trained ? "bg-green-100" : "bg-yellow-100"
-                  }`}
+                className={`rounded-lg p-3 ${
+                  status?.trained ? "bg-green-100" : "bg-yellow-100"
+                }`}
               >
                 <Brain
                   className={`size-8 ${status?.trained ? "text-green-600" : "text-yellow-600"}`}
@@ -135,7 +144,9 @@ function PredictionsPage() {
               disabled={trainMutation.isPending}
               className="gap-2"
             >
-              <RefreshCw className={`size-4 ${trainMutation.isPending ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`size-4 ${trainMutation.isPending ? "animate-spin" : ""}`}
+              />
               {trainMutation.isPending ? "מאמן..." : "אמן מודל"}
             </Button>
           </div>
@@ -143,12 +154,18 @@ function PredictionsPage() {
           {!statusLoading && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
               <div className="text-center">
-                <div className="text-2xl font-bold tabular-nums">{status?.samples ?? "—"}</div>
-                <div className="text-sm text-muted-foreground">דגימות באימון</div>
+                <div className="text-2xl font-bold tabular-nums">
+                  {status?.samples ?? "—"}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  דגימות באימון
+                </div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold tabular-nums">
-                  {status?.grade_model_mae != null ? status.grade_model_mae.toFixed(2) : "—"}
+                  {status?.grade_model_mae != null
+                    ? status.grade_model_mae.toFixed(2)
+                    : "—"}
                 </div>
                 <div className="text-sm text-muted-foreground">MAE ציונים</div>
               </div>
@@ -166,7 +183,9 @@ function PredictionsPage() {
                     ? new Date(status.trained_at).toLocaleString("he-IL")
                     : "—"}
                 </div>
-                <div className="text-sm text-muted-foreground">תאריך אימון אחרון</div>
+                <div className="text-sm text-muted-foreground">
+                  תאריך אימון אחרון
+                </div>
               </div>
             </div>
           )}
@@ -198,7 +217,9 @@ function PredictionsPage() {
                 <Users className="size-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold tabular-nums">{totalPredictions}</p>
+                <p className="text-2xl font-bold tabular-nums">
+                  {totalPredictions}
+                </p>
                 <p className="text-sm text-muted-foreground">תלמידים בתחזית</p>
               </div>
             </CardContent>
@@ -209,8 +230,12 @@ function PredictionsPage() {
                 <AlertTriangle className="size-5 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-red-600 tabular-nums">{highRiskCount}</p>
-                <p className="text-sm text-muted-foreground">סיכון גבוה לנשירה</p>
+                <p className="text-2xl font-bold text-red-600 tabular-nums">
+                  {highRiskCount}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  סיכון גבוה לנשירה
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -230,70 +255,98 @@ function PredictionsPage() {
             <TableHeader>
               <TableRow className="bg-accent/50">
                 <TableHead className="text-right font-bold w-12">#</TableHead>
-                <TableHead className="text-right font-bold">שם התלמיד</TableHead>
-                <TableHead className="text-right font-bold">ציון חזוי</TableHead>
-                <TableHead className="text-right font-bold">סיכון נשירה</TableHead>
-                <TableHead className="text-right font-bold">רמת סיכון</TableHead>
+                <TableHead className="text-right font-bold">
+                  שם התלמיד
+                </TableHead>
+                <TableHead className="text-right font-bold">
+                  ציון חזוי
+                </TableHead>
+                <TableHead className="text-right font-bold">
+                  סיכון נשירה
+                </TableHead>
+                <TableHead className="text-right font-bold">
+                  רמת סיכון
+                </TableHead>
                 <TableHead className="text-right font-bold">גורמים</TableHead>
-                <TableHead className="text-right font-bold">פעולות</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {predictionsLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-5 w-8" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-8" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-32" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-12" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-20" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-20" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-40" />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : predictions?.predictions.length ? (
-                predictions.predictions
-                  .map((pred, index) => (
-                    <TableRow key={pred.student_tz} className="hover:bg-accent/30 transition-colors">
-                      <TableCell className="text-muted-foreground">{(page - 1) * pageSize + index + 1}</TableCell>
-                      <TableCell className="font-medium">{pred.student_name || "—"}</TableCell>
-                      <TableCell
-                        className={`font-bold ${(pred.predicted_grade ?? 0) < atRiskGradeThreshold
-                            ? "text-red-600"
-                            : (pred.predicted_grade ?? 0) >= goodGradeThreshold
-                              ? "text-green-600"
-                              : ""
-                          }`}
-                      >
-                        {pred.predicted_grade?.toFixed(1) ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress
-                            value={(pred.dropout_risk ?? 0) * 100}
-                            className="w-20 h-2"
-                          />
-                          <span className="text-sm">{((pred.dropout_risk ?? 0) * 100).toFixed(0)}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getRiskBadge(pred.risk_level ?? "low")}</TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <div className="text-sm text-muted-foreground truncate">
-                          {pred.factors?.slice(0, 2).join(", ") || "—"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Link to="/students/$studentTz" params={{ studentTz: pred.student_tz }}>
-                          <Button variant="ghost" size="icon" aria-label="צפה בתלמיד" className="text-primary">
-                            <Eye className="size-4" />
-                          </Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                predictions.predictions.map((pred, index) => (
+                  <TableRow
+                    key={pred.student_tz}
+                    className="hover:bg-accent/30 transition-colors"
+                  >
+                    <TableCell className="text-muted-foreground">
+                      {(page - 1) * pageSize + index + 1}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <StudentLink
+                        studentTz={pred.student_tz}
+                        studentName={pred.student_name || "—"}
+                      />
+                    </TableCell>
+                    <TableCell
+                      className={`font-bold ${
+                        (pred.predicted_grade ?? 0) < atRiskGradeThreshold
+                          ? "text-red-600"
+                          : (pred.predicted_grade ?? 0) >= goodGradeThreshold
+                            ? "text-green-600"
+                            : ""
+                      }`}
+                    >
+                      {pred.predicted_grade?.toFixed(1) ?? "—"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Progress
+                          value={(pred.dropout_risk ?? 0) * 100}
+                          className="w-20 h-2"
+                        />
+                        <span className="text-sm">
+                          {((pred.dropout_risk ?? 0) * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {getRiskBadge(pred.risk_level ?? "low")}
+                    </TableCell>
+                    <TableCell className="max-w-[200px]">
+                      <div className="text-sm text-muted-foreground truncate">
+                        {pred.factors?.slice(0, 2).join(", ") || "—"}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+                  <TableCell
+                    colSpan={6}
+                    className="text-center text-muted-foreground py-12"
+                  >
                     אין תחזיות זמינות. אמן את המודל תחילה.
                   </TableCell>
                 </TableRow>
@@ -301,12 +354,6 @@ function PredictionsPage() {
             </TableBody>
           </Table>
 
-          {predictions && (
-            <div className="p-4 border-t text-sm text-muted-foreground flex items-center gap-2">
-              <Clock className="size-4" />
-              נוצר ב: {new Date(predictions.generated_at).toLocaleString("he-IL")}
-            </div>
-          )}
           <TablePagination
             page={page}
             totalPages={Math.ceil(totalPredictions / pageSize)}
@@ -324,8 +371,13 @@ function PredictionsPage() {
             <p className="text-muted-foreground mb-6">
               כדי לראות תחזיות על התלמידים, יש לאמן את המודל על הנתונים הקיימים
             </p>
-            <Button onClick={() => trainMutation.mutate()} disabled={trainMutation.isPending}>
-              <RefreshCw className={`size-4 ml-2 ${trainMutation.isPending ? "animate-spin" : ""}`} />
+            <Button
+              onClick={() => trainMutation.mutate()}
+              disabled={trainMutation.isPending}
+            >
+              <RefreshCw
+                className={`size-4 ml-2 ${trainMutation.isPending ? "animate-spin" : ""}`}
+              />
               {trainMutation.isPending ? "מאמן..." : "אמן מודל עכשיו"}
             </Button>
           </CardContent>
