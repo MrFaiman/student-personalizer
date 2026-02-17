@@ -1,10 +1,11 @@
-import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingRegressor
-from sklearn.model_selection import RandomizedSearchCV
-from pathlib import Path
-import sys
 import os
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor
+from sklearn.model_selection import RandomizedSearchCV
 
 
 def load_data(grades_path, events_path):
@@ -262,7 +263,7 @@ def compare_models_detailed(df):
         print(f"{name[:19]:<20} | {actual:7.2f} | {gb_p:7.2f} ({gb_diff:4.2f}){gb_mark} | {rf_p:7.2f} ({rf_diff:4.2f})")
 
     print("-" * 75)
-    print(f"* = Closer prediction")
+    print("* = Closer prediction")
 
 if __name__ == "__main__":
     # Paths (adjust relative to where you run the script, assuming root)
@@ -341,4 +342,4 @@ def compare_models_detailed(df):
         print(f"{name[:19]:<20} | {actual:7.2f} | {gb_p:7.2f} ({gb_diff:4.2f}){gb_mark} | {rf_p:7.2f} ({rf_diff:4.2f})")
 
     print("-" * 75)
-    print(f"* = Closer prediction")
+    print("* = Closer prediction")

@@ -4,10 +4,9 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .constants import PORT, ORIGIN_URL, API_DESCRIPTION, API_TITLE, API_VERSION, DEFAULT_ORIGIN_URL, DEFAULT_PORT
+from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, ORIGIN_URL, PORT
 from .database import init_db
 from .routers import advanced_analytics, analytics, config, ingestion, ml, students
-
 
 
 @asynccontextmanager

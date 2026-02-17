@@ -1,15 +1,5 @@
 """Pydantic schemas for API responses."""
 
-from .analytics import (
-    ClassComparisonItem,
-    GradeDistributionItem,
-    LayerKPIsResponse,
-    MetadataResponse,
-    StudentRankItem,
-    SubjectGradeItem,
-    TeacherStatsResponse,
-    TopBottomResponse,
-)
 from .advanced_analytics import (
     CascadingFilterOptions,
     ClassOption,
@@ -23,6 +13,16 @@ from .advanced_analytics import (
     TeacherOption,
     VersusChartData,
     VersusSeriesItem,
+)
+from .analytics import (
+    ClassComparisonItem,
+    GradeDistributionItem,
+    LayerKPIsResponse,
+    MetadataResponse,
+    StudentRankItem,
+    SubjectGradeItem,
+    TeacherStatsResponse,
+    TopBottomResponse,
 )
 from .ingestion import (
     ImportLogResponse,
