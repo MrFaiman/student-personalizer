@@ -1,12 +1,21 @@
+import os
+
+from dotenv import load_dotenv
+load_dotenv()
+
 # Server
 DEFAULT_PORT = 3000
+PORT = int(os.getenv("PORT", DEFAULT_PORT))
+
 DEFAULT_ORIGIN_URL = "http://localhost:5173"
+ORIGIN_URL = os.getenv("ORIGIN_URL", DEFAULT_ORIGIN_URL)
+
 API_TITLE = "Student Personalizer API"
 API_DESCRIPTION = "API for ingesting and analyzing student data"
 API_VERSION = "0.1.0"
 
 # Pagination
-DEFAULT_PAGE_SIZE = 20
+DEFAULT_PAGE_SIZE = 10
 MAX_PAGE_SIZE = 100
 
 # Grade thresholds
