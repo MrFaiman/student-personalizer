@@ -11,8 +11,8 @@ import {
 } from "recharts";
 import { useTranslation } from "react-i18next";
 
-import { advancedAnalyticsApi } from "@/lib/api";
-import type { PeriodComparisonItem } from "@/lib/types/advanced-analytics";
+import { analyticsApi } from "@/lib/api";
+import type { PeriodComparisonItem } from "@/lib/types/analytics";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
@@ -44,7 +44,7 @@ export function PeriodComparisonChart({
       classId,
     ],
     queryFn: () =>
-      advancedAnalyticsApi.getPeriodComparison({
+      analyticsApi.getPeriodComparison({
         period_a: periodA,
         period_b: periodB,
         comparison_type: comparisonType,

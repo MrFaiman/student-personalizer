@@ -11,8 +11,8 @@ import {
 } from "recharts";
 import { useTranslation } from "react-i18next";
 
-import { advancedAnalyticsApi } from "@/lib/api";
-import type { RedStudentGroup } from "@/lib/types/advanced-analytics";
+import { analyticsApi } from "@/lib/api";
+import type { RedStudentGroup } from "@/lib/types/analytics";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -200,7 +200,7 @@ export function RedStudentBreakdown({
   const { data, isLoading, error } = useQuery({
     queryKey: ["red-student-segmentation", period, gradeLevel],
     queryFn: () =>
-      advancedAnalyticsApi.getRedStudentSegmentation({
+      analyticsApi.getRedStudentSegmentation({
         period,
         grade_level: gradeLevel,
       }),

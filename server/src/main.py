@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, ORIGIN_URL, PORT
 from .database import init_db
-from .routers import advanced_analytics, analytics, config, ingestion, ml, students
+from .routers import analytics, classes, config, ingestion, ml, students, teachers
 
 
 @asynccontextmanager
@@ -35,9 +35,11 @@ app.add_middleware(
 # Include routers
 app.include_router(config.router)
 app.include_router(ingestion.router)
+app.include_router(classes.router)
+app.include_router(teachers.router)
 app.include_router(students.router)
 app.include_router(analytics.router)
-app.include_router(advanced_analytics.router)
+
 app.include_router(ml.router)
 
 

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
-import { advancedAnalyticsApi } from "../lib/api";
+import { analyticsApi } from "../lib/api";
 
 export interface CascadingFilterState {
   gradeLevel: string | undefined;
@@ -30,7 +30,7 @@ export function useCascadingFilters(initialPeriods: string[] = []) {
       filters.periodA,
     ],
     queryFn: () =>
-      advancedAnalyticsApi.getCascadingFilterOptions({
+      analyticsApi.getCascadingFilterOptions({
         grade_level: filters.gradeLevel,
         class_id: filters.classId,
         period: filters.periodA,
