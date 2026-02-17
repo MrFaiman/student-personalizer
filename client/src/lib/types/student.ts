@@ -24,19 +24,18 @@ export interface StudentDetailResponse {
     grade_level: string;
     average_grade: number | null;
     total_absences: number;
-    total_lates: number;
-    class_average_absences: number;
+    total_negative_events: number;
+    total_positive_events: number;
     is_at_risk: boolean;
-    trend: "improving" | "declining" | "stable";
     performance_score: number | null;
 }
 
 export interface GradeResponse {
+    id: number;
     subject: string;
-    teacher: string;
+    teacher_name: string | null;
     grade: number;
     period: string;
-    date: string | null;
 }
 
 export interface AttendanceResponse {
@@ -67,4 +66,5 @@ export interface DashboardStats {
     average_grade: number | null;
     at_risk_count: number;
     total_classes: number;
+    classes: ClassResponse[];
 }

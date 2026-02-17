@@ -13,8 +13,8 @@ import {
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { advancedAnalyticsApi, analyticsApi, studentsApi } from "@/lib/api";
-import type { VersusSeriesItem } from "@/lib/types/advanced-analytics";
+import { analyticsApi, studentsApi } from "@/lib/api";
+import type { VersusSeriesItem } from "@/lib/types/analytics";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
@@ -81,7 +81,7 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
   const { data: chartData, isLoading } = useQuery({
     queryKey: ["versus-comparison", comparisonType, selectedEntities, period],
     queryFn: () =>
-      advancedAnalyticsApi.getVersusComparison({
+      analyticsApi.getVersusComparison({
         comparison_type: comparisonType,
         entity_ids: selectedEntities.join(","),
         period,

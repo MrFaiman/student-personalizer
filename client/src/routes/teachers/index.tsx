@@ -90,7 +90,7 @@ function TeachersListPage() {
                                     <div className="flex justify-between items-start mb-4">
                                         <h3 className="text-xl font-bold">{teacher.name}</h3>
                                         <Badge variant="secondary">
-                                            {t("list.subjectCount", { count: teacher.subject_count })}
+                                            {t("list.subjectCount", { count: teacher.subjects.length })}
                                         </Badge>
                                     </div>
 
@@ -108,7 +108,7 @@ function TeachersListPage() {
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <BookOpen className="size-4 text-muted-foreground" />
-                                            <span>{t("list.subjectCount", { count: teacher.subject_count })}</span>
+                                            <span>{t("list.subjectCount", { count: teacher.subjects.length })}</span>
                                         </div>
                                     </div>
                                 </CardContent>
