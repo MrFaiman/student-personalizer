@@ -94,7 +94,7 @@ export function PeriodComparisonChart({
     label,
   }: {
     active?: boolean;
-    payload?: {
+    payload?: readonly {
       dataKey: string;
       value: number | null;
       color: string;
@@ -108,7 +108,7 @@ export function PeriodComparisonChart({
         studentCountB: number;
       };
     }[];
-    label?: string;
+    label?: string | number;
   }) => {
     if (!active || !payload?.length) return null;
 

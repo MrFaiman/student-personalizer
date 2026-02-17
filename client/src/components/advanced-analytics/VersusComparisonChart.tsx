@@ -109,7 +109,7 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
     payload,
   }: {
     active?: boolean;
-    payload?: { payload: VersusSeriesItem }[];
+    payload?: readonly { payload: VersusSeriesItem }[];
   }) => {
     if (!active || !payload?.length) return null;
 

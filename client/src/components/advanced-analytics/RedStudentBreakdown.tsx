@@ -132,7 +132,7 @@ function SegmentationBarChart({ items }: SegmentationBarChartProps) {
     payload,
   }: {
     active?: boolean;
-    payload?: { payload: RedStudentGroup }[];
+    payload?: readonly { payload: RedStudentGroup }[];
   }) => {
     if (!active || !payload?.length) return null;
     const item = payload[0].payload;
@@ -173,12 +173,15 @@ function SegmentationBarChart({ items }: SegmentationBarChartProps) {
           dataKey="red_student_count"
           name={t("chart.atRiskStudents")}
           radius={[0, 4, 4, 0]}
-          shape={(props) => (
-            <Rectangle
-              {...props}
-              fill={getShadeByValue(props.red_student_count as number)}
-            />
-          )}
+          shape={(props) => {
+            const p = props as unknown as Record<string, unknown>;
+            return (
+              <Rectangle
+                {...props}
+                fill={getShadeByValue(p.red_student_count as number)}
+              />
+            );
+          }}
         />
       </BarChart>
     </ResponsiveContainer>
