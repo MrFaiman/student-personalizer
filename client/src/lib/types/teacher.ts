@@ -1,9 +1,24 @@
 export interface TeacherListItem {
     id: string;
     name: string;
-    subject_count: number;
+    subjects: string[];
     student_count: number;
     average_grade: number | null;
+}
+
+export interface TeacherDetailStats {
+    student_count: number;
+    average_grade: number;
+    at_risk_count: number;
+    classes_count: number;
+}
+
+export interface TeacherClassDetail {
+    id: string;
+    name: string;
+    student_count: number;
+    average_grade: number;
+    at_risk_count: number;
 }
 
 export interface GradeHistogramBin {
@@ -11,36 +26,11 @@ export interface GradeHistogramBin {
     count: number;
 }
 
-export interface TeacherClassPerformance {
-    class_name: string;
-    class_id: string;
-    average_grade: number;
-    student_count: number;
-    distribution: {
-        category: string;
-        count: number;
-    }[];
-    grade_histogram: GradeHistogramBin[];
-}
-
-export interface TeacherSubjectPerformance {
-    subject: string;
-    average_grade: number;
-    student_count: number;
-}
-
 export interface TeacherDetailResponse {
     id: string;
     name: string;
+    stats: TeacherDetailStats;
     subjects: string[];
-    classes: string[];
-    student_count: number;
-    average_grade: number | null;
-    distribution: {
-        category: string;
-        count: number;
-    }[];
+    classes: TeacherClassDetail[];
     grade_histogram: GradeHistogramBin[];
-    class_performance: TeacherClassPerformance[];
-    subject_performance: TeacherSubjectPerformance[];
 }
