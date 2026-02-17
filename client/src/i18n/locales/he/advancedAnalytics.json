@@ -1,0 +1,78 @@
+{
+  "pageTitle": "ניתוח מתקדם",
+  "pageDescription": "השוואת ביצועים בין תקופות וניתוח תלמידים בסיכון",
+  "noData": "אין נתונים להצגה",
+  "filters": {
+    "gradeLevel": "שכבה",
+    "class": "כיתה",
+    "periodA": "תקופה א׳",
+    "periodB": "תקופה ב׳",
+    "selectPeriod": "בחר תקופה",
+    "reset": "איפוס"
+  },
+  "tabs": {
+    "periodComparison": "השוואת תקופות",
+    "atRiskStudents": "תלמידים בסיכון",
+    "versusComparison": "השוואה ישירה",
+    "byClass": "לפי כיתה",
+    "byGradeLevel": "לפי שכבה",
+    "byTeacher": "לפי מורה",
+    "bySubject": "לפי מקצוע"
+  },
+  "periodComparison": {
+    "title": "השוואת תקופות",
+    "selectTwoPeriods": "בחר שתי תקופות להשוואה",
+    "types": {
+      "class": "השוואה לפי כיתות",
+      "subject_teacher": "השוואה לפי מקצוע + מורה",
+      "subject": "השוואה לפי מקצועות"
+    }
+  },
+  "redStudents": {
+    "title": "תלמידים בסיכון",
+    "threshold": "ציון מתחת ל-{{value}}",
+    "students": "תלמידים",
+    "breakdownByClass": "פילוח לפי כיתות",
+    "breakdownByGradeLevel": "פילוח לפי שכבות",
+    "breakdownByTeacher": "פילוח לפי מורים",
+    "breakdownBySubject": "פילוח לפי מקצועות"
+  },
+  "versus": {
+    "title": "השוואת ביצועים",
+    "compareBy": "השווה לפי...",
+    "classVsClass": "כיתה מול כיתה",
+    "teacherVsTeacher": "מורה מול מורה",
+    "gradeVsGrade": "שכבה מול שכבה",
+    "grade": "שכבה",
+    "selectAtLeast2": "בחר לפחות 2 פריטים להשוואה",
+    "select": {
+      "class": "בחר כיתה...",
+      "teacher": "בחר מורה...",
+      "layer": "בחר שכבה..."
+    }
+  },
+  "table": {
+    "name": "שם",
+    "atRisk": "בסיכון",
+    "total": "סה״כ",
+    "percentage": "אחוז",
+    "avgGrade": "ממוצע"
+  },
+  "tooltip": {
+    "teacher": "מורה",
+    "subject": "מקצוע",
+    "change": "שינוי",
+    "atRisk": "בסיכון",
+    "avgGrade": "ממוצע ציונים",
+    "students": "תלמידים",
+    "subjects": "מקצועות",
+    "more": "עוד"
+  },
+  "chart": {
+    "atRiskStudents": "תלמידים בסיכון",
+    "averageGrade": "ממוצע ציונים"
+  },
+  "errors": {
+    "loadFailed": "טעינת הנתונים נכשלה"
+  }
+}
