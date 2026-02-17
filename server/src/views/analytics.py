@@ -17,61 +17,45 @@ class AnalyticsDefaultView:
     """Default view presenter for Analytics data (includes advanced)."""
 
     def render_kpis(self, data: dict) -> LayerKPIsResponse:
-        """Render Dashboard KPIs."""
-        grades = data["grades"]
-        attendance = data["attendance"]
-        
-        layer_average = round(sum(grades) / len(grades), 2) if grades else None
-        
-        avg_absences = 0
-        if attendance:
-             avg_absences = round(sum(a.total_absences for a in attendance) / len(attendance), 1)
-
+        """Render Dashboard KPIs from pre-calculated data."""
         return LayerKPIsResponse(
-            layer_average=layer_average,
-            avg_absences=avg_absences,
+            layer_average=data["layer_average"],
+            avg_absences=data["avg_absences"],
             at_risk_students=data["at_risk_count"],
             total_students=data["total_students"],
         )
 
     def render_class_comparison(self, data: list[dict]) -> list[ClassComparisonItem]:
-        """Render class comparison bar chart."""
+        """Render class comparison bar chart from pre-calculated data."""
         result = []
         for item in data:
             cls = item["class"]
-            grades = item["grades"]
-            count = item["student_count"]
-            
-            avg = round(sum(grades) / len(grades), 2) if grades else 0
-            
-            if count > 0:
-                result.append(
-                    ClassComparisonItem(
-                        id=cls.id,
-                        class_name=cls.class_name,
-                        average_grade=avg,
-                        student_count=count,
-                    )
+            result.append(
+                ClassComparisonItem(
+                    id=cls.id,
+                    class_name=cls.class_name,
+                    average_grade=item["average_grade"],
+                    student_count=item["student_count"],
                 )
-        
+            )
+
         result.sort(key=lambda x: x.class_name)
         return result
 
     def render_metadata(self, data: dict) -> MetadataResponse:
         """Render metadata options."""
         return MetadataResponse(
-            periods=sorted(data["periods"]),
-            grade_levels=sorted(data["grade_levels"]),
-            teachers=sorted(data["teachers"]),
+            periods=data["periods"],
+            grade_levels=data["grade_levels"],
+            teachers=data["teachers"],
         )
 
     def render_student_radar(self, data: dict) -> list[SubjectGradeItem]:
-        """Render student radar chart."""
-        result = []
-        for subject, grades in data.items():
-            avg = round(sum(grades) / len(grades), 2)
-            result.append(SubjectGradeItem(subject=subject, grade=avg))
-        return result
+        """Render student radar chart from pre-calculated averages."""
+        return [
+            SubjectGradeItem(subject=subject, grade=avg)
+            for subject, avg in data.items()
+        ]
 
     # --- Advanced Analytics Views ---
 
