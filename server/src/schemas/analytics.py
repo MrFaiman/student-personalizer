@@ -49,9 +49,10 @@ class TeacherStatsResponse(BaseModel):
     """Teacher statistics response."""
 
     teacher_name: str
-    distribution: list[GradeDistributionItem]
+    distribution: dict
     total_students: int
     average_grade: float | None
+    subjects: list[str] = []
 
 
 class SubjectGradeItem(BaseModel):
@@ -72,37 +73,30 @@ class MetadataResponse(BaseModel):
 class TeacherListItem(BaseModel):
     """Teacher in the teachers list."""
 
-    id: str
+    id: str | None
     name: str
-    subject_count: int
+    subjects: list[str] = []
     student_count: int
     average_grade: float | None
 
 
-class GradeHistogramBin(BaseModel):
-    """Single bin in a grade histogram."""
+class TeacherDetailStats(BaseModel):
+    """Aggregated stats for a teacher."""
 
-    grade: int
-    count: int
-
-
-class TeacherClassPerformance(BaseModel):
-    """Per-class performance for a teacher."""
-
-    class_name: str
-    class_id: str
-    average_grade: float
     student_count: int
-    distribution: list[GradeDistributionItem]
-    grade_histogram: list[GradeHistogramBin]
+    average_grade: float | None
+    at_risk_count: int
+    classes_count: int
 
 
-class TeacherSubjectPerformance(BaseModel):
-    """Per-subject performance for a teacher."""
+class TeacherClassDetail(BaseModel):
+    """Per-class detail for a teacher."""
 
-    subject: str
-    average_grade: float
+    id: str
+    name: str
     student_count: int
+    average_grade: float
+    at_risk_count: int
 
 
 class TeacherDetailResponse(BaseModel):
@@ -110,11 +104,6 @@ class TeacherDetailResponse(BaseModel):
 
     id: str
     name: str
+    stats: TeacherDetailStats
     subjects: list[str]
-    classes: list[str]
-    student_count: int
-    average_grade: float | None
-    distribution: list[GradeDistributionItem]
-    grade_histogram: list[GradeHistogramBin]
-    class_performance: list[TeacherClassPerformance]
-    subject_performance: list[TeacherSubjectPerformance]
+    classes: list[TeacherClassDetail]
