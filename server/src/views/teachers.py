@@ -1,7 +1,7 @@
 from ..schemas.analytics import (
+    TeacherClassDetail,
     TeacherDetailResponse,
     TeacherDetailStats,
-    TeacherClassDetail,
     TeacherListItem,
     TeacherStatsResponse,
 )

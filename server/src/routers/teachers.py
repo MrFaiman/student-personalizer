@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
 from ..database import get_session
-from ..schemas.analytics import TeacherListItem, TeacherStatsResponse, TeacherDetailResponse
+from ..schemas.analytics import TeacherDetailResponse, TeacherListItem, TeacherStatsResponse
 from ..services.teachers import TeacherService
 from ..views.teachers import TeacherDefaultView
 

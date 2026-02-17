@@ -1,5 +1,5 @@
+from ..schemas.analytics import StudentRankItem, TopBottomResponse
 from ..schemas.student import ClassResponse
-from ..schemas.analytics import TopBottomResponse, StudentRankItem
 
 
 class ClassDefaultView:

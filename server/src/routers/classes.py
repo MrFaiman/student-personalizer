@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
 from ..database import get_session
-from ..schemas.student import ClassResponse
 from ..schemas.analytics import TopBottomResponse
+from ..schemas.student import ClassResponse
 from ..services.classes import ClassService
 from ..views.classes import ClassDefaultView
 

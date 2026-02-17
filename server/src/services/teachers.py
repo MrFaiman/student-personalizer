@@ -1,6 +1,6 @@
-import numpy as np
 from uuid import UUID
 
+import numpy as np
 from sqlmodel import Session, select
 
 from ..constants import AT_RISK_GRADE_THRESHOLD
