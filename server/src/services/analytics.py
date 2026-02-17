@@ -15,7 +15,7 @@ class AnalyticsService:
     # --- Layer KPIs & General Analytics ---
 
     def get_layer_kpis(self, period: str | None = None, grade_level: str | None = None) -> dict:
-        """Returns Dashboard Homepage KPIs."""
+        """Returns Dashboard Homepage KPIs as pre-calculated dict."""
         grade_query = select(Grade)
         if period:
             grade_query = grade_query.where(Grade.period == period)
@@ -53,16 +53,23 @@ class AnalyticsService:
         for grade_list in student_grades.values():
             if np.mean(grade_list) < AT_RISK_GRADE_THRESHOLD:
                 at_risk_count += 1
-                
+
+        grade_values = [g.grade for g in grades]
+        layer_average = round(sum(grade_values) / len(grade_values), 2) if grade_values else None
+
+        avg_absences = 0.0
+        if attendance:
+            avg_absences = round(sum(a.total_absences for a in attendance) / len(attendance), 1)
+
         return {
-            "grades": [g.grade for g in grades],
-            "attendance": attendance,
+            "layer_average": layer_average,
+            "avg_absences": avg_absences,
             "at_risk_count": at_risk_count,
-            "total_students": len(student_grades)
+            "total_students": len(student_grades),
         }
 
     def get_class_comparison(self, period: str | None = None, grade_level: str | None = None) -> list[dict]:
-        """Returns data for class comparison (list of classes with grades)."""
+        """Returns class comparison data with pre-calculated averages."""
         class_query = select(Class)
         if grade_level:
             class_query = class_query.where(Class.grade_level == grade_level)
@@ -81,47 +88,53 @@ class AnalyticsService:
         if period:
             grade_query = grade_query.where(Grade.period == period)
         grades = self.session.exec(grade_query).all()
-        
-        # Organize grades by student then class
+
         student_grades: dict[str, list[float]] = {}
         for g in grades:
             if g.student_tz not in student_grades:
                 student_grades[g.student_tz] = []
             student_grades[g.student_tz].append(g.grade)
 
-        class_data = []
+        result = []
         for cid, cls in class_map.items():
             class_grades = []
             class_student_count = 0
-            
+
             for s in students:
                 if s.class_id == cid:
                     class_student_count += 1
                     class_grades.extend(student_grades.get(s.student_tz, []))
-            
-            class_data.append({
-                "class": cls,
-                "grades": class_grades,
-                "student_count": class_student_count
-            })
-            
-        return class_data
+
+            avg = round(sum(class_grades) / len(class_grades), 2) if class_grades else 0
+
+            if class_student_count > 0:
+                result.append({
+                    "class": cls,
+                    "average_grade": avg,
+                    "student_count": class_student_count,
+                })
+
+        return result
 
     def get_student_radar(self, student_tz: str, period: str | None = None) -> dict:
-        """Returns data for Student Radar Chart."""
+        """Returns subject -> average grade mapping."""
         grade_query = select(Grade).where(Grade.student_tz == student_tz)
         if period:
             grade_query = grade_query.where(Grade.period == period)
 
         grades = self.session.exec(grade_query).all()
-        
+
         subject_grades: dict[str, list[float]] = {}
         for g in grades:
             if g.subject not in subject_grades:
                 subject_grades[g.subject] = []
             subject_grades[g.subject].append(g.grade)
-            
-        return subject_grades
+
+        # Pre-calculate averages
+        return {
+            subject: round(sum(g) / len(g), 2)
+            for subject, g in subject_grades.items()
+        }
 
     def get_metadata_options(self) -> dict:
         """Get available filter options."""
@@ -131,9 +144,9 @@ class AnalyticsService:
         valid_teachers = [t for t in teachers if t is not None]
 
         return {
-            "periods": list(set(periods)),
-            "grade_levels": list(set(levels)),
-            "teachers": valid_teachers
+            "periods": sorted(set(periods)),
+            "grade_levels": sorted(set(levels)),
+            "teachers": sorted(valid_teachers),
         }
 
     # --- Advanced Analytics ---
@@ -386,7 +399,6 @@ class AnalyticsService:
         grade_level: str | None = None,
     ) -> dict:
         """Get at-risk student segmentation by class, layer, teacher, subject."""
-        # Get all grades with optional filters
         grade_query = select(Grade)
         if period:
             grade_query = grade_query.where(Grade.period == period)
@@ -514,7 +526,6 @@ class AnalyticsService:
             if g.student_tz in red_student_tzs:
                 by_teacher[g.teacher_name]["red_students"].add(g.student_tz)
 
-        # Add average grades for red students per teacher
         for teacher_name in by_teacher:
             for tz in by_teacher[teacher_name]["red_students"]:
                 by_teacher[teacher_name]["red_grades"].append(student_averages[tz])
@@ -581,7 +592,6 @@ class AnalyticsService:
         page_size: int = 20,
     ) -> dict:
         """Get paginated list of red students with details."""
-        # Get all grades with filters
         grade_query = select(Grade)
         if period:
             grade_query = grade_query.where(Grade.period == period)
@@ -592,7 +602,6 @@ class AnalyticsService:
 
         grades = list(self.session.exec(grade_query).all())
 
-        # Calculate student averages and identify red students
         student_grades: dict[str, list[float]] = {}
         student_grade_details: dict[str, list] = {}
 
@@ -608,14 +617,12 @@ class AnalyticsService:
                     "grade": g.grade,
                 })
 
-        # Identify red students
         red_students: dict[str, float] = {}
         for tz, grade_list in student_grades.items():
             avg = float(np.mean(grade_list))
             if avg < AT_RISK_GRADE_THRESHOLD:
                 red_students[tz] = avg
 
-        # Get student info
         student_tzs = list(red_students.keys())
         if not student_tzs:
             return {"total": 0, "page": page, "page_size": page_size, "students": []}
@@ -625,14 +632,12 @@ class AnalyticsService:
         ).all()
         student_map = {s.student_tz: s for s in students}
 
-        # Get class info
         class_ids = set(s.class_id for s in students if s.class_id)
         classes = []
         if class_ids:
             classes = self.session.exec(select(Class).where(Class.id.in_(class_ids))).all()
         class_map = {c.id: c for c in classes}
 
-        # Apply filters
         filtered_students = []
         for tz, avg in red_students.items():
             student = student_map.get(tz)
@@ -641,11 +646,8 @@ class AnalyticsService:
 
             cls = class_map.get(student.class_id) if student.class_id else None
 
-            # Filter by grade_level
             if grade_level and (not cls or cls.grade_level != grade_level):
                 continue
-
-            # Filter by class_id
             if class_id and (not student.class_id or str(student.class_id) != class_id):
                 continue
 
@@ -658,10 +660,8 @@ class AnalyticsService:
                 "failing_subjects": student_grade_details.get(tz, []),
             })
 
-        # Sort by average grade ascending (worst first)
         filtered_students.sort(key=lambda x: x["average_grade"])
 
-        # Paginate
         total = len(filtered_students)
         start = (page - 1) * page_size
         end = start + page_size
@@ -797,7 +797,6 @@ class AnalyticsService:
         period: str | None = None,
     ) -> dict:
         """Get filter options based on current selections (cascading filters)."""
-        # Classes filtered by grade_level
         class_query = select(Class)
         if grade_level:
             class_query = class_query.where(Class.grade_level == grade_level)
@@ -808,7 +807,6 @@ class AnalyticsService:
             for c in classes
         ]
 
-        # Get relevant student_tzs based on filters
         student_tzs: list[str] = []
         if class_id:
             try:
@@ -829,7 +827,6 @@ class AnalyticsService:
                     ).all()
                 )
 
-        # Get teachers
         if student_tzs:
             grade_query = select(Grade.teacher_name, Grade.teacher_id).distinct()
             grade_query = grade_query.where(Grade.student_tz.in_(student_tzs))
@@ -842,7 +839,6 @@ class AnalyticsService:
                 grade_query = grade_query.where(Grade.period == period)
             teacher_rows = self.session.exec(grade_query).all()
 
-        # Get teacher subjects
         teacher_subjects: dict = {}
         for tname, tid in teacher_rows:
             if tname:
@@ -859,7 +855,6 @@ class AnalyticsService:
             for name, data in teacher_subjects.items()
         ]
 
-        # Subjects filtered by selections
         if student_tzs:
             subject_query = select(Grade.subject).distinct().where(Grade.student_tz.in_(student_tzs))
         else:
