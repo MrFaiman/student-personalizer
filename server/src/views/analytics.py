@@ -1,14 +1,12 @@
 from ..schemas.analytics import (
+    CascadingFilterOptions,
     ClassComparisonItem,
     LayerKPIsResponse,
     MetadataResponse,
-    SubjectGradeItem,
-)
-from ..schemas.advanced_analytics import (
-    CascadingFilterOptions,
     PeriodComparisonResponse,
     RedStudentListResponse,
     RedStudentSegmentation,
+    SubjectGradeItem,
     VersusChartData,
 )
 

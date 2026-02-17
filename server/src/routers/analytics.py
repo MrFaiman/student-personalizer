@@ -5,16 +5,14 @@ from sqlmodel import Session
 
 from ..database import get_session
 from ..schemas.analytics import (
+    CascadingFilterOptions,
     ClassComparisonItem,
     LayerKPIsResponse,
     MetadataResponse,
-    SubjectGradeItem,
-)
-from ..schemas.advanced_analytics import (
-    CascadingFilterOptions,
     PeriodComparisonResponse,
     RedStudentListResponse,
     RedStudentSegmentation,
+    SubjectGradeItem,
     VersusChartData,
 )
 from ..services.analytics import AnalyticsService
@@ -79,8 +77,6 @@ async def get_metadata(
     data = service.get_metadata_options()
     return view.render_metadata(data)
 
-
-# --- Advanced Analytics Routes ---
 
 @router.get("/period-comparison", response_model=PeriodComparisonResponse)
 async def get_period_comparison(
