@@ -59,7 +59,7 @@ export function DashboardBarChart({
                             </>
                         )}
                     </div>
-                    <div className="h-64">
+                    <div className="h-[30vh]">
                         {isLoading ? (
                             <Skeleton className="h-full w-full" />
                         ) : data.length > 0 ? (
