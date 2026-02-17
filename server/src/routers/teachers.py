@@ -30,7 +30,7 @@ async def get_teachers_list(
     """Get list of all teachers with summary stats."""
     service = TeacherService(session)
     view = TeacherDefaultView()
-    
+
     data = service.get_teachers_list_with_stats(period, grade_level)
     return view.render_list(data)
 
@@ -44,12 +44,12 @@ async def get_teacher_stats(
     """Get grade distribution statistics for a teacher."""
     service = TeacherService(session)
     view = TeacherDefaultView()
-    
+
     data = service.get_teacher_stats(teacher_name, period)
-    
+
     if data["total_students"] == 0:
         raise HTTPException(status_code=404, detail=f"Teacher '{teacher_name}' not found or has no grades")
-        
+
     return view.render_stats(data)
 
 
@@ -62,10 +62,10 @@ async def get_teacher_detail(
     """Get detailed analytics for a specific teacher."""
     service = TeacherService(session)
     view = TeacherDefaultView()
-    
+
     data = service.get_teacher_detail(teacher_id, period)
-    
+
     if not data:
         raise HTTPException(status_code=404, detail=f"Teacher '{teacher_id}' not found")
-        
+
     return view.render_detail(data)
