@@ -1,6 +1,8 @@
-from ..constants import AT_RISK_GRADE_THRESHOLD
-from ..models import AttendanceRecord, Class, Grade, Student
 from ..schemas.student import (
+    AttendanceResponse,
+    ClassResponse,
+    DashboardStats,
+    GradeResponse,
     StudentDetailResponse,
     StudentListResponse,
 )
@@ -10,79 +12,36 @@ class StudentDefaultView:
     """Default view presenter for Student data."""
 
     def render_list(self, data: dict) -> StudentListResponse:
-        """Render the student list response."""
-        students = data["items"]
-        classes_map = data["classes_map"]
-        student_grades = data["student_grades"]
-        student_attendance = data["student_attendance"]
-        
-        result_items = []
-        for student in students:
-            cls = classes_map.get(student.class_id)
-            grade_level = cls.grade_level if cls else None
-            class_name = cls.class_name if cls else "Unknown"
-
-            grades = student_grades.get(student.student_tz, [])
-            avg_grade = sum(grades) / len(grades) if grades else None
-
-            attendance_records = student_attendance.get(student.student_tz, [])
-            total_absences = sum(a.total_absences for a in attendance_records)
-            total_negative = sum(a.total_negative_events for a in attendance_records)
-            total_positive = sum(a.total_positive_events for a in attendance_records)
-
-            is_at_risk = avg_grade is not None and avg_grade < AT_RISK_GRADE_THRESHOLD
-
-            result_items.append(
-                StudentDetailResponse(
-                    student_tz=student.student_tz,
-                    student_name=student.student_name,
-                    class_id=student.class_id,
-                    class_name=class_name,
-                    grade_level=grade_level,
-                    average_grade=round(avg_grade, 1) if avg_grade else None,
-                    total_absences=total_absences,
-                    total_negative_events=total_negative,
-                    total_positive_events=total_positive,
-                    is_at_risk=is_at_risk,
-                )
-            )
-
+        """Render the student list response from pre-calculated data."""
         return StudentListResponse(
-            items=result_items,
+            items=[
+                StudentDetailResponse(**item) for item in data["items"]
+            ],
             total=data["total"],
             page=data["page"],
             page_size=data["page_size"],
         )
 
     def render_detail(self, data: dict) -> StudentDetailResponse:
-        """Render the student detail response."""
-        student: Student = data["student"]
-        cls: Class | None = data["class"]
-        grades: list[Grade] = data["grades"]
-        attendance: list[AttendanceRecord] = data["attendance"]
-        performance_score = data["performance_score"]
+        """Render the student detail response from pre-calculated data."""
+        return StudentDetailResponse(**data)
 
-        grade_level = cls.grade_level if cls else None
-        class_name = cls.class_name if cls else "Unknown"
-
-        avg_grade = None
-        if grades:
-            avg_grade = sum(g.grade for g in grades) / len(grades)
-
-        total_absences = sum(a.total_absences for a in attendance)
-        total_negative = sum(a.total_negative_events for a in attendance)
-        total_positive = sum(a.total_positive_events for a in attendance)
-
-        return StudentDetailResponse(
-            student_tz=student.student_tz,
-            student_name=student.student_name,
-            class_id=student.class_id,
-            class_name=class_name,
-            grade_level=grade_level,
-            average_grade=round(avg_grade, 1) if avg_grade else None,
-            total_absences=total_absences,
-            total_negative_events=total_negative,
-            total_positive_events=total_positive,
-            is_at_risk=avg_grade is not None and avg_grade < AT_RISK_GRADE_THRESHOLD,
-            performance_score=performance_score,
+    def render_dashboard(self, data: dict) -> DashboardStats:
+        """Render dashboard stats from pre-calculated data."""
+        return DashboardStats(
+            total_students=data["total_students"],
+            average_grade=data["average_grade"],
+            at_risk_count=data["at_risk_count"],
+            total_classes=data["total_classes"],
+            classes=[
+                ClassResponse(**c) for c in data["classes"]
+            ],
         )
+
+    def render_grades(self, data: list[dict]) -> list[GradeResponse]:
+        """Render grade list from pre-calculated data."""
+        return [GradeResponse(**g) for g in data]
+
+    def render_attendance(self, data: list[dict]) -> list[AttendanceResponse]:
+        """Render attendance list from pre-calculated data."""
+        return [AttendanceResponse(**a) for a in data]
