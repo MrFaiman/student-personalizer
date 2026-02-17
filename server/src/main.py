@@ -1,19 +1,13 @@
-import os
 from contextlib import asynccontextmanager
 
 import uvicorn
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, DEFAULT_ORIGIN_URL, DEFAULT_PORT
+from .constants import PORT, ORIGIN_URL, API_DESCRIPTION, API_TITLE, API_VERSION, DEFAULT_ORIGIN_URL, DEFAULT_PORT
 from .database import init_db
-from .routers import analytics, config, ingestion, ml, students
+from .routers import advanced_analytics, analytics, config, ingestion, ml, students
 
-load_dotenv()
-
-PORT = int(os.getenv("PORT", DEFAULT_PORT))
-ORIGIN_URL = os.getenv("ORIGIN_URL", DEFAULT_ORIGIN_URL)
 
 
 @asynccontextmanager
@@ -44,6 +38,7 @@ app.include_router(config.router)
 app.include_router(ingestion.router)
 app.include_router(students.router)
 app.include_router(analytics.router)
+app.include_router(advanced_analytics.router)
 app.include_router(ml.router)
 
 

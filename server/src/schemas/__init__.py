@@ -10,6 +10,20 @@ from .analytics import (
     TeacherStatsResponse,
     TopBottomResponse,
 )
+from .advanced_analytics import (
+    CascadingFilterOptions,
+    ClassOption,
+    FailingSubject,
+    PeriodComparisonItem,
+    PeriodComparisonResponse,
+    RedStudentDetail,
+    RedStudentGroup,
+    RedStudentListResponse,
+    RedStudentSegmentation,
+    TeacherOption,
+    VersusChartData,
+    VersusSeriesItem,
+)
 from .ingestion import (
     ImportLogResponse,
     ImportResponse,
@@ -42,6 +56,19 @@ __all__ = [
     "TeacherStatsResponse",
     "SubjectGradeItem",
     "MetadataResponse",
+    # Grades analytics schemas
+    "PeriodComparisonItem",
+    "PeriodComparisonResponse",
+    "RedStudentGroup",
+    "FailingSubject",
+    "RedStudentDetail",
+    "RedStudentSegmentation",
+    "RedStudentListResponse",
+    "VersusSeriesItem",
+    "VersusChartData",
+    "ClassOption",
+    "TeacherOption",
+    "CascadingFilterOptions",
     # Ingestion schemas
     "ImportResponse",
     "ImportLogResponse",
