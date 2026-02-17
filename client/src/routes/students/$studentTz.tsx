@@ -136,12 +136,12 @@ function StudentDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <Skeleton className="h-10 w-48" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
+          <Skeleton className="h-[30vh]" />
+          <Skeleton className="h-[30vh]" />
+          <Skeleton className="h-[30vh]" />
         </div>
       </div>
     );
@@ -160,7 +160,7 @@ function StudentDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Helmet>
         <title>{`${student.student_name} | ${tc("appName")}`}</title>
       </Helmet>
@@ -265,7 +265,7 @@ function StudentDetailPage() {
           </div>
           <CardContent className="p-4">
             {gradeTrend.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height="100%" className="min-h-[35vh]">
                 <LineChart data={gradeTrend} margin={{ top: 20, right: 30, bottom: 20, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="index" />
@@ -287,7 +287,7 @@ function StudentDetailPage() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[280px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[35vh] flex items-center justify-center text-muted-foreground">
                 {t("detail.noTrendData")}
               </div>
             )}
@@ -619,7 +619,7 @@ function SubjectRadarChart({
       </div>
       <CardContent className="p-4">
         {data.length > 0 ? (
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height="100%" className="min-h-[40vh]">
             <RadarChart data={data} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
               <PolarGrid />
               <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
@@ -639,7 +639,7 @@ function SubjectRadarChart({
             </RadarChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-[320px] flex items-center justify-center text-muted-foreground">
+          <div className="h-[40vh] flex items-center justify-center text-muted-foreground">
             {t("detail.noGradeData")}
           </div>
         )}

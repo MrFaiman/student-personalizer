@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
@@ -22,10 +22,11 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Search, Eye, Users, AlertTriangle } from "lucide-react";
+import { Search, Users, AlertTriangle } from "lucide-react";
 import { useFilters } from "@/components/FilterContext";
 import { TablePagination } from "@/components/TablePagination";
 import { StatCard } from "@/components/StatCard";
+import { StudentLink } from "@/components/StudentLink";
 import { StatusBadge } from "@/components/dashboard/StatusBadge";
 import { type StudentListItem } from "@/lib/types";
 import { studentsApi } from "@/lib/api";
@@ -98,7 +99,7 @@ function StudentsListPage() {
     const studentsList = students?.items || [];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <Helmet>
                 <title>{`${t("list.title")} | ${tc("appName")}`}</title>
             </Helmet>
@@ -186,7 +187,7 @@ function StudentsListPage() {
                             <TableHead className="text-right font-bold">{tc("table.averageGrade")}</TableHead>
                             <TableHead className="text-right font-bold">{tc("table.absences")}</TableHead>
                             <TableHead className="text-right font-bold">{tc("table.status")}</TableHead>
-                            <TableHead className="text-right font-bold">{tc("table.actions")}</TableHead>
+
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -200,14 +201,19 @@ function StudentsListPage() {
                                     <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+
                                 </TableRow>
                             ))
                         ) : studentsList.length ? (
                             studentsList.map((student: StudentListItem, index: number) => (
                                 <TableRow key={student.student_tz} className="hover:bg-accent/30 transition-colors">
                                     <TableCell className="text-muted-foreground">{(page - 1) * pageSize + index + 1}</TableCell>
-                                    <TableCell className="font-semibold">{student.student_name}</TableCell>
+                                    <TableCell className="font-semibold">
+                                        <StudentLink
+                                            studentTz={student.student_tz}
+                                            studentName={student.student_name}
+                                        />
+                                    </TableCell>
                                     <TableCell className="font-mono text-sm">{student.student_tz}</TableCell>
                                     <TableCell>{student.class_name}</TableCell>
                                     <TableCell
@@ -217,18 +223,12 @@ function StudentsListPage() {
                                     </TableCell>
                                     <TableCell>{student.total_absences}</TableCell>
                                     <TableCell><StatusBadge isAtRisk={student.is_at_risk} /></TableCell>
-                                    <TableCell>
-                                        <Link to="/students/$studentTz" params={{ studentTz: student.student_tz }}>
-                                            <Button variant="ghost" size="icon" aria-label={tc("viewStudent")} className="text-primary hover:text-primary">
-                                                <Eye className="size-5" />
-                                            </Button>
-                                        </Link>
-                                    </TableCell>
+
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                                <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
                                     {t("list.noStudents")}
                                 </TableCell>
                             </TableRow>
