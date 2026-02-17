@@ -99,6 +99,13 @@ class TeacherClassDetail(BaseModel):
     at_risk_count: int
 
 
+class GradeHistogramBin(BaseModel):
+    """Single bin in a grade histogram."""
+
+    grade: int
+    count: int
+
+
 class TeacherDetailResponse(BaseModel):
     """Detailed teacher analytics."""
 
@@ -107,6 +114,7 @@ class TeacherDetailResponse(BaseModel):
     stats: TeacherDetailStats
     subjects: list[str]
     classes: list[TeacherClassDetail]
+    grade_histogram: list[GradeHistogramBin]
 
 
 class PeriodComparisonItem(BaseModel):

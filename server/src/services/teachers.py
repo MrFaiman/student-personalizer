@@ -70,14 +70,14 @@ class TeacherService:
                 "id": stats["teacher_id"],
                 "name": name,
                 "student_count": len(stats["students"]),
-                "average_grade": round(avg, 1),
-                "subjects": list(stats["subjects"]),
+                "average_grade": avg,
+                "subjects": stats["subjects"],
             })
 
         return results
 
     def get_teacher_stats(self, teacher_name: str, period: str | None = None) -> dict:
-        """Get grade distribution statistics for a teacher (pre-calculated)."""
+        """Get raw grade data for a teacher."""
         query = select(Grade).where(Grade.teacher_name == teacher_name)
         if period:
             query = query.where(Grade.period == period)
@@ -89,37 +89,11 @@ class TeacherService:
 
         student_tzs = set(g.student_tz for g in grades)
 
-        distribution = {
-            "fail": 0,
-            "medium": 0,
-            "good": 0,
-            "excellent": 0,
-        }
-
-        total_grades = 0
-        sum_grades = 0
-
-        for g in grades:
-            sum_grades += g.grade
-            total_grades += 1
-
-            if g.grade < 55:
-                distribution["fail"] += 1
-            elif g.grade <= 75:
-                distribution["medium"] += 1
-            elif g.grade <= 90:
-                distribution["good"] += 1
-            else:
-                distribution["excellent"] += 1
-
-        avg_grade = sum_grades / total_grades if total_grades > 0 else 0
-
         return {
             "teacher_name": teacher_name,
             "total_students": len(student_tzs),
-            "average_grade": round(avg_grade, 1),
-            "distribution": distribution,
-            "subjects": list(set(g.subject for g in grades)),
+            "grades": [g.grade for g in grades],
+            "subjects": set(g.subject for g in grades),
         }
 
     def get_teacher_detail(self, teacher_id: UUID, period: str | None = None) -> dict | None:
@@ -142,8 +116,8 @@ class TeacherService:
                     "at_risk_count": 0,
                     "classes_count": 0,
                 },
-                "subjects": [],
                 "classes": [],
+                "grades": [],
             }
 
         student_tzs = set(g.student_tz for g in grades)
@@ -210,6 +184,6 @@ class TeacherService:
                 "at_risk_count": at_risk_students,
                 "classes_count": len(class_ids),
             },
-            "subjects": sorted(set(g.subject for g in grades)),
-            "classes": sorted(classes_data, key=lambda x: x["name"]),
+            "classes": classes_data,
+            "grades": grades,
         }

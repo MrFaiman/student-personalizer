@@ -110,7 +110,7 @@ class StudentService:
                 "class_id": student.class_id,
                 "class_name": class_name,
                 "grade_level": grade_level,
-                "average_grade": round(avg_grade, 1) if avg_grade is not None else None,
+                "average_grade": avg_grade,
                 "total_absences": att_stats["total_absences"],
                 "total_negative_events": att_stats["total_negative_events"],
                 "total_positive_events": att_stats["total_positive_events"],
@@ -158,7 +158,7 @@ class StudentService:
             "class_id": student.class_id,
             "class_name": class_name,
             "grade_level": grade_level,
-            "average_grade": round(avg_grade, 1) if avg_grade is not None else None,
+            "average_grade": avg_grade,
             "total_absences": att_stats["total_absences"],
             "total_negative_events": att_stats["total_negative_events"],
             "total_positive_events": att_stats["total_positive_events"],
@@ -251,17 +251,15 @@ class StudentService:
                 "class_name": cls.class_name,
                 "grade_level": cls.grade_level,
                 "student_count": stats["students"],
-                "average_grade": round(c_avg, 1) if c_avg else None,
+                "average_grade": c_avg,
                 "at_risk_count": stats["at_risk"],
             })
-
-        class_responses.sort(key=lambda x: x["class_name"])
 
         overall_avg = sum(overall_grades) / len(overall_grades) if overall_grades else None
 
         return {
             "total_students": len(students),
-            "average_grade": round(overall_avg, 1) if overall_avg else None,
+            "average_grade": overall_avg,
             "at_risk_count": total_at_risk,
             "total_classes": len(classes),
             "classes": class_responses,

@@ -66,7 +66,7 @@ class ClassService:
             result_data.append({
                 "class": cls,
                 "student_count": stats["students"],
-                "average_grade": round(class_avg, 1) if class_avg is not None else None,
+                "average_grade": class_avg,
                 "at_risk_count": stats["at_risk"],
             })
 
@@ -96,17 +96,13 @@ class ClassService:
                 student_data[g.student_tz]["grades"][g.subject] = g.grade
                 all_subjects.add(g.subject)
 
-        sorted_subjects = sorted(all_subjects)
         student_rows = []
 
         for tz, s_data in student_data.items():
             grades_dict = s_data["grades"]
-            for subj in sorted_subjects:
-                if subj not in grades_dict:
-                    grades_dict[subj] = None
 
             valid_grades = [v for v in grades_dict.values() if v is not None]
-            avg = round(float(np.mean(valid_grades)), 2) if valid_grades else 0
+            avg = float(np.mean(valid_grades)) if valid_grades else 0
 
             student_rows.append({
                 "student_name": s_data["name"],
@@ -115,10 +111,8 @@ class ClassService:
                 "average": avg,
             })
 
-        student_rows.sort(key=lambda x: x["student_name"])
-
         return {
-            "subjects": sorted_subjects,
+            "subjects": all_subjects,
             "students": student_rows,
         }
 
@@ -151,13 +145,11 @@ class ClassService:
                 student_averages.append({
                     "student_name": student.student_name,
                     "student_tz": student.student_tz,
-                    "average": round(avg, 2),
+                    "average": avg,
                 })
 
-        sorted_students = sorted(student_averages, key=lambda x: x["average"], reverse=True)
-
         return {
-            "sorted_students": sorted_students,
+            "students": student_averages,
             "top_n": top_n,
             "bottom_n": bottom_n,
         }

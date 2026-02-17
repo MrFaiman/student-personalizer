@@ -13,8 +13,6 @@ class AnalyticsService:
     def __init__(self, session: Session):
         self.session = session
 
-    # --- Layer KPIs & General Analytics ---
-
     def get_layer_kpis(self, period: str | None = None, grade_level: str | None = None) -> dict:
         """Returns Dashboard Homepage KPIs as pre-calculated dict."""
         grade_query = select(Grade)
@@ -56,11 +54,11 @@ class AnalyticsService:
                 at_risk_count += 1
 
         grade_values = [g.grade for g in grades]
-        layer_average = round(sum(grade_values) / len(grade_values), 2) if grade_values else None
+        layer_average = sum(grade_values) / len(grade_values) if grade_values else None
 
         avg_absences = 0.0
         if attendance:
-            avg_absences = round(sum(a.total_absences for a in attendance) / len(attendance), 1)
+            avg_absences = sum(a.total_absences for a in attendance) / len(attendance)
 
         return {
             "layer_average": layer_average,
@@ -106,7 +104,7 @@ class AnalyticsService:
                     class_student_count += 1
                     class_grades.extend(student_grades.get(s.student_tz, []))
 
-            avg = round(sum(class_grades) / len(class_grades), 2) if class_grades else 0
+            avg = sum(class_grades) / len(class_grades) if class_grades else 0
 
             if class_student_count > 0:
                 result.append({
@@ -131,9 +129,8 @@ class AnalyticsService:
                 subject_grades[g.subject] = []
             subject_grades[g.subject].append(g.grade)
 
-        # Pre-calculate averages
         return {
-            subject: round(sum(g) / len(g), 2)
+            subject: sum(g) / len(g)
             for subject, g in subject_grades.items()
         }
 
@@ -145,12 +142,11 @@ class AnalyticsService:
         valid_teachers = [t for t in teachers if t is not None]
 
         return {
-            "periods": sorted(set(periods)),
-            "grade_levels": sorted(set(levels)),
-            "teachers": sorted(valid_teachers),
+            "periods": list(set(periods)),
+            "grade_levels": list(set(levels)),
+            "teachers": valid_teachers,
         }
 
-    # --- Advanced Analytics ---
 
     def get_period_comparison(
         self,
@@ -234,26 +230,11 @@ class AnalyticsService:
             if not cls:
                 continue
 
-            a_grades = data_a.get(cid, {}).get("grades", [])
-            b_grades = data_b.get(cid, {}).get("grades", [])
-
-            avg_a = round(np.mean(a_grades), 2) if a_grades else None
-            avg_b = round(np.mean(b_grades), 2) if b_grades else None
-
-            change = None
-            change_percent = None
-            if avg_a is not None and avg_b is not None:
-                change = round(avg_b - avg_a, 2)
-                if avg_a != 0:
-                    change_percent = round((change / avg_a) * 100, 2)
-
             result.append({
                 "id": str(cid),
                 "name": cls.class_name,
-                "period_a_average": avg_a,
-                "period_b_average": avg_b,
-                "change": change,
-                "change_percent": change_percent,
+                "grades_a": data_a.get(cid, {}).get("grades", []),
+                "grades_b": data_b.get(cid, {}).get("grades", []),
                 "student_count_a": len(data_a.get(cid, {}).get("students", set())),
                 "student_count_b": len(data_b.get(cid, {}).get("students", set())),
             })
@@ -262,7 +243,7 @@ class AnalyticsService:
             "comparison_type": "class",
             "period_a": period_a,
             "period_b": period_b,
-            "data": sorted(result, key=lambda x: x["name"]),
+            "data": result,
         }
 
     def _compare_by_subject_teacher(
@@ -294,40 +275,24 @@ class AnalyticsService:
             a_info = data_a.get(key, {})
             b_info = data_b.get(key, {})
 
-            a_grades = a_info.get("grades", [])
-            b_grades = b_info.get("grades", [])
-
             subject = a_info.get("subject") or b_info.get("subject")
             teacher = a_info.get("teacher_name") or b_info.get("teacher_name")
 
-            avg_a = round(sum(a_grades) / len(a_grades), 2) if a_grades else None
-            avg_b = round(sum(b_grades) / len(b_grades), 2) if b_grades else None
-
-            change = None
-            change_percent = None
-            if avg_a is not None and avg_b is not None:
-                change = round(avg_b - avg_a, 2)
-                if avg_a != 0:
-                    change_percent = round((change / avg_a) * 100, 2)
-
             result.append({
                 "id": key,
-                "name": f"{subject} - {teacher}",
-                "period_a_average": avg_a,
-                "period_b_average": avg_b,
-                "change": change,
-                "change_percent": change_percent,
-                "student_count_a": len(a_info.get("students", set())),
-                "student_count_b": len(b_info.get("students", set())),
                 "subject": subject,
                 "teacher_name": teacher,
+                "grades_a": a_info.get("grades", []),
+                "grades_b": b_info.get("grades", []),
+                "student_count_a": len(a_info.get("students", set())),
+                "student_count_b": len(b_info.get("students", set())),
             })
 
         return {
             "comparison_type": "subject_teacher",
             "period_a": period_a,
             "period_b": period_b,
-            "data": sorted(result, key=lambda x: x["name"]),
+            "data": result,
         }
 
     def _compare_by_subject(
@@ -359,39 +324,23 @@ class AnalyticsService:
             a_info = data_a.get(subject, {})
             b_info = data_b.get(subject, {})
 
-            a_grades = a_info.get("grades", [])
-            b_grades = b_info.get("grades", [])
-
-            avg_a = round(sum(a_grades) / len(a_grades), 2) if a_grades else None
-            avg_b = round(sum(b_grades) / len(b_grades), 2) if b_grades else None
-
-            change = None
-            change_percent = None
-            if avg_a is not None and avg_b is not None:
-                change = round(avg_b - avg_a, 2)
-                if avg_a != 0:
-                    change_percent = round((change / avg_a) * 100, 2)
-
             teachers = a_info.get("teachers", set()) | b_info.get("teachers", set())
 
             result.append({
                 "id": subject,
-                "name": subject,
-                "period_a_average": avg_a,
-                "period_b_average": avg_b,
-                "change": change,
-                "change_percent": change_percent,
+                "subject": subject,
+                "teachers": teachers,
+                "grades_a": a_info.get("grades", []),
+                "grades_b": b_info.get("grades", []),
                 "student_count_a": len(a_info.get("students", set())),
                 "student_count_b": len(b_info.get("students", set())),
-                "subject": subject,
-                "teacher_name": ", ".join(sorted(teachers)) if teachers else None,
             })
 
         return {
             "comparison_type": "subject",
             "period_a": period_a,
             "period_b": period_b,
-            "data": sorted(result, key=lambda x: x["name"]),
+            "data": result,
         }
 
     def get_red_student_segmentation(
@@ -474,10 +423,7 @@ class AnalyticsService:
                 "name": data["name"],
                 "red_student_count": data["red"],
                 "total_student_count": data["total"],
-                "percentage": round(data["red"] / data["total"] * 100, 1) if data["total"] > 0 else 0,
-                "average_grade": round(sum(data["red_grades"]) / len(data["red_grades"]), 2)
-                if data["red_grades"]
-                else 0,
+                "red_grades": data["red_grades"],
             }
             for cid, data in by_class.items()
         ]
@@ -503,10 +449,7 @@ class AnalyticsService:
                 "name": level,
                 "red_student_count": data["red"],
                 "total_student_count": data["total"],
-                "percentage": round(data["red"] / data["total"] * 100, 1) if data["total"] > 0 else 0,
-                "average_grade": round(sum(data["red_grades"]) / len(data["red_grades"]), 2)
-                if data["red_grades"]
-                else 0,
+                "red_grades": data["red_grades"],
             }
             for level, data in by_layer.items()
         ]
@@ -537,12 +480,7 @@ class AnalyticsService:
                 "name": name,
                 "red_student_count": len(data["red_students"]),
                 "total_student_count": len(data["students"]),
-                "percentage": round(len(data["red_students"]) / len(data["students"]) * 100, 1)
-                if data["students"]
-                else 0,
-                "average_grade": round(sum(data["red_grades"]) / len(data["red_grades"]), 2)
-                if data["red_grades"]
-                else 0,
+                "red_grades": data["red_grades"],
             }
             for name, data in by_teacher.items()
         ]
@@ -563,12 +501,7 @@ class AnalyticsService:
                 "name": subject,
                 "red_student_count": len(data["students"]),
                 "total_student_count": len(red_student_tzs),
-                "percentage": round(len(data["students"]) / len(red_student_tzs) * 100, 1)
-                if red_student_tzs
-                else 0,
-                "average_grade": round(np.mean(data["grades"]), 2)
-                if data["grades"]
-                else 0,
+                "red_grades": data["grades"],
             }
             for subject, data in by_subject.items()
         ]
@@ -576,10 +509,10 @@ class AnalyticsService:
         return {
             "total_red_students": len(red_student_tzs),
             "threshold": AT_RISK_GRADE_THRESHOLD,
-            "by_class": sorted(by_class_result, key=lambda x: x["name"]),
-            "by_layer": sorted(by_layer_result, key=lambda x: x["name"]),
-            "by_teacher": sorted(by_teacher_result, key=lambda x: -x["red_student_count"]),
-            "by_subject": sorted(by_subject_result, key=lambda x: -x["red_student_count"]),
+            "by_class": by_class_result,
+            "by_layer": by_layer_result,
+            "by_teacher": by_teacher_result,
+            "by_subject": by_subject_result,
         }
 
     def get_red_student_list(
@@ -657,7 +590,7 @@ class AnalyticsService:
                 "student_name": student.student_name,
                 "class_name": cls.class_name if cls else None,
                 "grade_level": cls.grade_level if cls else None,
-                "average_grade": round(avg, 2),
+                "average_grade": avg,
                 "failing_subjects": student_grade_details.get(tz, []),
             })
 
@@ -710,7 +643,7 @@ class AnalyticsService:
                 grades = self.session.exec(grade_query).all()
 
                 if grades:
-                    avg = round(sum(g.grade for g in grades) / len(grades), 2)
+                    avg = sum(g.grade for g in grades) / len(grades)
                     subjects = list(set(g.subject for g in grades))
                     series.append({
                         "id": str(cls.id),
@@ -739,7 +672,7 @@ class AnalyticsService:
                 grades = list(self.session.exec(grade_query).all())
 
                 if grades:
-                    avg = round(np.mean([g.grade for g in grades]), 2)
+                    avg = float(np.mean([g.grade for g in grades]))
                     student_count = len(set(g.student_tz for g in grades))
                     subjects = list(set(g.subject for g in grades))
                     series.append({
@@ -775,7 +708,7 @@ class AnalyticsService:
                 grades = self.session.exec(grade_query).all()
 
                 if grades:
-                    avg = round(sum(g.grade for g in grades) / len(grades), 2)
+                    avg = sum(g.grade for g in grades) / len(grades)
                     subjects = list(set(g.subject for g in grades))
                     series.append({
                         "id": level,
@@ -868,5 +801,5 @@ class AnalyticsService:
         return {
             "classes": class_options,
             "teachers": teacher_options,
-            "subjects": sorted(subjects) if subjects else [],
+            "subjects": list(subjects) if subjects else [],
         }
