@@ -28,9 +28,7 @@ import {
   StatusBadge,
 } from "@/components/dashboard";
 
-export const Route = createFileRoute("/")(
-  { component: HomePage },
-);
+export const Route = createFileRoute("/")({ component: HomePage });
 
 function HomePage() {
   const { t } = useTranslation();
@@ -105,7 +103,10 @@ function KPISection() {
           isLoading={isLoading}
           icon={kpi.icon}
           iconColor={kpi.iconColor}
-          footer={kpis?.total_students && t("kpi.totalStudents", { count: kpis.total_students })}
+          footer={
+            kpis?.total_students &&
+            t("kpi.totalStudents", { count: kpis.total_students })
+          }
         />
       ))}
     </div>
@@ -134,16 +135,32 @@ function ChartsSection() {
     })) || [];
 
   const avgGrade = classComparison?.length
-    ? (classComparison.reduce((sum, c) => sum + c.average_grade, 0) / classComparison.length).toFixed(1)
+    ? (
+        classComparison.reduce((sum, c) => sum + c.average_grade, 0) /
+        classComparison.length
+      ).toFixed(1)
     : "—";
 
-  const filterSubtitle = `${filters.period || tc("filters.allPeriods")} | ${filters.gradeLevel
+  const filterSubtitle = `${filters.period || tc("filters.allPeriods")} | ${
+    filters.gradeLevel
       ? tc("filters.gradeLevel", { level: filters.gradeLevel })
       : tc("filters.allGradeLevels")
-    }`;
+  }`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <DashboardBarChart
+        title={t("charts.studentsByClass")}
+        subtitle={t("charts.studentsByClassDesc")}
+        highlightValue={String(
+          chartData.reduce((sum, c) => sum + c.students, 0),
+        )}
+        highlightLabel={t("charts.students")}
+        isLoading={isLoading}
+        data={chartData}
+        dataKey="students"
+        tooltipLabel={t("charts.students")}
+      />
       <DashboardBarChart
         title={t("charts.gradeComparisonTitle")}
         subtitle={filterSubtitle}
@@ -155,16 +172,6 @@ function ChartsSection() {
         tooltipLabel={t("charts.average")}
         yDomain={[0, 100]}
         formatTooltip={(v) => v.toFixed(1)}
-      />
-      <DashboardBarChart
-        title={t("charts.studentsByClass")}
-        subtitle={t("charts.studentsByClassDesc")}
-        highlightValue={String(chartData.reduce((sum, c) => sum + c.students, 0))}
-        highlightLabel={t("charts.students")}
-        isLoading={isLoading}
-        data={chartData}
-        dataKey="students"
-        tooltipLabel={t("charts.students")}
       />
     </div>
   );
@@ -200,50 +207,100 @@ function StudentsTable() {
         <TableHeader>
           <TableRow className="bg-accent/50">
             <TableHead className="text-right font-bold w-12">#</TableHead>
-            <TableHead className="text-right font-bold">{tc("table.studentName")}</TableHead>
-            <TableHead className="text-right font-bold">{tc("table.class")}</TableHead>
-            <TableHead className="text-right font-bold">{tc("table.averageGrade")}</TableHead>
-            <TableHead className="text-right font-bold">{tc("table.absences")}</TableHead>
-            <TableHead className="text-right font-bold">{tc("table.status")}</TableHead>
-            <TableHead className="text-right font-bold">{tc("table.actions")}</TableHead>
+            <TableHead className="text-right font-bold">
+              {tc("table.studentName")}
+            </TableHead>
+            <TableHead className="text-right font-bold">
+              {tc("table.class")}
+            </TableHead>
+            <TableHead className="text-right font-bold">
+              {tc("table.averageGrade")}
+            </TableHead>
+            <TableHead className="text-right font-bold">
+              {tc("table.absences")}
+            </TableHead>
+            <TableHead className="text-right font-bold">
+              {tc("table.status")}
+            </TableHead>
+            <TableHead className="text-right font-bold">
+              {tc("table.actions")}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {isLoading ? (
             Array.from({ length: 3 }).map((_, i) => (
               <TableRow key={i}>
-                <TableCell><Skeleton className="h-5 w-8" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-8" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-32" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-16" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-12" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-12" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-5 w-20" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-8 w-8" />
+                </TableCell>
               </TableRow>
             ))
           ) : students?.items?.length ? (
-            students.items.slice(0, AT_RISK_PREVIEW_COUNT).map((student: StudentListItem, index: number) => (
-              <TableRow key={student.student_tz} className="hover:bg-accent/30 transition-colors">
-                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                <TableCell className="font-semibold">{student.student_name}</TableCell>
-                <TableCell>{student.class_name}</TableCell>
-                <TableCell className={`font-bold ${student.average_grade && student.average_grade < atRiskGradeThreshold ? "text-red-600" : ""}`}>
-                  {student.average_grade?.toFixed(1) || "—"}
-                </TableCell>
-                <TableCell>{student.total_absences}</TableCell>
-                <TableCell><StatusBadge isAtRisk={student.is_at_risk} /></TableCell>
-                <TableCell>
-                  <Link to="/students/$studentTz" params={{ studentTz: student.student_tz }}>
-                    <Button variant="ghost" size="icon" aria-label={tc("viewStudent")} className="text-primary hover:text-primary">
-                      <Eye className="size-5" />
-                    </Button>
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))
+            students.items
+              .slice(0, AT_RISK_PREVIEW_COUNT)
+              .map((student: StudentListItem, index: number) => (
+                <TableRow
+                  key={student.student_tz}
+                  className="hover:bg-accent/30 transition-colors"
+                >
+                  <TableCell className="text-muted-foreground">
+                    {index + 1}
+                  </TableCell>
+                  <TableCell className="font-semibold">
+                    {student.student_name}
+                  </TableCell>
+                  <TableCell>{student.class_name}</TableCell>
+                  <TableCell
+                    className={`font-bold ${student.average_grade && student.average_grade < atRiskGradeThreshold ? "text-red-600" : ""}`}
+                  >
+                    {student.average_grade?.toFixed(1) || "—"}
+                  </TableCell>
+                  <TableCell>{student.total_absences}</TableCell>
+                  <TableCell>
+                    <StatusBadge isAtRisk={student.is_at_risk} />
+                  </TableCell>
+                  <TableCell>
+                    <Link
+                      to="/students/$studentTz"
+                      params={{ studentTz: student.student_tz }}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={tc("viewStudent")}
+                        className="text-primary hover:text-primary"
+                      >
+                        <Eye className="size-5" />
+                      </Button>
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
+              <TableCell
+                colSpan={7}
+                className="text-center text-muted-foreground py-12"
+              >
                 {t("urgentStudents.noAtRisk")}
               </TableCell>
             </TableRow>
