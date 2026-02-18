@@ -38,9 +38,10 @@ function RootComponent() {
   }
 
   const isLoginPage = pathname === "/login";
+  const isLandingPage = pathname === "/";
 
   // Unauthenticated users can only see /login and /
-  if (!isAuthenticated && !isLoginPage && pathname !== "/") {
+  if (!isAuthenticated && !isLoginPage && !isLandingPage) {
     return (
       <HelmetProvider>
         <QueryClientProvider client={queryClient}>
@@ -50,7 +51,7 @@ function RootComponent() {
     );
   }
 
-  if (isLoginPage) {
+  if (isLoginPage || isLandingPage) {
     return (
       <HelmetProvider>
         <QueryClientProvider client={queryClient}>
