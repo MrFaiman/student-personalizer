@@ -5,14 +5,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, ORIGIN_URL, PORT
-from .database import init_db
+from .database import get_session_context, init_db
 from .routers import analytics, classes, config, ingestion, ml, students, teachers
+from .routers.auth import router as auth_router
+from .seed import backfill_school_id, seed_default_school_and_admin
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database on startup."""
+    """Initialize database on startup, seed default school & admin."""
     init_db()
+    with get_session_context() as session:
+        school_id = seed_default_school_and_admin(session)
+        backfill_school_id(session, school_id)
     yield
 
 
@@ -33,6 +38,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth_router)
 app.include_router(config.router)
 app.include_router(ingestion.router)
 app.include_router(classes.router)
