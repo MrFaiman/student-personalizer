@@ -1,9 +1,8 @@
 """Dashboard analytics routes."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session
 
-from ..database import get_session
+from ..dependencies import get_analytics_service
 from ..schemas.analytics import (
     CascadingFilterOptions,
     ClassComparisonItem,
@@ -25,12 +24,11 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 async def get_layer_kpis(
     period: str | None = Query(default=None, description="Period filter (e.g., 'Q1')"),
     grade_level: str | None = Query(default=None, description="Grade level filter (e.g., 'י')"),
-    session: Session = Depends(get_session),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
     """Get Dashboard KPIs."""
-    service = AnalyticsService(session)
     view = AnalyticsDefaultView()
-    
+
     data = service.get_layer_kpis(period, grade_level)
     return view.render_kpis(data)
 
@@ -39,12 +37,11 @@ async def get_layer_kpis(
 async def get_class_comparison(
     period: str | None = Query(default=None, description="Period filter"),
     grade_level: str | None = Query(default=None, description="Grade level filter"),
-    session: Session = Depends(get_session),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
     """Get class comparison data."""
-    service = AnalyticsService(session)
     view = AnalyticsDefaultView()
-    
+
     data = service.get_class_comparison(period, grade_level)
     return view.render_class_comparison(data)
 
@@ -53,27 +50,25 @@ async def get_class_comparison(
 async def get_student_radar(
     student_tz: str,
     period: str | None = Query(default=None, description="Period filter"),
-    session: Session = Depends(get_session),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
     """Get radar chart data for a student."""
-    service = AnalyticsService(session)
     view = AnalyticsDefaultView()
-    
+
     data = service.get_student_radar(student_tz, period)
     if not data:
         raise HTTPException(status_code=404, detail=f"Student '{student_tz}' not found or has no grades")
-        
+
     return view.render_student_radar(data)
 
 
 @router.get("/metadata", response_model=MetadataResponse)
 async def get_metadata(
-    session: Session = Depends(get_session),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
     """Get available filter options."""
-    service = AnalyticsService(session)
     view = AnalyticsDefaultView()
-    
+
     data = service.get_metadata_options()
     return view.render_metadata(data)
 
@@ -88,12 +83,11 @@ async def get_period_comparison(
     ),
     grade_level: str | None = Query(default=None, description="Grade level filter"),
     class_id: str | None = Query(default=None, description="Class ID filter"),
-    session: Session = Depends(get_session),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
     """Compare average grades between two periods."""
-    service = AnalyticsService(session)
     view = AnalyticsDefaultView()
-    
+
     data = service.get_period_comparison(
         period_a=period_a,
         period_b=period_b,
@@ -108,12 +102,11 @@ async def get_period_comparison(
 async def get_red_student_segmentation(
     period: str | None = Query(default=None, description="Period filter"),
     grade_level: str | None = Query(default=None, description="Grade level filter"),
-    session: Session = Depends(get_session),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
     """Get at-risk student segmentation."""
-    service = AnalyticsService(session)
     view = AnalyticsDefaultView()
-    
+
     data = service.get_red_student_segmentation(
         period=period,
         grade_level=grade_level,
@@ -130,12 +123,11 @@ async def get_red_student_list(
     subject: str | None = Query(default=None, description="Subject filter"),
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
-    session: Session = Depends(get_session),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
     """Get paginated list of at-risk students."""
-    service = AnalyticsService(session)
     view = AnalyticsDefaultView()
-    
+
     data = service.get_red_student_list(
         period=period,
         grade_level=grade_level,
@@ -154,14 +146,13 @@ async def get_versus_comparison(
     entity_ids: str = Query(..., description="Comma-separated list of entity IDs to compare"),
     period: str | None = Query(default=None, description="Period filter"),
     metric: str = Query(default="average_grade", description="Metric to compare: average_grade or at_risk_count"),
-    session: Session = Depends(get_session),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
     """Get versus comparison data."""
-    service = AnalyticsService(session)
     view = AnalyticsDefaultView()
-    
+
     ids = [id.strip() for id in entity_ids.split(",")]
-    
+
     data = service.get_versus_comparison(
         comparison_type=comparison_type,
         entity_ids=ids,
@@ -176,12 +167,11 @@ async def get_cascading_filter_options(
     grade_level: str | None = Query(default=None, description="Selected grade level"),
     class_id: str | None = Query(default=None, description="Selected class ID"),
     period: str | None = Query(default=None, description="Selected period"),
-    session: Session = Depends(get_session),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
     """Get available filter options."""
-    service = AnalyticsService(session)
     view = AnalyticsDefaultView()
-    
+
     data = service.get_cascading_filter_options(
         grade_level=grade_level,
         class_id=class_id,

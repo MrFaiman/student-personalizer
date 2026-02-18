@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import cross_val_score
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from ..constants import (
     AT_RISK_GRADE_THRESHOLD,
@@ -19,13 +19,11 @@ from ..constants import (
     MIN_TRAINING_SAMPLES,
 )
 from ..models import AttendanceRecord, Grade, Student
+from .base import BaseService
 
-MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models"
-GRADE_MODEL_PATH = MODELS_DIR / "grade_predictor.joblib"
-DROPOUT_MODEL_PATH = MODELS_DIR / "dropout_classifier.joblib"
-META_PATH = MODELS_DIR / "model_meta.json"
+MODELS_BASE_DIR = Path(__file__).resolve().parent.parent.parent / "models"
 
-_prediction_cache: dict[tuple[str | None, str | None], list[dict]] = {}
+_prediction_cache: dict[tuple[str, str | None, str | None], list[dict]] = {}
 
 
 FEATURE_COLUMNS = [
@@ -46,26 +44,41 @@ FEATURE_COLUMNS = [
 ]
 
 
-class MLService:
+class MLService(BaseService):
     """ML service for training and predicting student outcomes."""
 
-    def __init__(self, session: Session):
-        self.session = session
+    @property
+    def _models_dir(self) -> Path:
+        return MODELS_BASE_DIR / str(self.school_id)
+
+    @property
+    def _grade_model_path(self) -> Path:
+        return self._models_dir / "grade_predictor.joblib"
+
+    @property
+    def _dropout_model_path(self) -> Path:
+        return self._models_dir / "dropout_classifier.joblib"
+
+    @property
+    def _meta_path(self) -> Path:
+        return self._models_dir / "model_meta.json"
 
     def _build_feature_dataframe(self, period: str | None = None) -> pd.DataFrame:
         """Extract feature vectors for all students from the database."""
-        students = self.session.exec(select(Student)).all()
+        students = self.session.exec(
+            select(Student).where(Student.school_id == self.school_id)
+        ).all()
         student_map = {s.student_tz: s.student_name for s in students}
 
         if not students:
              return pd.DataFrame(columns=FEATURE_COLUMNS + ["student_tz", "student_name"])
 
-        grade_query = select(Grade).order_by(Grade.id)
+        grade_query = select(Grade).where(Grade.school_id == self.school_id).order_by(Grade.id)
         if period:
             grade_query = grade_query.where(Grade.period == period)
         grades = self.session.exec(grade_query).all()
 
-        att_query = select(AttendanceRecord)
+        att_query = select(AttendanceRecord).where(AttendanceRecord.school_id == self.school_id)
         if period:
             att_query = att_query.where(AttendanceRecord.period == period)
         attendance = self.session.exec(att_query).all()
@@ -93,7 +106,7 @@ class MLService:
 
             slopes = gdf.groupby("student_tz")["grade"].apply(calc_slope).reset_index(name="grade_trend_slope")
             g_stats = pd.merge(g_stats, slopes, on="student_tz", how="left")
-            
+
         else:
             g_stats = pd.DataFrame(columns=["student_tz", "average_grade", "min_grade", "max_grade", "grade_std", "num_subjects", "failing_subjects", "grade_trend_slope"])
 
@@ -112,19 +125,19 @@ class MLService:
                 for a in attendance
             ]
             adf = pd.DataFrame(a_data)
-            
+
             a_stats = adf.groupby("student_tz").sum().reset_index()
         else:
             a_stats = pd.DataFrame(columns=["student_tz", "absence", "absence_justified", "late", "disturbance", "total_absences", "total_negative_events", "total_positive_events"])
-            
+
         feature_df = pd.DataFrame.from_dict({"student_tz": list(student_map.keys()), "student_name": list(student_map.values())})
-        
+
         if not g_stats.empty:
             feature_df = pd.merge(feature_df, g_stats, on="student_tz", how="left")
         else:
             for col in ["average_grade", "min_grade", "max_grade", "grade_std", "num_subjects", "failing_subjects", "grade_trend_slope"]:
                 feature_df[col] = np.nan
-            
+
         if not a_stats.empty:
             feature_df = pd.merge(feature_df, a_stats, on="student_tz", how="left")
         else:
@@ -140,9 +153,9 @@ class MLService:
             "absence": 0,
             "absence_justified": 0,
             "late": 0,
-            "disturbance": 0, 
+            "disturbance": 0,
             "total_absences": 0,
-            "total_negative_events": 0, 
+            "total_negative_events": 0,
             "total_positive_events": 0
         }
         feature_df = feature_df.fillna(value=values)
@@ -156,7 +169,10 @@ class MLService:
         """Train both models and save to disk. Returns training metrics."""
         import joblib
 
-        _prediction_cache.clear()
+        # Clear cache entries for this school
+        keys_to_remove = [k for k in _prediction_cache if k[0] == str(self.school_id)]
+        for k in keys_to_remove:
+            del _prediction_cache[k]
 
         df = self._build_feature_dataframe(period=period)
 
@@ -198,9 +214,9 @@ class MLService:
         dropout_cv = cross_val_score(dropout_model, X, y_dropout, cv=min(CROSS_VALIDATION_FOLDS, len(df)), scoring="accuracy")
         dropout_accuracy = round(float(dropout_cv.mean()), 4)
 
-        MODELS_DIR.mkdir(parents=True, exist_ok=True)
-        joblib.dump(grade_model, GRADE_MODEL_PATH)
-        joblib.dump(dropout_model, DROPOUT_MODEL_PATH)
+        self._models_dir.mkdir(parents=True, exist_ok=True)
+        joblib.dump(grade_model, self._grade_model_path)
+        joblib.dump(dropout_model, self._dropout_model_path)
 
         grade_importances = {name: round(float(imp), 4) for name, imp in zip(FEATURE_COLUMNS, grade_model.feature_importances_)}
         dropout_importances = {name: round(float(imp), 4) for name, imp in zip(FEATURE_COLUMNS, dropout_model.feature_importances_)}
@@ -213,7 +229,7 @@ class MLService:
             "grade_feature_importances": grade_importances,
             "dropout_feature_importances": dropout_importances,
         }
-        with open(META_PATH, "w") as f:
+        with open(self._meta_path, "w") as f:
             json.dump(meta, f, indent=2)
 
         return {
@@ -229,11 +245,11 @@ class MLService:
         """Load trained models from disk."""
         import joblib
 
-        if not GRADE_MODEL_PATH.exists() or not DROPOUT_MODEL_PATH.exists():
+        if not self._grade_model_path.exists() or not self._dropout_model_path.exists():
             raise FileNotFoundError("Models not trained yet. Call POST /api/ml/train first.")
 
-        grade_model = joblib.load(GRADE_MODEL_PATH)
-        dropout_model = joblib.load(DROPOUT_MODEL_PATH)
+        grade_model = joblib.load(self._grade_model_path)
+        dropout_model = joblib.load(self._dropout_model_path)
         return grade_model, dropout_model
 
     def predict_student(self, student_tz: str, period: str | None = None) -> dict:
@@ -277,16 +293,16 @@ class MLService:
 
     def _get_model_trained_at(self) -> str | None:
         """Get the trained_at timestamp from model metadata for cache keying."""
-        if not META_PATH.exists():
+        if not self._meta_path.exists():
             return None
-        with open(META_PATH) as f:
+        with open(self._meta_path) as f:
             meta = json.load(f)
         return meta.get("trained_at")
 
     def _compute_all_predictions(self, period: str | None = None) -> list[dict]:
-        """Compute predictions for all students (cached by period + model version)."""
+        """Compute predictions for all students (cached by school + period + model version)."""
         trained_at = self._get_model_trained_at()
-        cache_key = (period, trained_at)
+        cache_key = (str(self.school_id), period, trained_at)
 
         if cache_key in _prediction_cache:
             return _prediction_cache[cache_key]
@@ -357,10 +373,10 @@ class MLService:
 
     def get_status(self) -> dict:
         """Get model status and metadata."""
-        if not META_PATH.exists():
+        if not self._meta_path.exists():
             return {"trained": False}
 
-        with open(META_PATH) as f:
+        with open(self._meta_path) as f:
             meta = json.load(f)
 
         return {

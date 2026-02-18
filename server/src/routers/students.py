@@ -1,10 +1,9 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session
 
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
-from ..database import get_session
+from ..dependencies import get_student_service
 from ..schemas.student import (
     AttendanceResponse,
     DashboardStats,
@@ -26,10 +25,9 @@ async def list_students(
     search: str | None = Query(default=None),
     at_risk_only: bool = Query(default=False),
     period: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    service: StudentService = Depends(get_student_service),
 ):
     """List students with optional filtering."""
-    service = StudentService(session)
     view = StudentDefaultView()
 
     data = service.list_students(
@@ -47,10 +45,9 @@ async def list_students(
 async def get_dashboard_stats(
     class_id: UUID | None = Query(default=None),
     period: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    service: StudentService = Depends(get_student_service),
 ):
     """Get dashboard statistics."""
-    service = StudentService(session)
     view = StudentDefaultView()
 
     data = service.get_dashboard_stats(class_id=class_id, period=period)
@@ -61,10 +58,9 @@ async def get_dashboard_stats(
 async def get_student(
     student_tz: str,
     period: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    service: StudentService = Depends(get_student_service),
 ):
     """Get a specific student by TZ."""
-    service = StudentService(session)
     view = StudentDefaultView()
 
     data = service.get_student_detail(student_tz, period)
@@ -77,10 +73,9 @@ async def get_student(
 async def get_student_grades(
     student_tz: str,
     period: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    service: StudentService = Depends(get_student_service),
 ):
     """Get all grades for a student."""
-    service = StudentService(session)
     view = StudentDefaultView()
 
     data = service.get_student_grades(student_tz, period)
@@ -93,10 +88,9 @@ async def get_student_grades(
 async def get_student_attendance(
     student_tz: str,
     period: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    service: StudentService = Depends(get_student_service),
 ):
     """Get all attendance records for a student."""
-    service = StudentService(session)
     view = StudentDefaultView()
 
     data = service.get_student_attendance(student_tz, period)

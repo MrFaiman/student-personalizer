@@ -1,33 +1,35 @@
 from uuid import UUID
 
 import numpy as np
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from ..constants import AT_RISK_GRADE_THRESHOLD
 from ..models import Class, Grade, Student
+from .base import BaseService
 
 
-class ClassService:
+class ClassService(BaseService):
     """Core service for Class domain logic."""
 
-    def __init__(self, session: Session):
-        self.session = session
-
     def list_classes_with_stats(self, period: str | None = None) -> list[dict]:
-        """
-        Get all classes with calculated statistics.
-        Returns pre-calculated dicts for the view to format.
-        """
-        classes = self.session.exec(select(Class)).all()
+        """Get all classes with calculated statistics."""
+        classes = self.session.exec(
+            select(Class).where(Class.school_id == self.school_id)
+        ).all()
         if not classes:
             return []
 
         class_map = {c.id: c for c in classes}
 
-        students = self.session.exec(select(Student)).all()
+        students = self.session.exec(
+            select(Student).where(Student.school_id == self.school_id)
+        ).all()
         student_tzs = [s.student_tz for s in students]
 
-        grade_query = select(Grade).where(Grade.student_tz.in_(student_tzs))
+        grade_query = select(Grade).where(
+            Grade.student_tz.in_(student_tzs),
+            Grade.school_id == self.school_id,
+        )
         if period:
             grade_query = grade_query.where(Grade.period == period)
         grades = self.session.exec(grade_query).all()
@@ -73,17 +75,22 @@ class ClassService:
         return result_data
 
     def get_class_heatmap(self, class_id: UUID, period: str | None = None) -> dict:
-        """
-        Returns Heatmap Matrix: Student x Subject.
-        All averages are pre-calculated.
-        """
-        students = self.session.exec(select(Student).where(Student.class_id == class_id)).all()
+        """Returns Heatmap Matrix: Student x Subject."""
+        students = self.session.exec(
+            select(Student).where(
+                Student.class_id == class_id,
+                Student.school_id == self.school_id,
+            )
+        ).all()
         if not students:
             return {}
 
         student_tzs = [s.student_tz for s in students]
 
-        grade_query = select(Grade).where(Grade.student_tz.in_(student_tzs))
+        grade_query = select(Grade).where(
+            Grade.student_tz.in_(student_tzs),
+            Grade.school_id == self.school_id,
+        )
         if period:
             grade_query = grade_query.where(Grade.period == period)
         grades = self.session.exec(grade_query).all()
@@ -117,16 +124,22 @@ class ClassService:
         }
 
     def get_top_bottom_students(self, class_id: UUID, period: str | None = None, top_n: int = 5, bottom_n: int = 5) -> dict:
-        """
-        Returns sorted students with pre-calculated averages.
-        """
-        students = self.session.exec(select(Student).where(Student.class_id == class_id)).all()
+        """Returns sorted students with pre-calculated averages."""
+        students = self.session.exec(
+            select(Student).where(
+                Student.class_id == class_id,
+                Student.school_id == self.school_id,
+            )
+        ).all()
         if not students:
             return {"sorted_students": [], "top_n": top_n, "bottom_n": bottom_n}
 
         student_tzs = [s.student_tz for s in students]
 
-        grade_query = select(Grade).where(Grade.student_tz.in_(student_tzs))
+        grade_query = select(Grade).where(
+            Grade.student_tz.in_(student_tzs),
+            Grade.school_id == self.school_id,
+        )
         if period:
             grade_query = grade_query.where(Grade.period == period)
         grades = self.session.exec(grade_query).all()

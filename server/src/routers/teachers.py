@@ -1,9 +1,8 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session
 
-from ..database import get_session
+from ..dependencies import get_teacher_service
 from ..schemas.analytics import TeacherDetailResponse, TeacherListItem, TeacherStatsResponse
 from ..services.teachers import TeacherService
 from ..views.teachers import TeacherDefaultView
@@ -14,10 +13,9 @@ router = APIRouter(prefix="/api/teachers", tags=["teachers"])
 @router.get("", response_model=list[str])
 async def list_teachers(
     period: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    service: TeacherService = Depends(get_teacher_service),
 ):
     """Get list of all teacher names."""
-    service = TeacherService(session)
     return service.list_teachers(period)
 
 
@@ -25,10 +23,9 @@ async def list_teachers(
 async def get_teachers_list(
     period: str | None = Query(default=None),
     grade_level: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    service: TeacherService = Depends(get_teacher_service),
 ):
     """Get list of all teachers with summary stats."""
-    service = TeacherService(session)
     view = TeacherDefaultView()
 
     data = service.get_teachers_list_with_stats(period, grade_level)
@@ -39,10 +36,9 @@ async def get_teachers_list(
 async def get_teacher_stats(
     teacher_name: str,
     period: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    service: TeacherService = Depends(get_teacher_service),
 ):
     """Get grade distribution statistics for a teacher."""
-    service = TeacherService(session)
     view = TeacherDefaultView()
 
     data = service.get_teacher_stats(teacher_name, period)
@@ -57,10 +53,9 @@ async def get_teacher_stats(
 async def get_teacher_detail(
     teacher_id: UUID,
     period: str | None = Query(default=None),
-    session: Session = Depends(get_session),
+    service: TeacherService = Depends(get_teacher_service),
 ):
     """Get detailed analytics for a specific teacher."""
-    service = TeacherService(session)
     view = TeacherDefaultView()
 
     data = service.get_teacher_detail(teacher_id, period)

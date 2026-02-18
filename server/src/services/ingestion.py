@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 from io import BytesIO
 
 import pandas as pd
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from ..constants import DEFAULT_PERIOD, MAX_STORED_ERRORS, VALID_MIME_TYPES
 from ..models import AttendanceRecord, Class, Grade, ImportLog, Student, Teacher
+from .base import BaseService
 
 
 def _read_file(file_content: bytes, content_type: str) -> pd.DataFrame:
@@ -72,70 +73,8 @@ def clean_student_tz(value) -> str:
     return str(value).strip()
 
 
-def get_or_create_class(session: Session, class_name: str, grade_level: str) -> Class:
-    """Get existing class or create new one."""
-    statement = select(Class).where(Class.class_name == class_name)
-    cls = session.exec(statement).first()
-
-    if cls:
-        return cls
-
-    cls = Class(class_name=class_name, grade_level=grade_level)
-    session.add(cls)
-    session.flush()
-    return cls
-
-
-def get_or_create_student(
-    session: Session,
-    student_tz: str,
-    student_name: str,
-    class_name: str,
-) -> tuple[Student, bool]:
-    """Get existing student or create new one. Returns (student, created)."""
-    cls = session.exec(select(Class).where(Class.class_name == class_name)).first()
-    class_id = cls.id if cls else None
-
-    statement = select(Student).where(Student.student_tz == student_tz)
-    student = session.exec(statement).first()
-
-    if student:
-        if student.student_name != student_name:
-            student.student_name = student_name
-        if student.class_id != class_id:
-            student.class_id = class_id
-        session.add(student)
-        return student, False
-
-    student = Student(
-        student_tz=student_tz,
-        student_name=student_name,
-        class_id=class_id,
-    )
-    session.add(student)
-    session.flush()
-    return student, True
-
-
-def get_or_create_teacher(session: Session, teacher_name: str) -> Teacher:
-    """Get existing teacher or create new one."""
-    statement = select(Teacher).where(Teacher.name == teacher_name)
-    teacher = session.exec(statement).first()
-
-    if teacher:
-        return teacher
-
-    teacher = Teacher(name=teacher_name)
-    session.add(teacher)
-    session.flush()
-    return teacher
-
-
 def parse_subject_teacher_header(header_str: str) -> tuple[str, str | None]:
-    """
-    Parse "Subject - Teacher" format from column header.
-    E.g., "אנגלית- ישראל ישראלי" -> ("אנגלית", "ישראל ישראלי")
-    """
+    """Parse "Subject - Teacher" format from column header."""
     clean_header = re.sub(r"\.\d+$", "", str(header_str))
 
     if "-" in clean_header:
@@ -148,11 +87,7 @@ def parse_subject_teacher_header(header_str: str) -> tuple[str, str | None]:
 
 
 def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Parse a wide-format grades file where columns 6+ represent "Subject - Teacher".
-    Transposes (melts) the data into a long format with columns:
-    student_tz, student_name, class_name, grade_level, subject, teacher_name, grade
-    """
+    """Parse a wide-format grades file, melt to long format."""
     metadata_map = {
         "מס'": "serial_num",
         "ת.ז": "student_tz",
@@ -192,147 +127,33 @@ def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df_long[available_cols]
 
 
-def ingest_grades_file(
-    session: Session,
-    file_content: bytes,
-    filename: str,
-    content_type: str,
-    period: str = DEFAULT_PERIOD,
-) -> ImportResult:
-    """
-    Ingest a grades XLSX file.
-
-    Expected format: Wide format with columns:
-    - מס' (row number)
-    - ת.ז (student TZ)
-    - שם התלמיד (student name)
-    - שכבה (grade level)
-    - כיתה (class name)
-    - ממוצע (average - ignored)
-    - Remaining columns: "Subject - Teacher" format with grade values
-    """
-    batch_id = str(uuid.uuid4())
-    result = ImportResult(batch_id=batch_id, file_type="grades")
-
-    try:
-        df = _read_file(file_content, content_type)
-    except Exception as e:
-        result.errors.append(f"Failed to read file: {str(e)}")
-        return result
-
-    try:
-        df_long = load_grades_dataframe(df)
-    except Exception as e:
-        result.errors.append(f"Failed to parse grades file: {str(e)}")
-        return result
-
-    if df_long.empty:
-        result.errors.append("No valid grade data found in file")
-        return result
-
-    classes_created: set[str] = set()
-    students_processed: set[str] = set()
-    teachers_cache: dict[str, Teacher] = {}
-    grades_imported = 0
-
-    for idx, row in df_long.iterrows():
-        try:
-            student_tz = clean_student_tz(row.get("student_tz", ""))
-            if not student_tz:
-                continue
-
-            student_name = str(row.get("student_name", "")).strip()
-            class_name = str(row.get("class_name", "")).strip()
-            grade_level = str(row.get("grade_level", "")).strip()
-            subject = str(row.get("subject", "")).strip()
-            teacher_name = row.get("teacher_name")
-            grade_value = row.get("grade")
-
-            if not student_name or not class_name or not subject:
-                continue
-
-            if class_name not in classes_created:
-                get_or_create_class(session, class_name, grade_level)
-                classes_created.add(class_name)
-                result.classes_created += 1
-
-            if student_tz not in students_processed:
-                _, created = get_or_create_student(session, student_tz, student_name, class_name)
-                if created:
-                    result.students_created += 1
-                students_processed.add(student_tz)
-
-            teacher_id = None
-            clean_teacher = teacher_name if pd.notna(teacher_name) else None
-            if clean_teacher:
-                if clean_teacher not in teachers_cache:
-                    teachers_cache[clean_teacher] = get_or_create_teacher(session, clean_teacher)
-                teacher_id = teachers_cache[clean_teacher].id
-
-            grade_record = Grade(
-                student_tz=student_tz,
-                subject=subject,
-                teacher_name=clean_teacher,
-                teacher_id=teacher_id,
-                grade=float(grade_value),
-                period=period,
-            )
-            session.add(grade_record)
-            grades_imported += 1
-
-        except Exception as e:
-            result.errors.append(f"Row error: {str(e)}")
-            result.rows_failed += 1
-
-    result.rows_imported = grades_imported
-
-    import_log = ImportLog(
-        batch_id=batch_id,
-        filename=filename,
-        file_type="grades",
-        rows_imported=result.rows_imported,
-        rows_failed=result.rows_failed,
-        errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
-        period=period,
-    )
-    session.add(import_log)
-    session.commit()
-
-    return result
-
-
 def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Parse an attendance/events XLSX file.
-    Maps Hebrew columns to English and calculates totals.
-    """
+    """Parse an attendance/events XLSX file."""
     column_map = {
         "מס'": "serial_num",
         "ת.ז. התלמיד": "student_tz_orig",
-        "ת.ז": "student_tz_orig",  # Alternative column name
+        "ת.ז": "student_tz_orig",
         "שם התלמיד": "student_name",
         "שכבה": "grade_level",
         "כיתה": "class_num",
         "שיעורים שדווחו": "lessons_reported",
-        # Negative / Attendance Events
         "חיסור": "absence",
         "חיסור (מוצדק)": "absence_justified",
-        "חיסור מוצדק": "absence_justified",  # Alternative
+        "חיסור מוצדק": "absence_justified",
         "איחור": "late",
         "איחור (מוצדק)": "late_justified",
-        "איחור מוצדק": "late_justified",  # Alternative
+        "איחור מוצדק": "late_justified",
         "הפרעה": "disturbance",
         "אי כניסה לשיעור": "skipped_class",
         "אי כניסה לשיעור (מוצדק)": "skipped_class_justified",
-        "אי כניסה לשיעור מוצדק": "skipped_class_justified",  # Alternative
+        "אי כניסה לשיעור מוצדק": "skipped_class_justified",
         "תלבושת": "uniform_issue",
         "אי הכנת ש.ב": "no_homework",
         "אי הבאת ציוד": "no_equipment",
         "אי ביצוע מטלות בכיתה": "no_classwork",
         'שימוש בנייד בשטח ביה"ס': "phone_usage",
         "היעדרות בפרטני (מוצדק)": "private_lesson_absence_justified",
-        "היעדרות בפרטני מוצדק": "private_lesson_absence_justified",  # Alternative
-        # Positive / Other Events
+        "היעדרות בפרטני מוצדק": "private_lesson_absence_justified",
         "חיזוק חיובי": "positive_reinforcement",
         "חיזוק חיובי כיתתי": "positive_reinforcement_class",
         "נוכחות בפרטני": "private_lesson_presence",
@@ -382,148 +203,314 @@ def load_attendance_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def ingest_events_file(
-    session: Session,
-    file_content: bytes,
-    filename: str,
-    content_type: str,
-    period: str = DEFAULT_PERIOD,
-) -> ImportResult:
-    """
-    Ingest an events/attendance XLSX file.
+class IngestionService(BaseService):
+    """Tenant-scoped ingestion service."""
 
-    Expected columns (Hebrew):
-    - מס' (row number)
-    - ת.ז. התלמיד (student TZ)
-    - שם התלמיד (student name)
-    - שכבה (grade level)
-    - כיתה (class name)
-    - Plus various attendance/behavior columns
-    """
-    batch_id = str(uuid.uuid4())
-    result = ImportResult(batch_id=batch_id, file_type="events")
+    def get_or_create_class(self, class_name: str, grade_level: str) -> Class:
+        """Get existing class or create new one within the school."""
+        statement = select(Class).where(
+            Class.class_name == class_name,
+            Class.school_id == self.school_id,
+        )
+        cls = self.session.exec(statement).first()
+        if cls:
+            return cls
 
-    try:
-        df = _read_file(file_content, content_type)
-    except Exception as e:
-        result.errors.append(f"Failed to read file: {str(e)}")
-        return result
+        cls = Class(class_name=class_name, grade_level=grade_level, school_id=self.school_id)
+        self.session.add(cls)
+        self.session.flush()
+        return cls
 
-    try:
-        df = load_attendance_dataframe(df)
-    except Exception as e:
-        result.errors.append(f"Failed to parse attendance file: {str(e)}")
-        return result
+    def get_or_create_student(
+        self,
+        student_tz: str,
+        student_name: str,
+        class_name: str,
+    ) -> tuple[Student, bool]:
+        """Get existing student or create new one. Returns (student, created)."""
+        cls = self.session.exec(
+            select(Class).where(Class.class_name == class_name, Class.school_id == self.school_id)
+        ).first()
+        class_id = cls.id if cls else None
 
-    classes_created: set[str] = set()
+        statement = select(Student).where(Student.student_tz == student_tz)
+        student = self.session.exec(statement).first()
 
-    for idx, row in df.iterrows():
+        if student:
+            if student.student_name != student_name:
+                student.student_name = student_name
+            if student.class_id != class_id:
+                student.class_id = class_id
+            if student.school_id != self.school_id:
+                student.school_id = self.school_id
+            self.session.add(student)
+            return student, False
+
+        student = Student(
+            student_tz=student_tz,
+            student_name=student_name,
+            class_id=class_id,
+            school_id=self.school_id,
+        )
+        self.session.add(student)
+        self.session.flush()
+        return student, True
+
+    def get_or_create_teacher(self, teacher_name: str) -> Teacher:
+        """Get existing teacher or create new one within the school."""
+        statement = select(Teacher).where(
+            Teacher.name == teacher_name,
+            Teacher.school_id == self.school_id,
+        )
+        teacher = self.session.exec(statement).first()
+        if teacher:
+            return teacher
+
+        teacher = Teacher(name=teacher_name, school_id=self.school_id)
+        self.session.add(teacher)
+        self.session.flush()
+        return teacher
+
+    def ingest_grades_file(
+        self,
+        file_content: bytes,
+        filename: str,
+        content_type: str,
+        period: str = DEFAULT_PERIOD,
+    ) -> ImportResult:
+        """Ingest a grades XLSX file."""
+        batch_id = str(uuid.uuid4())
+        result = ImportResult(batch_id=batch_id, file_type="grades")
+
         try:
-            student_tz = clean_student_tz(row.get("student_tz", ""))
-            if not student_tz:
-                result.errors.append(f"Row {idx + 2}: Missing student TZ")
-                result.rows_failed += 1
-                continue
-
-            student_name = str(row.get("student_name", "")).strip()
-            grade_level = str(row.get("grade_level", "")).strip()
-            class_name = str(row.get("class_name", "")).strip()
-
-            if not student_name:
-                result.errors.append(f"Row {idx + 2}: Missing student name")
-                result.rows_failed += 1
-                continue
-
-            if not class_name:
-                result.errors.append(f"Row {idx + 2}: Missing class name")
-                result.rows_failed += 1
-                continue
-
-            if class_name not in classes_created:
-                get_or_create_class(session, class_name, grade_level)
-                classes_created.add(class_name)
-                result.classes_created += 1
-
-            _, created = get_or_create_student(session, student_tz, student_name, class_name)
-            if created:
-                result.students_created += 1
-
-            attendance_record = AttendanceRecord(
-                student_tz=student_tz,
-                lessons_reported=int(row.get("lessons_reported", 0)),
-                absence=int(row.get("absence", 0)),
-                absence_justified=int(row.get("absence_justified", 0)),
-                late=int(row.get("late", 0)) + int(row.get("late_justified", 0)),
-                disturbance=int(row.get("disturbance", 0)),
-                total_absences=int(row.get("total_absences", 0)),
-                attendance=int(row.get("attendance", 0)),
-                total_negative_events=int(row.get("total_negative_events", 0)),
-                total_positive_events=int(row.get("total_positive_events", 0)),
-                period=period,
-            )
-            session.add(attendance_record)
-            result.rows_imported += 1
-
+            df = _read_file(file_content, content_type)
         except Exception as e:
-            result.errors.append(f"Row {idx + 2}: {str(e)}")
-            result.rows_failed += 1
+            result.errors.append(f"Failed to read file: {str(e)}")
+            return result
 
-    import_log = ImportLog(
-        batch_id=batch_id,
-        filename=filename,
-        file_type="events",
-        rows_imported=result.rows_imported,
-        rows_failed=result.rows_failed,
-        errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
-        period=period,
-    )
-    session.add(import_log)
-    session.commit()
+        try:
+            df_long = load_grades_dataframe(df)
+        except Exception as e:
+            result.errors.append(f"Failed to parse grades file: {str(e)}")
+            return result
 
-    return result
+        if df_long.empty:
+            result.errors.append("No valid grade data found in file")
+            return result
 
+        classes_created: set[str] = set()
+        students_processed: set[str] = set()
+        teachers_cache: dict[str, Teacher] = {}
+        grades_imported = 0
 
-def ingest_file(
-    session: Session,
-    file_content: bytes,
-    filename: str,
-    content_type: str,
-    file_type: str | None = None,
-    period: str = DEFAULT_PERIOD,
-) -> ImportResult:
-    """
-    Ingest an XLSX/CSV file, auto-detecting type if not specified.
+        for idx, row in df_long.iterrows():
+            try:
+                student_tz = clean_student_tz(row.get("student_tz", ""))
+                if not student_tz:
+                    continue
 
-    Args:
-        session: Database session
-        file_content: Raw file bytes
-        filename: Original filename
-        content_type: MIME type of the uploaded file
-        file_type: "grades" or "events", or None for auto-detect
-        period: Period name to associate with this import
+                student_name = str(row.get("student_name", "")).strip()
+                class_name = str(row.get("class_name", "")).strip()
+                grade_level = str(row.get("grade_level", "")).strip()
+                subject = str(row.get("subject", "")).strip()
+                teacher_name = row.get("teacher_name")
+                grade_value = row.get("grade")
 
-    Returns:
-        ImportResult with details of the import
-    """
-    try:
-        df = _read_file(file_content, content_type)
-    except Exception as e:
-        return ImportResult(
-            batch_id=str(uuid.uuid4()),
-            file_type="unknown",
-            errors=[f"Failed to read file: {str(e)}"],
+                if not student_name or not class_name or not subject:
+                    continue
+
+                if class_name not in classes_created:
+                    self.get_or_create_class(class_name, grade_level)
+                    classes_created.add(class_name)
+                    result.classes_created += 1
+
+                if student_tz not in students_processed:
+                    _, created = self.get_or_create_student(student_tz, student_name, class_name)
+                    if created:
+                        result.students_created += 1
+                    students_processed.add(student_tz)
+
+                teacher_id = None
+                clean_teacher = teacher_name if pd.notna(teacher_name) else None
+                if clean_teacher:
+                    if clean_teacher not in teachers_cache:
+                        teachers_cache[clean_teacher] = self.get_or_create_teacher(clean_teacher)
+                    teacher_id = teachers_cache[clean_teacher].id
+
+                grade_record = Grade(
+                    student_tz=student_tz,
+                    subject=subject,
+                    teacher_name=clean_teacher,
+                    teacher_id=teacher_id,
+                    grade=float(grade_value),
+                    period=period,
+                    school_id=self.school_id,
+                )
+                self.session.add(grade_record)
+                grades_imported += 1
+
+            except Exception as e:
+                result.errors.append(f"Row error: {str(e)}")
+                result.rows_failed += 1
+
+        result.rows_imported = grades_imported
+
+        import_log = ImportLog(
+            batch_id=batch_id,
+            filename=filename,
+            file_type="grades",
+            rows_imported=result.rows_imported,
+            rows_failed=result.rows_failed,
+            errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
+            period=period,
+            school_id=self.school_id,
         )
+        self.session.add(import_log)
+        self.session.commit()
 
-    if file_type is None:
-        file_type = detect_file_type(df)
+        return result
 
-    if file_type == "grades":
-        return ingest_grades_file(session, file_content, filename, content_type, period)
-    elif file_type == "events":
-        return ingest_events_file(session, file_content, filename, content_type, period)
-    else:
-        return ImportResult(
-            batch_id=str(uuid.uuid4()),
-            file_type="unknown",
-            errors=["Could not detect file type. Expected grades or events file."],
+    def ingest_events_file(
+        self,
+        file_content: bytes,
+        filename: str,
+        content_type: str,
+        period: str = DEFAULT_PERIOD,
+    ) -> ImportResult:
+        """Ingest an events/attendance XLSX file."""
+        batch_id = str(uuid.uuid4())
+        result = ImportResult(batch_id=batch_id, file_type="events")
+
+        try:
+            df = _read_file(file_content, content_type)
+        except Exception as e:
+            result.errors.append(f"Failed to read file: {str(e)}")
+            return result
+
+        try:
+            df = load_attendance_dataframe(df)
+        except Exception as e:
+            result.errors.append(f"Failed to parse attendance file: {str(e)}")
+            return result
+
+        classes_created: set[str] = set()
+
+        for idx, row in df.iterrows():
+            try:
+                student_tz = clean_student_tz(row.get("student_tz", ""))
+                if not student_tz:
+                    result.errors.append(f"Row {idx + 2}: Missing student TZ")
+                    result.rows_failed += 1
+                    continue
+
+                student_name = str(row.get("student_name", "")).strip()
+                grade_level = str(row.get("grade_level", "")).strip()
+                class_name = str(row.get("class_name", "")).strip()
+
+                if not student_name:
+                    result.errors.append(f"Row {idx + 2}: Missing student name")
+                    result.rows_failed += 1
+                    continue
+
+                if not class_name:
+                    result.errors.append(f"Row {idx + 2}: Missing class name")
+                    result.rows_failed += 1
+                    continue
+
+                if class_name not in classes_created:
+                    self.get_or_create_class(class_name, grade_level)
+                    classes_created.add(class_name)
+                    result.classes_created += 1
+
+                _, created = self.get_or_create_student(student_tz, student_name, class_name)
+                if created:
+                    result.students_created += 1
+
+                attendance_record = AttendanceRecord(
+                    student_tz=student_tz,
+                    lessons_reported=int(row.get("lessons_reported", 0)),
+                    absence=int(row.get("absence", 0)),
+                    absence_justified=int(row.get("absence_justified", 0)),
+                    late=int(row.get("late", 0)) + int(row.get("late_justified", 0)),
+                    disturbance=int(row.get("disturbance", 0)),
+                    total_absences=int(row.get("total_absences", 0)),
+                    attendance=int(row.get("attendance", 0)),
+                    total_negative_events=int(row.get("total_negative_events", 0)),
+                    total_positive_events=int(row.get("total_positive_events", 0)),
+                    period=period,
+                    school_id=self.school_id,
+                )
+                self.session.add(attendance_record)
+                result.rows_imported += 1
+
+            except Exception as e:
+                result.errors.append(f"Row {idx + 2}: {str(e)}")
+                result.rows_failed += 1
+
+        import_log = ImportLog(
+            batch_id=batch_id,
+            filename=filename,
+            file_type="events",
+            rows_imported=result.rows_imported,
+            rows_failed=result.rows_failed,
+            errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
+            period=period,
+            school_id=self.school_id,
         )
+        self.session.add(import_log)
+        self.session.commit()
+
+        return result
+
+    def ingest_file(
+        self,
+        file_content: bytes,
+        filename: str,
+        content_type: str,
+        file_type: str | None = None,
+        period: str = DEFAULT_PERIOD,
+    ) -> ImportResult:
+        """Ingest an XLSX/CSV file, auto-detecting type if not specified."""
+        try:
+            df = _read_file(file_content, content_type)
+        except Exception as e:
+            return ImportResult(
+                batch_id=str(uuid.uuid4()),
+                file_type="unknown",
+                errors=[f"Failed to read file: {str(e)}"],
+            )
+
+        if file_type is None:
+            file_type = detect_file_type(df)
+
+        if file_type == "grades":
+            return self.ingest_grades_file(file_content, filename, content_type, period)
+        elif file_type == "events":
+            return self.ingest_events_file(file_content, filename, content_type, period)
+        else:
+            return ImportResult(
+                batch_id=str(uuid.uuid4()),
+                file_type="unknown",
+                errors=["Could not detect file type. Expected grades or events file."],
+            )
+
+    def reset_school_data(self) -> dict:
+        """Delete all data for the current school (not drop tables)."""
+        from sqlmodel import delete
+
+        counts = {}
+        for model, name in [
+            (Grade, "grades"),
+            (AttendanceRecord, "attendance_records"),
+            (ImportLog, "import_logs"),
+            (Student, "students"),
+            (Teacher, "teachers"),
+            (Class, "classes"),
+        ]:
+            result = self.session.exec(
+                delete(model).where(model.school_id == self.school_id)
+            )
+            counts[name] = result.rowcount
+
+        self.session.commit()
+        return counts

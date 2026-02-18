@@ -1,21 +1,23 @@
 from uuid import UUID
 
 import numpy as np
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from ..constants import AT_RISK_GRADE_THRESHOLD
 from ..models import Class, Grade, Student, Teacher
+from .base import BaseService
 
 
-class TeacherService:
+class TeacherService(BaseService):
     """Core service for Teacher domain logic."""
-
-    def __init__(self, session: Session):
-        self.session = session
 
     def list_teachers(self, period: str | None = None) -> list[str]:
         """Get list of all teacher names with available grades."""
-        query = select(Grade.teacher_name).distinct().where(Grade.teacher_name.is_not(None))
+        query = (
+            select(Grade.teacher_name)
+            .distinct()
+            .where(Grade.teacher_name.is_not(None), Grade.school_id == self.school_id)
+        )
         if period:
             query = query.where(Grade.period == period)
         return list(self.session.exec(query).all())
@@ -24,7 +26,7 @@ class TeacherService:
         self, period: str | None = None, grade_level: str | None = None
     ) -> list[dict]:
         """Get list of all teachers with summary stats (pre-calculated)."""
-        query = select(Grade)
+        query = select(Grade).where(Grade.school_id == self.school_id)
         if period:
             query = query.where(Grade.period == period)
 
@@ -35,7 +37,7 @@ class TeacherService:
             student_query = (
                 select(Student.student_tz)
                 .join(Class)
-                .where(Class.grade_level == grade_level)
+                .where(Class.grade_level == grade_level, Student.school_id == self.school_id)
             )
             valid_student_tzs = set(self.session.exec(student_query).all())
             grades = [g for g in grades if g.student_tz in valid_student_tzs]
@@ -78,7 +80,10 @@ class TeacherService:
 
     def get_teacher_stats(self, teacher_name: str, period: str | None = None) -> dict:
         """Get raw grade data for a teacher."""
-        query = select(Grade).where(Grade.teacher_name == teacher_name)
+        query = select(Grade).where(
+            Grade.teacher_name == teacher_name,
+            Grade.school_id == self.school_id,
+        )
         if period:
             query = query.where(Grade.period == period)
 
@@ -99,10 +104,13 @@ class TeacherService:
     def get_teacher_detail(self, teacher_id: UUID, period: str | None = None) -> dict | None:
         """Get detailed analytics for a specific teacher (pre-calculated)."""
         teacher = self.session.get(Teacher, teacher_id)
-        if not teacher:
+        if not teacher or teacher.school_id != self.school_id:
             return None
 
-        query = select(Grade).where(Grade.teacher_id == teacher_id)
+        query = select(Grade).where(
+            Grade.teacher_id == teacher_id,
+            Grade.school_id == self.school_id,
+        )
         if period:
             query = query.where(Grade.period == period)
         grades = self.session.exec(query).all()
