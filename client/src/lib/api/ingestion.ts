@@ -1,5 +1,6 @@
 import { fetchApi, buildQueryString, API_BASE_URL } from "./core";
 import { ApiError } from "../api-error";
+import { useAuthStore } from "../auth-store";
 
 import type {
   ImportResponse,
@@ -16,10 +17,16 @@ export const ingestionApi = {
     formData.append("file", file);
 
     const queryString = buildQueryString(params);
+    const token = useAuthStore.getState().token;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
     const response = await fetch(
       `${API_BASE_URL}/api/ingest/upload${queryString}`,
       {
         method: "POST",
+        headers,
         body: formData,
       },
     );

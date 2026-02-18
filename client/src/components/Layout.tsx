@@ -34,15 +34,17 @@ import {
   Menu,
   UserCheck,
   BarChart3,
+  LogOut,
 } from "lucide-react";
 import { useFilters } from "./FilterContext";
 import { analyticsApi, ingestionApi } from "@/lib/api";
+import { useAuthStore } from "@/lib/auth-store";
 import { METADATA_STALE_TIME_MS } from "@/lib/constants";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
 const navItems = [
-  { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/" },
+  { icon: LayoutDashboard, labelKey: "nav.dashboard", path: "/dashboard" },
   {
     icon: BarChart3,
     labelKey: "nav.advancedAnalytics",
@@ -88,6 +90,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { filters, setFilter } = useFilters();
   const queryClient = useQueryClient();
   const [isResetOpen, setIsResetOpen] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
 
   const { data: metadata } = useQuery({
     queryKey: ["metadata"],
@@ -138,7 +142,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
           {navItems.map((item) => {
             const isActive =
               currentPath === item.path ||
-              (item.path !== "/" && currentPath.startsWith(item.path));
+              (item.path !== "/dashboard" && currentPath.startsWith(item.path));
             const isDisabled = isEmptyState && item.path !== "/upload";
 
             return (
@@ -271,6 +275,31 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* User info & logout */}
+        {user && (
+          <div className="pt-3 border-t border-border">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-medium truncate">
+                  {user.full_name}
+                </span>
+                <span className="text-xs text-muted-foreground truncate">
+                  {user.email}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                aria-label={t("auth.logout")}
+                className="shrink-0"
+              >
+                <LogOut className="size-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

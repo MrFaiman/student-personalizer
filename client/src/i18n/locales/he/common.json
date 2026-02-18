@@ -92,6 +92,32 @@
     "average": "ממוצע",
     "student": "תלמיד"
   },
+  "auth": {
+    "login": "התחברות",
+    "logout": "התנתקות",
+    "email": "אימייל",
+    "password": "סיסמה",
+    "loginSubtitle": "התחבר למערכת",
+    "loginFailed": "ההתחברות נכשלה",
+    "register": "רישום",
+    "registerUser": "רישום משתמש",
+    "registerSubtitle": "הוספת משתמש חדש למערכת",
+    "registerSuccess": "המשתמש {{name}} נרשם בהצלחה",
+    "registerFailed": "הרישום נכשל",
+    "fullName": "שם מלא",
+    "role": "תפקיד",
+    "noAccountYet": "עדיין אין לך חשבון?",
+    "alreadyHaveAccount": "כבר יש לך חשבון?",
+    "roleAdmin": "מנהל",
+    "roleTeacher": "מורה",
+    "roleViewer": "צופה",
+    "validation": {
+      "email": "נא להזין כתובת אימייל תקינה",
+      "password": "נא להזין סיסמה",
+      "passwordMin": "הסיסמה חייבת להכיל לפחות 6 תווים",
+      "fullName": "נא להזין שם מלא (לפחות 2 תווים)"
+    }
+  },
   "noData": "אין נתונים להצגה",
   "viewStudent": "צפה בתלמיד",
   "viewDetails": "צפה בפרטים"
