@@ -1,0 +1,11 @@
+services:
+  server:
+    build: .
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/data.db
+      - PORT=3100
+      - ORIGIN_URL=https://demo.upvote.co.il
