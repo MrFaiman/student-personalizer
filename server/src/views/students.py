@@ -6,13 +6,14 @@ from ..schemas.student import (
     StudentDetailResponse,
     StudentListResponse,
 )
+from .base import BaseView
 
 
 def _round_grade(val: float | None) -> float | None:
     return round(val, 1) if val is not None else None
 
 
-class StudentDefaultView:
+class StudentDefaultView(BaseView):
     """Default view presenter for Student data."""
 
     def render_list(self, data: dict) -> StudentListResponse:

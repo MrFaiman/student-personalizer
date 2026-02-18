@@ -11,9 +11,10 @@ from ..schemas.analytics import (
     SubjectGradeItem,
     VersusChartData,
 )
+from .base import BaseView
 
 
-class AnalyticsDefaultView:
+class AnalyticsDefaultView(BaseView):
     """Default view presenter for Analytics data (includes advanced)."""
 
     def render_kpis(self, data: dict) -> LayerKPIsResponse:

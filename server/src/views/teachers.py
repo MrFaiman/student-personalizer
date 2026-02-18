@@ -8,12 +8,13 @@ from ..schemas.analytics import (
     TeacherListItem,
     TeacherStatsResponse,
 )
+from .base import BaseView
 
 HISTOGRAM_BIN_SIZE = 5
 HISTOGRAM_MAX_GRADE = 100
 
 
-class TeacherDefaultView:
+class TeacherDefaultView(BaseView):
     """Default view presenter for Teacher data."""
 
     def render_list(self, data: list[dict]) -> list[TeacherListItem]:

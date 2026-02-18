@@ -1,8 +1,9 @@
 from ..schemas.analytics import StudentRankItem, TopBottomResponse
 from ..schemas.student import ClassResponse
+from .base import BaseView
 
 
-class ClassDefaultView:
+class ClassDefaultView(BaseView):
     """Default view presenter for Class data."""
 
     def render_list(self, data: list[dict]) -> list[ClassResponse]:
