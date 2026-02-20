@@ -1,7 +1,7 @@
 import { fetchApi } from "./core";
 
-import type { AppConfig } from "../types";
+import { AppConfigSchema } from "../types";
 
 export const configApi = {
-  get: () => fetchApi<AppConfig>("/api/config"),
+  get: () => fetchApi("/api/config", undefined, AppConfigSchema),
 };

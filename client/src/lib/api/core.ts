@@ -1,16 +1,19 @@
+import type { z } from "zod";
+
 import { ApiError } from "../api-error";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export async function fetchApi<T>(
   endpoint: string,
-  options: RequestInit = {},
+  options?: RequestInit,
+  schema?: z.ZodType<T>,
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...options.headers,
+      ...options?.headers,
     },
   });
 
@@ -19,7 +22,22 @@ export async function fetchApi<T>(
     throw ApiError.fromResponse(response, errorData);
   }
 
-  return response.json();
+  const data = await response.json();
+
+  if (schema) {
+    const result = schema.safeParse(data);
+    if (!result.success) {
+      console.error(`[API] Validation failed for ${endpoint}:`, result.error.issues);
+      throw new ApiError(
+        422,
+        `Invalid API response from ${endpoint}`,
+        { detail: result.error.issues.map((i) => i.message).join(", ") },
+      );
+    }
+    return result.data;
+  }
+
+  return data as T;
 }
 
 // Query params helper
