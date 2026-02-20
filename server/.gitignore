@@ -19,6 +19,7 @@ build/
 .env.local
 *.db
 models/
+uploads/
 
 # IDE
 .idea/

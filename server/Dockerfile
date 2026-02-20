@@ -14,6 +14,9 @@ RUN uv sync --frozen --no-dev
 # Copy source code
 COPY src/ ./src/
 
+# Copy ML model files
+COPY models/ ./models/
+
 # Expose port
 EXPOSE 3000
 

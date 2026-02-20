@@ -11,6 +11,9 @@ PORT = int(os.getenv("PORT", DEFAULT_PORT))
 DEFAULT_ORIGIN_URL = "http://localhost:5173"
 ORIGIN_URL = os.getenv("ORIGIN_URL", DEFAULT_ORIGIN_URL)
 
+DEFAULT_DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/student_personalizer"
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
+
 API_TITLE = "Student Personalizer API"
 API_DESCRIPTION = "API for ingesting and analyzing student data"
 API_VERSION = "0.1.0"
@@ -55,3 +58,4 @@ VALID_MIME_TYPES = {
     "application/vnd.ms-excel": "excel",
 }
 DEFAULT_PERIOD = "Default"
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
