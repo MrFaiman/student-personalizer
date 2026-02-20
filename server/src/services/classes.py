@@ -1,7 +1,7 @@
 from uuid import UUID
 
-import numpy as np
-from sqlmodel import Session, select
+from sqlalchemy import case, literal
+from sqlmodel import Session, func, select
 
 from ..constants import AT_RISK_GRADE_THRESHOLD
 from ..models import Class, Grade, Student
@@ -24,50 +24,43 @@ class ClassService:
 
         class_map = {c.id: c for c in classes}
 
-        students = self.session.exec(select(Student)).all()
-        student_tzs = [s.student_tz for s in students]
-
-        grade_query = select(Grade).where(Grade.student_tz.in_(student_tzs))
+        # Subquery: per-student average grade
+        student_avg_query = (
+            select(
+                Grade.student_tz,
+                func.avg(Grade.grade).label("avg_grade"),
+            )
+            .group_by(Grade.student_tz)
+        )
         if period:
-            grade_query = grade_query.where(Grade.period == period)
-        grades = self.session.exec(grade_query).all()
+            student_avg_query = student_avg_query.where(Grade.period == period)
+        student_avg_sub = student_avg_query.subquery()
 
-        student_grades: dict[str, list[float]] = {}
-        for g in grades:
-            if g.student_tz not in student_grades:
-                student_grades[g.student_tz] = []
-            student_grades[g.student_tz].append(g.grade)
-
-        class_stats = {cid: {"grades": [], "at_risk": 0, "students": 0} for cid in class_map.keys()}
-
-        for s in students:
-            if not s.class_id or s.class_id not in class_stats:
-                continue
-
-            stats = class_stats[s.class_id]
-            stats["students"] += 1
-
-            s_grades = student_grades.get(s.student_tz)
-            if s_grades:
-                avg = np.mean(s_grades)
-                stats["grades"].append(avg)
-                if avg < AT_RISK_GRADE_THRESHOLD:
-                    stats["at_risk"] += 1
+        # Aggregate per class: student count, class avg, at-risk count
+        class_stats_query = (
+            select(
+                Student.class_id,
+                func.count(Student.student_tz).label("student_count"),
+                func.avg(student_avg_sub.c.avg_grade).label("class_avg"),
+                func.count(case((student_avg_sub.c.avg_grade < AT_RISK_GRADE_THRESHOLD, literal(1)))).label("at_risk_count"),
+            )
+            .outerjoin(student_avg_sub, Student.student_tz == student_avg_sub.c.student_tz)
+            .where(Student.class_id.isnot(None))
+            .group_by(Student.class_id)
+        )
+        rows = self.session.exec(class_stats_query).all()
 
         result_data = []
-        for cls in classes:
-            stats = class_stats.get(cls.id)
-            if not stats:
+        for cid, student_count, class_avg, at_risk_count in rows:
+            cls = class_map.get(cid)
+            if not cls:
                 continue
-
-            c_grades = stats["grades"]
-            class_avg = float(np.mean(c_grades)) if c_grades else None
 
             result_data.append({
                 "class": cls,
-                "student_count": stats["students"],
-                "average_grade": class_avg,
-                "at_risk_count": stats["at_risk"],
+                "student_count": student_count,
+                "average_grade": float(class_avg) if class_avg is not None else None,
+                "at_risk_count": at_risk_count,
             })
 
         return result_data
@@ -96,19 +89,23 @@ class ClassService:
                 student_data[g.student_tz]["grades"][g.subject] = g.grade
                 all_subjects.add(g.subject)
 
+        # Get per-student averages via SQL
+        avg_query = (
+            select(Grade.student_tz, func.avg(Grade.grade))
+            .where(Grade.student_tz.in_(student_tzs))
+            .group_by(Grade.student_tz)
+        )
+        if period:
+            avg_query = avg_query.where(Grade.period == period)
+        avg_map = {row[0]: float(row[1]) for row in self.session.exec(avg_query).all()}
+
         student_rows = []
-
         for tz, s_data in student_data.items():
-            grades_dict = s_data["grades"]
-
-            valid_grades = [v for v in grades_dict.values() if v is not None]
-            avg = float(np.mean(valid_grades)) if valid_grades else 0
-
             student_rows.append({
                 "student_name": s_data["name"],
                 "student_tz": tz,
-                "grades": grades_dict,
-                "average": avg,
+                "grades": s_data["grades"],
+                "average": avg_map.get(tz, 0),
             })
 
         return {
@@ -122,31 +119,28 @@ class ClassService:
         """
         students = self.session.exec(select(Student).where(Student.class_id == class_id)).all()
         if not students:
-            return {"sorted_students": [], "top_n": top_n, "bottom_n": bottom_n}
+            return {"students": [], "top_n": top_n, "bottom_n": bottom_n}
 
         student_tzs = [s.student_tz for s in students]
+        student_name_map = {s.student_tz: s.student_name for s in students}
 
-        grade_query = select(Grade).where(Grade.student_tz.in_(student_tzs))
+        # Get averages via SQL GROUP BY
+        avg_query = (
+            select(Grade.student_tz, func.avg(Grade.grade).label("avg_grade"))
+            .where(Grade.student_tz.in_(student_tzs))
+            .group_by(Grade.student_tz)
+        )
         if period:
-            grade_query = grade_query.where(Grade.period == period)
-        grades = self.session.exec(grade_query).all()
-
-        student_grades: dict[str, list[float]] = {}
-        for g in grades:
-            if g.student_tz not in student_grades:
-                student_grades[g.student_tz] = []
-            student_grades[g.student_tz].append(g.grade)
+            avg_query = avg_query.where(Grade.period == period)
+        avg_rows = self.session.exec(avg_query).all()
 
         student_averages = []
-        for student in students:
-            s_grades = student_grades.get(student.student_tz)
-            if s_grades:
-                avg = float(np.mean(s_grades))
-                student_averages.append({
-                    "student_name": student.student_name,
-                    "student_tz": student.student_tz,
-                    "average": avg,
-                })
+        for tz, avg in avg_rows:
+            student_averages.append({
+                "student_name": student_name_map.get(tz, ""),
+                "student_tz": tz,
+                "average": float(avg),
+            })
 
         return {
             "students": student_averages,
