@@ -30,7 +30,8 @@
   },
   "errors": {
     "title": "שגיאות:",
-    "uploadFailed": "שגיאה בטעינת הקובץ"
+    "uploadFailed": "שגיאה בטעינת הקובץ",
+    "duplicate": "קובץ כפול"
   },
   "history": {
     "title": "היסטוריית טעינות",

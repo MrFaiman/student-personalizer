@@ -124,13 +124,6 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
         <p className="text-sm text-muted-foreground">
           {t("tooltip.students")}: {item.student_count}
         </p>
-        {item.subjects && item.subjects.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            {t("tooltip.subjects")}: {item.subjects.slice(0, 3).join(", ")}
-            {item.subjects.length > 3 &&
-              ` +${item.subjects.length - 3} ${t("tooltip.more")}`}
-          </p>
-        )}
       </div>
     );
   };

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,17 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
   GraduationCap,
@@ -29,14 +18,12 @@ import {
   Upload,
   Brain,
   Search,
-  RotateCcw,
-  Loader2,
   Menu,
   UserCheck,
   BarChart3,
 } from "lucide-react";
 import { useFilters } from "./FilterContext";
-import { analyticsApi, ingestionApi } from "@/lib/api";
+import { analyticsApi } from "@/lib/api";
 import { METADATA_STALE_TIME_MS } from "@/lib/constants";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -86,8 +73,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const { filters, setFilter } = useFilters();
-  const queryClient = useQueryClient();
-  const [isResetOpen, setIsResetOpen] = useState(false);
 
   const { data: metadata } = useQuery({
     queryKey: ["metadata"],
@@ -101,23 +86,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
   });
 
   const isEmptyState = !kpisLoading && kpis?.total_students === 0;
-
-  const resetMutation = useMutation({
-    mutationFn: () => ingestionApi.resetDatabase({ reload_data: true }),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries();
-      setIsResetOpen(false);
-      alert(
-        t("reset.success", {
-          students: data.students_loaded,
-          events: data.events_loaded,
-        }),
-      );
-    },
-    onError: (error) => {
-      alert(t("reset.error", { message: error.message }));
-    },
-  });
 
   return (
     <div className="p-6 flex flex-col gap-6 h-full justify-between">
@@ -234,43 +202,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
             <span>{t("filters.searchStudent")}</span>
           </Button>
         </Link>
-
-        {/* Reset Database */}
-        <AlertDialog open={isResetOpen} onOpenChange={setIsResetOpen}>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full gap-2 text-destructive hover:text-destructive"
-            >
-              {resetMutation.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <RotateCcw className="size-4" />
-              )}
-              <span>{t("reset.button")}</span>
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent dir="rtl">
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t("reset.title")}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("reset.description")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="flex-row-reverse gap-2">
-              <AlertDialogCancel>{t("reset.cancel")}</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => resetMutation.mutate()}
-                disabled={resetMutation.isPending}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {resetMutation.isPending
-                  ? t("reset.pending")
-                  : t("reset.confirm")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </div>
   );
