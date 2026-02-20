@@ -1,6 +1,7 @@
 from uuid import UUID
 
-from sqlmodel import Session, func, select
+from sqlalchemy import case, literal
+from sqlmodel import Session, col, func, select
 
 from ..constants import (
     AT_RISK_GRADE_THRESHOLD,
@@ -12,7 +13,6 @@ from ..constants import (
     GRADE_WEIGHT,
 )
 from ..models import AttendanceRecord, Class, Grade, Student
-from ..utils.stats import calculate_at_risk_status, calculate_average, sum_attendance_stats
 
 
 class StudentService:
@@ -70,25 +70,37 @@ class StudentService:
             classes = self.session.exec(select(Class).where(Class.id.in_(class_ids))).all()
             classes_map = {c.id: c for c in classes}
 
-        grade_query = select(Grade).where(Grade.student_tz.in_(student_tzs))
+        # Aggregate grades per student in SQL
+        grade_avg_query = (
+            select(Grade.student_tz, func.avg(Grade.grade))
+            .where(Grade.student_tz.in_(student_tzs))
+            .group_by(Grade.student_tz)
+        )
         if period:
-            grade_query = grade_query.where(Grade.period == period)
-        all_grades = self.session.exec(grade_query).all()
+            grade_avg_query = grade_avg_query.where(Grade.period == period)
+        grade_avgs = {row[0]: float(row[1]) for row in self.session.exec(grade_avg_query).all()}
 
-        student_grades: dict[str, list[float]] = {tz: [] for tz in student_tzs}
-        for g in all_grades:
-            if g.student_tz in student_grades:
-                student_grades[g.student_tz].append(g.grade)
-
-        att_query = select(AttendanceRecord).where(AttendanceRecord.student_tz.in_(student_tzs))
+        # Aggregate attendance per student in SQL
+        att_agg_query = (
+            select(
+                AttendanceRecord.student_tz,
+                func.sum(AttendanceRecord.total_absences),
+                func.sum(AttendanceRecord.total_negative_events),
+                func.sum(AttendanceRecord.total_positive_events),
+            )
+            .where(AttendanceRecord.student_tz.in_(student_tzs))
+            .group_by(AttendanceRecord.student_tz)
+        )
         if period:
-            att_query = att_query.where(AttendanceRecord.period == period)
-        all_attendance = self.session.exec(att_query).all()
-
-        student_attendance: dict[str, list[AttendanceRecord]] = {tz: [] for tz in student_tzs}
-        for a in all_attendance:
-            if a.student_tz in student_attendance:
-                student_attendance[a.student_tz].append(a)
+            att_agg_query = att_agg_query.where(AttendanceRecord.period == period)
+        att_stats = {
+            row[0]: {
+                "total_absences": row[1] or 0,
+                "total_negative_events": row[2] or 0,
+                "total_positive_events": row[3] or 0,
+            }
+            for row in self.session.exec(att_agg_query).all()
+        }
 
         result_items = []
         for student in students:
@@ -96,13 +108,10 @@ class StudentService:
             grade_level = cls.grade_level if cls else None
             class_name = cls.class_name if cls else "Unknown"
 
-            grades = student_grades.get(student.student_tz, [])
-            avg_grade = calculate_average(grades)
+            avg_grade = grade_avgs.get(student.student_tz)
+            a = att_stats.get(student.student_tz, {"total_absences": 0, "total_negative_events": 0, "total_positive_events": 0})
 
-            attendance_records = student_attendance.get(student.student_tz, [])
-            att_stats = sum_attendance_stats(attendance_records)
-
-            is_at_risk = calculate_at_risk_status(avg_grade)
+            is_at_risk = avg_grade is not None and avg_grade < AT_RISK_GRADE_THRESHOLD
 
             result_items.append({
                 "student_tz": student.student_tz,
@@ -111,9 +120,9 @@ class StudentService:
                 "class_name": class_name,
                 "grade_level": grade_level,
                 "average_grade": avg_grade,
-                "total_absences": att_stats["total_absences"],
-                "total_negative_events": att_stats["total_negative_events"],
-                "total_positive_events": att_stats["total_positive_events"],
+                "total_absences": a["total_absences"],
+                "total_negative_events": a["total_negative_events"],
+                "total_positive_events": a["total_positive_events"],
                 "is_at_risk": is_at_risk,
             })
 
@@ -132,22 +141,30 @@ class StudentService:
 
         cls = self.session.get(Class, student.class_id)
 
-        grade_query = select(Grade).where(Grade.student_tz == student_tz)
+        # Get average grade via SQL
+        avg_query = select(func.avg(Grade.grade)).where(Grade.student_tz == student_tz)
         if period:
-            grade_query = grade_query.where(Grade.period == period)
-        grades = self.session.exec(grade_query).all()
-        grade_values = [g.grade for g in grades]
+            avg_query = avg_query.where(Grade.period == period)
+        avg_grade_raw = self.session.exec(avg_query).one()
+        avg_grade = float(avg_grade_raw) if avg_grade_raw is not None else None
 
-        att_query = select(AttendanceRecord).where(AttendanceRecord.student_tz == student_tz)
+        # Get attendance stats via SQL
+        att_query = select(
+            func.sum(AttendanceRecord.total_absences),
+            func.sum(AttendanceRecord.total_negative_events),
+            func.sum(AttendanceRecord.total_positive_events),
+        ).where(AttendanceRecord.student_tz == student_tz)
         if period:
             att_query = att_query.where(AttendanceRecord.period == period)
-        attendance_records = self.session.exec(att_query).all()
+        att_row = self.session.exec(att_query).one()
 
-        avg_grade = calculate_average(grade_values)
-        att_stats = sum_attendance_stats(attendance_records)
-        is_at_risk = calculate_at_risk_status(avg_grade)
+        total_absences = att_row[0] or 0
+        total_negative_events = att_row[1] or 0
+        total_positive_events = att_row[2] or 0
 
-        performance_score = self._calculate_performance_score(student_tz, period, grades, attendance_records)
+        is_at_risk = avg_grade is not None and avg_grade < AT_RISK_GRADE_THRESHOLD
+
+        performance_score = self._calculate_performance_score(student_tz, period)
 
         grade_level = cls.grade_level if cls else None
         class_name = cls.class_name if cls else "Unknown"
@@ -159,9 +176,9 @@ class StudentService:
             "class_name": class_name,
             "grade_level": grade_level,
             "average_grade": avg_grade,
-            "total_absences": att_stats["total_absences"],
-            "total_negative_events": att_stats["total_negative_events"],
-            "total_positive_events": att_stats["total_positive_events"],
+            "total_absences": total_absences,
+            "total_negative_events": total_negative_events,
+            "total_positive_events": total_positive_events,
             "is_at_risk": is_at_risk,
             "performance_score": performance_score,
         }
@@ -187,78 +204,61 @@ class StudentService:
                 "classes": [],
             }
 
-        student_query = select(Student).where(Student.class_id.in_(class_map.keys()))
-        students = self.session.exec(student_query).all()
-        student_tzs = [s.student_tz for s in students]
-
-        grade_query = select(Grade).where(Grade.student_tz.in_(student_tzs))
+        # SQL: per-student average grade, grouped by class
+        student_avg_subquery = (
+            select(
+                Grade.student_tz,
+                func.avg(Grade.grade).label("avg_grade"),
+            )
+            .group_by(Grade.student_tz)
+        )
         if period:
-            grade_query = grade_query.where(Grade.period == period)
-        grades = self.session.exec(grade_query).all()
+            student_avg_subquery = student_avg_subquery.where(Grade.period == period)
+        student_avg_sub = student_avg_subquery.subquery()
 
-        student_grades: dict[str, list[float]] = {}
-        for g in grades:
-            if g.student_tz not in student_grades:
-                student_grades[g.student_tz] = []
-            student_grades[g.student_tz].append(g.grade)
+        # Join with students to get class_id, then aggregate per class
+        class_stats_query = (
+            select(
+                Student.class_id,
+                func.count(col(Student.student_tz)).label("student_count"),
+                func.avg(student_avg_sub.c.avg_grade).label("class_avg"),
+                func.count(case((student_avg_sub.c.avg_grade < AT_RISK_GRADE_THRESHOLD, literal(1)))).label("at_risk_count"),
+            )
+            .outerjoin(student_avg_sub, Student.student_tz == student_avg_sub.c.student_tz)
+            .where(Student.class_id.in_(class_map.keys()))
+            .group_by(Student.class_id)
+        )
+        class_rows = self.session.exec(class_stats_query).all()
 
-        student_stats = {}
-        for s in students:
-            s_grades = student_grades.get(s.student_tz)
-            if s_grades:
-                avg = sum(s_grades) / len(s_grades)
-                student_stats[s.student_tz] = {
-                    "avg": avg,
-                    "at_risk": avg < AT_RISK_GRADE_THRESHOLD,
-                    "class_id": s.class_id,
-                }
-            else:
-                student_stats[s.student_tz] = {
-                    "avg": None,
-                    "at_risk": False,
-                    "class_id": s.class_id,
-                }
-
-        class_stats = {cid: {"grades": [], "at_risk": 0, "students": 0} for cid in class_map.keys()}
-
-        overall_grades = []
+        total_students = 0
         total_at_risk = 0
-
-        for s in students:
-            stats = student_stats[s.student_tz]
-            cid = stats["class_id"]
-
-            if cid in class_stats:
-                class_stats[cid]["students"] += 1
-                if stats["avg"] is not None:
-                    class_stats[cid]["grades"].append(stats["avg"])
-                    overall_grades.append(stats["avg"])
-                if stats["at_risk"]:
-                    class_stats[cid]["at_risk"] += 1
-                    total_at_risk += 1
-
+        all_avgs = []
         class_responses = []
-        for cls in classes:
-            stats = class_stats.get(cls.id)
-            if not stats:
+
+        for row in class_rows:
+            cid, student_count, class_avg, at_risk_count = row
+            cls = class_map.get(cid)
+            if not cls:
                 continue
 
-            c_grades = stats["grades"]
-            c_avg = sum(c_grades) / len(c_grades) if c_grades else None
+            total_students += student_count
+            total_at_risk += at_risk_count
+            if class_avg is not None:
+                all_avgs.append(class_avg)
 
             class_responses.append({
                 "id": cls.id,
                 "class_name": cls.class_name,
                 "grade_level": cls.grade_level,
-                "student_count": stats["students"],
-                "average_grade": c_avg,
-                "at_risk_count": stats["at_risk"],
+                "student_count": student_count,
+                "average_grade": float(class_avg) if class_avg is not None else None,
+                "at_risk_count": at_risk_count,
             })
 
-        overall_avg = sum(overall_grades) / len(overall_grades) if overall_grades else None
+        overall_avg = sum(all_avgs) / len(all_avgs) if all_avgs else None
 
         return {
-            "total_students": len(students),
+            "total_students": total_students,
             "average_grade": overall_avg,
             "at_risk_count": total_at_risk,
             "total_classes": len(classes),
@@ -317,18 +317,20 @@ class StudentService:
             for r in records
         ]
 
-    def _calculate_performance_score(self, student_tz: str, period: str | None, student_grades: list[Grade], attendance_records: list[AttendanceRecord]) -> float | None:
+    def _calculate_performance_score(self, student_tz: str, period: str | None) -> float | None:
         """Internal logic to calculate performance score percentile."""
         total_students_count = self.session.exec(select(func.count(Student.student_tz))).one()
         if total_students_count <= 1:
             return None
 
+        # Get all student average grades via SQL
         avg_query = select(Grade.student_tz, func.avg(Grade.grade)).group_by(Grade.student_tz)
         if period:
             avg_query = avg_query.where(Grade.period == period)
         all_avg_grades = self.session.exec(avg_query).all()
         avg_grades_map = {row[0]: row[1] for row in all_avg_grades}
 
+        # Get all student attendance stats via SQL
         att_stats_query = select(
             AttendanceRecord.student_tz,
             func.sum(AttendanceRecord.total_absences),
