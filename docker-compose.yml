@@ -17,11 +17,9 @@ services:
 
   server:
     build: ./server
-    ports:
-      - "5051:3000"
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/student_personalizer
-      ORIGIN_URL: http://localhost:8081
+      ORIGIN_URL: https://app.upvote.co.il
       PORT: "3000"
     volumes:
       - ./server:/app
@@ -32,10 +30,7 @@ services:
   client:
     build: ./client
     ports:
-      - "8081:5173"
-    volumes:
-      - ./client:/app
-      - /app/node_modules
+      - "127.0.0.1:8081:80"
     depends_on:
       - server
 

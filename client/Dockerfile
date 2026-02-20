@@ -1,20 +1,20 @@
-FROM node:20-alpine
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
 RUN npm install -g pnpm
 
-# Copy package files
 COPY package.json pnpm-lock.yaml ./
 
-# Install dependencies
 RUN pnpm install
 
-# Copy source code
 COPY . .
+RUN pnpm build
 
-# Expose Vite's default port
-EXPOSE 5173
+# Serve the static files
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Run in dev mode with host binding
-CMD ["pnpm", "dev", "--host"]
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
