@@ -24,19 +24,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
   ResponsiveContainer,
+  BarChart,
+  Bar,
   LineChart,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
 } from "recharts";
 import {
   ArrowRight,
@@ -53,6 +49,7 @@ import {
 import { studentsApi } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
+import { getBarColor } from "@/lib/utils";
 import {
   RECENT_GRADES_COUNT,
   GRADE_TABLE_PREVIEW_COUNT,
@@ -89,35 +86,38 @@ function StudentDetailPage() {
     queryFn: () => studentsApi.getAttendance(studentTz),
   });
 
-  const { radarData, periods } = (() => {
-    if (!grades?.length) return { radarData: [], periods: [] as string[] };
-    const byPeriodSubject = new Map<string, Map<string, { sum: number; count: number }>>();
+  const { subjectData, periods } = (() => {
+    if (!grades?.length) return { subjectData: [], periods: [] as string[] };
+    
+    const periodsSet = new Set<string>();
+    const bySubject = new Map<string, { sum: number; count: number; teachers: Set<string> }>();
+    
     for (const g of grades) {
-      const period = g.period || "—";
-      if (!byPeriodSubject.has(period)) byPeriodSubject.set(period, new Map());
-      const subjectMap = byPeriodSubject.get(period)!;
-      const entry = subjectMap.get(g.subject);
+      const p = g.period || "—";
+      periodsSet.add(p);
+      
+      const entry = bySubject.get(g.subject);
+      const teacherName = g.teacher_name || "—";
       if (entry) {
         entry.sum += g.grade;
         entry.count += 1;
+        if (teacherName !== "—") entry.teachers.add(teacherName);
       } else {
-        subjectMap.set(g.subject, { sum: g.grade, count: 1 });
+        bySubject.set(g.subject, { 
+          sum: g.grade, 
+          count: 1, 
+          teachers: new Set(teacherName !== "—" ? [teacherName] : []) 
+        });
       }
     }
-    const allSubjects = new Set<string>();
-    for (const subjectMap of byPeriodSubject.values()) {
-      for (const s of subjectMap.keys()) allSubjects.add(s);
-    }
-    const periods = Array.from(byPeriodSubject.keys());
-    const radarData = Array.from(allSubjects, (subject) => {
-      const row: Record<string, string | number> = { subject };
-      for (const period of periods) {
-        const entry = byPeriodSubject.get(period)?.get(subject);
-        if (entry) row[period] = Math.round(entry.sum / entry.count);
-      }
-      return row;
-    });
-    return { radarData, periods };
+    
+    const subjectData = Array.from(bySubject.entries()).map(([subject, { sum, count, teachers }]) => ({
+      subject,
+      average: Math.round(sum / count),
+      teachers: teachers.size > 0 ? Array.from(teachers).join(", ") : "—",
+    }));
+
+    return { subjectData, periods: Array.from(periodsSet) };
   })();
 
   const totalLessons = attendance?.reduce((sum, a) => sum + a.lessons_reported, 0) || 0;
@@ -131,6 +131,7 @@ function StudentDetailPage() {
         index: i + 1,
         grade: g.grade,
         subject: g.subject,
+        teacher: g.teacher_name || "—",
       })) || [];
 
   if (isLoading) {
@@ -252,7 +253,7 @@ function StudentDetailPage() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SubjectRadarChart data={radarData} periods={periods} />
+        <SubjectBarChart data={subjectData} />
 
         {/* Line Chart - Grade Trend */}
         <Card>
@@ -271,8 +272,31 @@ function StudentDetailPage() {
                   <YAxis domain={gradeRange} />
                   <Tooltip
                     contentStyle={TOOLTIP_STYLE}
-                    formatter={(value) => [Number(value ?? 0).toFixed(0), t("detail.gradeTooltip")]}
-                    labelFormatter={(label) => t("detail.examTooltip", { label })}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-background border rounded-lg p-3 shadow-md text-sm border-border max-w-[250px]">
+                            <p className="font-bold mb-2 pb-1 border-b">{t("detail.examTooltip", { label: data.index })}</p>
+                            <div className="flex flex-col gap-1">
+                              <div className="flex justify-between gap-4">
+                                <span className="text-muted-foreground">{tc("table.subject")}:</span>
+                                <span className="font-medium">{data.subject}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-muted-foreground">{tc("table.teacher")}:</span>
+                                <span className="font-medium">{data.teacher}</span>
+                              </div>
+                              <div className="flex justify-between gap-4 mt-1 pt-1 border-t">
+                                <span className="text-muted-foreground">{tc("table.grade")}:</span>
+                                <span className="font-bold text-primary">{data.grade}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
                   />
                   <Line
                     type="monotone"
@@ -461,9 +485,10 @@ function PeriodComparisonSection({
     return { avgGrade, attRate, totalAbsences, subjectAvgs };
   }
 
-  function renderPeriodCard(period: string) {
-    const stats = computePeriodStats(period);
+  const period1Stats = computePeriodStats(period1);
+  const period2Stats = computePeriodStats(period2);
 
+  function renderPeriodCard(period: string, stats: ReturnType<typeof computePeriodStats>, otherStats: ReturnType<typeof computePeriodStats>) {
     if (stats.avgGrade === null && stats.attRate === null) {
       return (
         <div className="flex items-center justify-center h-40 text-muted-foreground">
@@ -472,24 +497,33 @@ function PeriodComparisonSection({
       );
     }
 
+    const getColorScore = (val: number | null, other: number | null, lowerIsBetter = false) => {
+      if (val === null || other === null) return "";
+      if (val === other) return "";
+      if (val > other) return lowerIsBetter ? "text-red-500" : "text-green-500";
+      return lowerIsBetter ? "text-green-500" : "text-red-500";
+    };
+
     return (
       <div className="space-y-4">
         {/* Mini stats */}
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center p-2 bg-accent/30 rounded-lg">
-            <p className="text-lg font-bold tabular-nums">
+            <p className={`text-lg font-bold tabular-nums ${getColorScore(stats.avgGrade, otherStats.avgGrade)}`}>
               {stats.avgGrade !== null ? stats.avgGrade.toFixed(1) : "—"}
             </p>
             <p className="text-xs text-muted-foreground">{tc("general.averageGrade")}</p>
           </div>
           <div className="text-center p-2 bg-accent/30 rounded-lg">
-            <p className="text-lg font-bold tabular-nums">
+            <p className={`text-lg font-bold tabular-nums ${getColorScore(stats.attRate, otherStats.attRate)}`}>
               {stats.attRate !== null ? `${stats.attRate.toFixed(0)}%` : "—"}
             </p>
             <p className="text-xs text-muted-foreground">{tc("general.attendanceRate")}</p>
           </div>
           <div className="text-center p-2 bg-accent/30 rounded-lg">
-            <p className="text-lg font-bold tabular-nums">{stats.totalAbsences}</p>
+            <p className={`text-lg font-bold tabular-nums ${getColorScore(stats.totalAbsences, otherStats.totalAbsences, true)}`}>
+              {stats.totalAbsences}
+            </p>
             <p className="text-xs text-muted-foreground">{tc("general.absences")}</p>
           </div>
         </div>
@@ -500,17 +534,20 @@ function PeriodComparisonSection({
             <p className="text-sm font-medium mb-2">{t("detail.gradesBySubject")}</p>
             <Table>
               <TableBody>
-                {stats.subjectAvgs.map((s) => (
-                  <TableRow key={s.subject}>
-                    <TableCell className="py-1.5 text-sm">{s.subject}</TableCell>
-                    <TableCell
-                      className={`py-1.5 text-sm font-bold text-left ${s.avg < atRiskGradeThreshold ? "text-red-600" : s.avg >= goodGradeThreshold ? "text-green-600" : ""
-                        }`}
-                    >
-                      {s.avg}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {stats.subjectAvgs.map((s) => {
+                  const otherSubject = otherStats.subjectAvgs.find(os => os.subject === s.subject);
+                  const colorClass = getColorScore(s.avg, otherSubject ? otherSubject.avg : null);
+                  return (
+                    <TableRow key={s.subject}>
+                      <TableCell className="py-1.5 text-sm">{s.subject}</TableCell>
+                      <TableCell
+                        className={`py-1.5 text-sm font-bold text-left ${colorClass || (s.avg < atRiskGradeThreshold ? "text-red-600" : s.avg >= goodGradeThreshold ? "text-green-600" : "")}`}
+                      >
+                        {s.avg}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -565,14 +602,14 @@ function PeriodComparisonSection({
               <div className="p-4 border-b">
                 <h4 className="font-bold text-center">{period1}</h4>
               </div>
-              <CardContent className="p-4">{renderPeriodCard(period1)}</CardContent>
+              <CardContent className="p-4">{renderPeriodCard(period1, period1Stats, period2Stats)}</CardContent>
             </Card>
             <div className="w-px bg-border self-stretch" />
             <Card>
               <div className="p-4 border-b">
                 <h4 className="font-bold text-center">{period2}</h4>
               </div>
-              <CardContent className="p-4">{renderPeriodCard(period2)}</CardContent>
+              <CardContent className="p-4">{renderPeriodCard(period2, period2Stats, period1Stats)}</CardContent>
             </Card>
           </div>
         ) : (
@@ -585,23 +622,13 @@ function PeriodComparisonSection({
   );
 }
 
-const RADAR_COLORS = [
-  "hsl(245, 58%, 51%)",
-  "hsl(160, 60%, 45%)",
-  "hsl(30, 90%, 55%)",
-  "hsl(340, 65%, 50%)",
-  "hsl(200, 70%, 50%)",
-  "hsl(50, 80%, 45%)",
-];
-
-function SubjectRadarChart({
+function SubjectBarChart({
   data,
-  periods,
 }: {
-  data: Record<string, string | number>[];
-  periods: string[];
+  data: { subject: string; average: number; teachers: string }[];
 }) {
   const { t } = useTranslation("students");
+  const { t: tc } = useTranslation();
   const gradeRange = useConfigStore((s) => s.gradeRange);
 
   return (
@@ -615,23 +642,53 @@ function SubjectRadarChart({
       <CardContent className="p-4">
         {data.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%" className="min-h-[40vh]">
-            <RadarChart data={data} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
-              <PolarGrid />
-              <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
-              <PolarRadiusAxis domain={gradeRange} />
-              {periods.map((period, i) => (
-                <Radar
-                  key={period}
-                  name={period}
-                  dataKey={period}
-                  stroke={RADAR_COLORS[i % RADAR_COLORS.length]}
-                  fill={RADAR_COLORS[i % RADAR_COLORS.length]}
-                  fillOpacity={0.15}
-                />
-              ))}
-              <Legend />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-            </RadarChart>
+            <BarChart data={data} margin={{ top: 20, right: 30, bottom: 20, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
+              <YAxis domain={gradeRange} />
+              <Tooltip
+                contentStyle={TOOLTIP_STYLE}
+                cursor={{ fill: "var(--accent)" }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-background border rounded-lg p-3 shadow-md text-sm border-border min-w-[200px]">
+                        <p className="font-bold mb-2 pb-1 border-b">{data.subject}</p>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between gap-4">
+                            <span className="text-muted-foreground">{tc("table.teacher")}:</span>
+                            <span className="font-medium text-right">{data.teachers}</span>
+                          </div>
+                          <div className="flex justify-between gap-4 mt-1 pt-1 border-t">
+                            <span className="text-muted-foreground">{tc("general.averageGrade")}:</span>
+                            <span className="font-bold text-primary">{data.average}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Bar
+                dataKey="average"
+                shape={(props: any) => {
+                  const { x, y, width, height, index } = props;
+                  return (
+                    <rect
+                      x={x}
+                      y={y}
+                      width={width}
+                      height={height}
+                      fill={getBarColor(index)}
+                      rx={4}
+                      ry={4}
+                    />
+                  );
+                }}
+              />
+            </BarChart>
           </ResponsiveContainer>
         ) : (
           <div className="h-[40vh] flex items-center justify-center text-muted-foreground">

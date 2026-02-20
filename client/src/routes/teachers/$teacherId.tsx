@@ -11,7 +11,7 @@ import {
     BarChart,
     Bar,
     CartesianGrid,
-    Cell,
+    Rectangle,
     XAxis,
     YAxis,
     Tooltip,
@@ -19,7 +19,7 @@ import {
 } from "recharts";
 import { useFilters } from "@/components/FilterContext";
 import { PageHeader } from "@/components/PageHeader";
-import { CLASS_COLORS } from "@/lib/utils";
+import { getBarColor } from "@/lib/utils";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 import { analyticsApi } from "@/lib/api";
 import { useConfigStore } from "@/lib/config-store";
@@ -157,11 +157,13 @@ function TeacherDetailPage() {
                                             tc("table.average"),
                                         ]}
                                     />
-                                    <Bar dataKey="average" radius={[4, 4, 0, 0]}>
-                                        {classChartData.map((_, i) => (
-                                            <Cell key={i} fill={CLASS_COLORS[i % CLASS_COLORS.length]} />
-                                        ))}
-                                    </Bar>
+                                    <Bar 
+                                        dataKey="average" 
+                                        radius={[4, 4, 0, 0]} 
+                                        shape={(props) => (
+                                            <Rectangle {...props} fill={getBarColor(props.index)} />
+                                        )} 
+                                    />
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (

@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CLASS_COLORS } from "@/lib/utils";
+import { getBarColor } from "@/lib/utils";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 
 interface DashboardBarChartProps {
@@ -78,7 +78,7 @@ export function DashboardBarChart({
                                         dataKey={dataKey}
                                         radius={[4, 4, 0, 0]}
                                         shape={(props) => (
-                                            <Rectangle {...props} fill={CLASS_COLORS[props.index % CLASS_COLORS.length]} />
+                                            <Rectangle {...props} fill={getBarColor(props.index)} />
                                         )}
                                     />
                                 </BarChart>

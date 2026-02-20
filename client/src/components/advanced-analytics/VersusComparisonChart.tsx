@@ -27,7 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
-import { CLASS_COLORS } from "@/lib/utils";
+import { getBarColor } from "@/lib/utils";
 
 type ComparisonType = "class" | "teacher" | "layer";
 
@@ -179,7 +179,7 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
                 key={entityId}
                 variant="outline"
                 style={{
-                  borderColor: CLASS_COLORS[index % CLASS_COLORS.length],
+                  borderColor: getBarColor(index),
                 }}
                 className="flex items-center gap-1"
               >
@@ -218,7 +218,7 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
                 shape={(props) => (
                   <Rectangle
                     {...props}
-                    fill={CLASS_COLORS[props.index % CLASS_COLORS.length]}
+                    fill={getBarColor(props.index)}
                   />
                 )}
               />
