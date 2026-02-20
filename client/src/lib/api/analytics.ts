@@ -1,72 +1,90 @@
 import { fetchApi, buildQueryString } from "./core";
+import { z } from "zod";
 
-import type {
-  LayerKPIsResponse,
-  ClassComparisonItem,
-  HeatmapData,
-  TopBottomResponse,
-  TeacherStatsResponse,
-  SubjectGradeItem,
-  MetadataResponse,
-  TeacherListItem,
-  TeacherDetailResponse,
-  PeriodComparisonResponse,
-  RedStudentSegmentation,
-  RedStudentListResponse,
-  VersusChartData,
-  CascadingFilterOptions,
+import {
+  LayerKPIsResponseSchema,
+  ClassComparisonItemSchema,
+  HeatmapDataSchema,
+  TopBottomResponseSchema,
+  TeacherStatsResponseSchema,
+  SubjectGradeItemSchema,
+  MetadataResponseSchema,
+  TeacherListItemSchema,
+  TeacherDetailResponseSchema,
+  PeriodComparisonResponseSchema,
+  RedStudentSegmentationSchema,
+  RedStudentListResponseSchema,
+  VersusChartDataSchema,
+  CascadingFilterOptionsSchema,
 } from "../types";
 
 export const analyticsApi = {
   getKPIs: (params: { period?: string; grade_level?: string } = {}) =>
-    fetchApi<LayerKPIsResponse>(
+    fetchApi(
       `/api/analytics/kpis${buildQueryString(params)}`,
+      undefined,
+      LayerKPIsResponseSchema,
     ),
 
   getClassComparison: (
     params: { period?: string; grade_level?: string } = {},
   ) =>
-    fetchApi<ClassComparisonItem[]>(
+    fetchApi(
       `/api/analytics/class-comparison${buildQueryString(params)}`,
+      undefined,
+      z.array(ClassComparisonItemSchema),
     ),
 
   getClassHeatmap: (classId: string, params: { period?: string } = {}) =>
-    fetchApi<HeatmapData>(
+    fetchApi(
       `/api/classes/${classId}/heatmap${buildQueryString(params)}`,
+      undefined,
+      HeatmapDataSchema,
     ),
 
   getClassRankings: (
     classId: string,
     params: { period?: string; top_n?: number; bottom_n?: number } = {},
   ) =>
-    fetchApi<TopBottomResponse>(
+    fetchApi(
       `/api/classes/${classId}/rankings${buildQueryString(params)}`,
+      undefined,
+      TopBottomResponseSchema,
     ),
 
   getTeacherStats: (teacherName: string, params: { period?: string } = {}) =>
-    fetchApi<TeacherStatsResponse>(
+    fetchApi(
       `/api/teachers/${encodeURIComponent(teacherName)}/stats${buildQueryString(params)}`,
+      undefined,
+      TeacherStatsResponseSchema,
     ),
 
   getStudentRadar: (studentTz: string, params: { period?: string } = {}) =>
-    fetchApi<SubjectGradeItem[]>(
+    fetchApi(
       `/api/analytics/student/${encodeURIComponent(studentTz)}/radar${buildQueryString(params)}`,
+      undefined,
+      z.array(SubjectGradeItemSchema),
     ),
 
   getTeachers: (params: { period?: string } = {}) =>
     fetchApi<string[]>(`/api/teachers${buildQueryString(params)}`),
 
   getTeachersList: (params: { period?: string; grade_level?: string } = {}) =>
-    fetchApi<TeacherListItem[]>(
+    fetchApi(
       `/api/teachers/list${buildQueryString(params)}`,
+      undefined,
+      z.array(TeacherListItemSchema),
     ),
 
   getTeacherDetail: (teacherId: string, params: { period?: string } = {}) =>
-    fetchApi<TeacherDetailResponse>(
+    fetchApi(
       `/api/teachers/${encodeURIComponent(teacherId)}/detail${buildQueryString(params)}`,
+      undefined,
+      TeacherDetailResponseSchema,
     ),
 
-  getMetadata: () => fetchApi<MetadataResponse>("/api/analytics/metadata"),
+  getMetadata: () =>
+    fetchApi("/api/analytics/metadata", undefined, MetadataResponseSchema),
 
   getPeriodComparison: (params: {
     period_a: string;
@@ -75,8 +93,10 @@ export const analyticsApi = {
     grade_level?: string;
     class_id?: string;
   }) =>
-    fetchApi<PeriodComparisonResponse>(
+    fetchApi(
       `/api/analytics/period-comparison${buildQueryString(params)}`,
+      undefined,
+      PeriodComparisonResponseSchema,
     ),
 
   getRedStudentSegmentation: (
@@ -85,8 +105,10 @@ export const analyticsApi = {
       grade_level?: string;
     } = {},
   ) =>
-    fetchApi<RedStudentSegmentation>(
+    fetchApi(
       `/api/analytics/red-students/segmentation${buildQueryString(params)}`,
+      undefined,
+      RedStudentSegmentationSchema,
     ),
 
   getRedStudentList: (
@@ -100,8 +122,10 @@ export const analyticsApi = {
       page_size?: number;
     } = {},
   ) =>
-    fetchApi<RedStudentListResponse>(
+    fetchApi(
       `/api/analytics/red-students/list${buildQueryString(params)}`,
+      undefined,
+      RedStudentListResponseSchema,
     ),
 
   getVersusComparison: (params: {
@@ -110,8 +134,10 @@ export const analyticsApi = {
     period?: string;
     metric?: "average_grade" | "at_risk_count";
   }) =>
-    fetchApi<VersusChartData>(
+    fetchApi(
       `/api/analytics/versus${buildQueryString(params)}`,
+      undefined,
+      VersusChartDataSchema,
     ),
 
   getCascadingFilterOptions: (
@@ -121,7 +147,9 @@ export const analyticsApi = {
       period?: string;
     } = {},
   ) =>
-    fetchApi<CascadingFilterOptions>(
+    fetchApi(
       `/api/analytics/filter-options${buildQueryString(params)}`,
+      undefined,
+      CascadingFilterOptionsSchema,
     ),
 };

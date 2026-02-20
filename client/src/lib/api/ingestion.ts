@@ -1,17 +1,17 @@
 import { fetchApi, buildQueryString, API_BASE_URL } from "./core";
 import { ApiError } from "../api-error";
 
-import type {
-  ImportResponse,
-  ImportLogListResponse,
-  ImportLogResponse,
+import {
+  ImportResponseSchema,
+  ImportLogListResponseSchema,
+  ImportLogResponseSchema,
 } from "../types";
 
 export const ingestionApi = {
   upload: async (
     file: File,
     params: { file_type?: "grades" | "events"; period?: string } = {},
-  ): Promise<ImportResponse> => {
+  ) => {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -29,17 +29,29 @@ export const ingestionApi = {
       throw ApiError.fromResponse(response, errorData);
     }
 
-    return response.json();
+    const data = await response.json();
+    const result = ImportResponseSchema.safeParse(data);
+    if (!result.success) {
+      console.error("[API] Validation failed for upload:", result.error.issues);
+      throw new ApiError(422, "Invalid API response from upload", {
+        detail: result.error.issues.map((i) => i.message).join(", "),
+      });
+    }
+    return result.data;
   },
 
   getLogs: (params: { page?: number; page_size?: number } = {}) =>
-    fetchApi<ImportLogListResponse>(
+    fetchApi(
       `/api/ingest/logs${buildQueryString(params)}`,
+      undefined,
+      ImportLogListResponseSchema,
     ),
 
   getLog: (batchId: string) =>
-    fetchApi<ImportLogResponse>(
+    fetchApi(
       `/api/ingest/logs/${encodeURIComponent(batchId)}`,
+      undefined,
+      ImportLogResponseSchema,
     ),
 
   deleteLog: (batchId: string) =>
@@ -47,11 +59,4 @@ export const ingestionApi = {
       `/api/ingest/logs/${encodeURIComponent(batchId)}`,
       { method: "DELETE" },
     ),
-
-  resetDatabase: (params: { reload_data?: boolean } = { reload_data: true }) =>
-    fetchApi<{
-      message: string;
-      students_loaded: number;
-      events_loaded: number;
-    }>(`/api/ingest/reset${buildQueryString(params)}`, { method: "POST" }),
 };

@@ -1,29 +1,34 @@
 import { fetchApi, buildQueryString } from "./core";
 
-import type {
-  TrainResponse,
-  StudentPrediction,
-  BatchPredictionResponse,
-  ModelStatusResponse,
+import {
+  TrainResponseSchema,
+  StudentPredictionSchema,
+  BatchPredictionResponseSchema,
+  ModelStatusResponseSchema,
 } from "../types";
 
 export const mlApi = {
   train: (params: { period?: string } = {}) =>
-    fetchApi<TrainResponse>(`/api/ml/train${buildQueryString(params)}`, {
+    fetchApi(`/api/ml/train${buildQueryString(params)}`, {
       method: "POST",
-    }),
+    }, TrainResponseSchema),
 
   predictStudent: (studentTz: string, params: { period?: string } = {}) =>
-    fetchApi<StudentPrediction>(
+    fetchApi(
       `/api/ml/predict/${encodeURIComponent(studentTz)}${buildQueryString(params)}`,
+      undefined,
+      StudentPredictionSchema,
     ),
 
   predictAll: (
     params: { period?: string; page?: number; page_size?: number } = {},
   ) =>
-    fetchApi<BatchPredictionResponse>(
+    fetchApi(
       `/api/ml/predict${buildQueryString(params)}`,
+      undefined,
+      BatchPredictionResponseSchema,
     ),
 
-  getStatus: () => fetchApi<ModelStatusResponse>("/api/ml/status"),
+  getStatus: () =>
+    fetchApi("/api/ml/status", undefined, ModelStatusResponseSchema),
 };
