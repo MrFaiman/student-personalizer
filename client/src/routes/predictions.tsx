@@ -194,7 +194,7 @@ function PredictionsPage() {
             <div className="mt-4 p-3 bg-green-100 rounded-lg flex items-center gap-2 text-green-800">
               <CheckCircle className="size-5" />
               <span>
-                המודל אומן בהצלחה על {trainMutation.data.samples_used} דגימות
+                המודל אומן בהצלחה על {trainMutation.data.samples} דגימות
               </span>
             </div>
           )}

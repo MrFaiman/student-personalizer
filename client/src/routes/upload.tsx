@@ -45,6 +45,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { ingestionApi } from "@/lib/api";
+import { ApiError } from "@/lib/api-error";
 import { TablePagination } from "@/components/TablePagination";
 import type { ImportResponse } from "@/lib/types";
 import { MAX_DISPLAYED_ERRORS } from "@/lib/constants";
@@ -62,7 +63,7 @@ function UploadPage() {
     const [dragActive, setDragActive] = useState(false);
     const [fileType, setFileType] = useState<"grades" | "events" | "__auto__">("__auto__");
     const [period, setPeriod] = useState("Q1");
-    const [uploadResults, setUploadResults] = useState<Array<{ filename: string; result?: ImportResponse; error?: string }>>([]);
+    const [uploadResults, setUploadResults] = useState<Array<{ filename: string; result?: ImportResponse; error?: string; isDuplicate?: boolean }>>([]);
     const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
@@ -83,7 +84,7 @@ function UploadPage() {
             setUploadResults([]);
             setUploadProgress({ current: 0, total: files.length });
 
-            const results: Array<{ filename: string; result?: ImportResponse; error?: string }> = [];
+            const results: Array<{ filename: string; result?: ImportResponse; error?: string; isDuplicate?: boolean }> = [];
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
@@ -96,9 +97,11 @@ function UploadPage() {
                     });
                     results.push({ filename: file.name, result });
                 } catch (error) {
+                    const isDuplicate = ApiError.isApiError(error) && error.status === 409;
                     results.push({
                         filename: file.name,
-                        error: error instanceof Error ? error.message : "Upload failed"
+                        error: error instanceof Error ? error.message : "Upload failed",
+                        isDuplicate,
                     });
                 }
             }
@@ -311,6 +314,20 @@ function UploadPage() {
                                                     </ul>
                                                 </div>
                                             )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ) : item.isDuplicate ? (
+                            <Card key={index} className="border-yellow-200 bg-yellow-50">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center gap-3">
+                                        <AlertTriangle className="size-5 text-yellow-600 shrink-0" />
+                                        <div className="min-w-0">
+                                            <h3 className="text-base font-bold text-yellow-800">
+                                                {t("errors.duplicate")} - {item.filename}
+                                            </h3>
+                                            <p className="text-sm text-yellow-700 mt-0.5">{item.error}</p>
                                         </div>
                                     </div>
                                 </CardContent>
