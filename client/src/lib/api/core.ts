@@ -2,7 +2,7 @@ import type { z } from "zod";
 
 import { ApiError } from "../api-error";
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 export async function fetchApi<T>(
   endpoint: string,
