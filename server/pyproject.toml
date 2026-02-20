@@ -18,7 +18,7 @@ dependencies = [
     "joblib>=1.5.3",
     "scikit-learn>=1.8.0",
     "python-dotenv>=1.2.1",
-    "psycopg2>=2.9.11",
+    "psycopg2-binary>=2.9.11",
 ]
 
 [project.scripts]

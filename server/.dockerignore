@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.ruff_cache
 .env
 .env.*
 .venv
@@ -18,7 +19,3 @@ venv.bak/
 data.db
 uploads/
 models/
-uv.lock
-pyproject.toml
-!pyproject.toml
-!uv.lock
