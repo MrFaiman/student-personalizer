@@ -445,9 +445,6 @@ function PeriodComparisonSection({
   periods: string[];
 }) {
   const { t } = useTranslation("students");
-  const { t: tc } = useTranslation();
-  const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
-  const goodGradeThreshold = useConfigStore((s) => s.goodGradeThreshold);
   const [period1, setPeriod1] = useState<string>(periods[0] ?? "");
   const [period2, setPeriod2] = useState<string>(periods[1] ?? periods[0] ?? "");
 
@@ -487,74 +484,6 @@ function PeriodComparisonSection({
 
   const period1Stats = computePeriodStats(period1);
   const period2Stats = computePeriodStats(period2);
-
-  function renderPeriodCard(period: string, stats: ReturnType<typeof computePeriodStats>, otherStats: ReturnType<typeof computePeriodStats>) {
-    if (stats.avgGrade === null && stats.attRate === null) {
-      return (
-        <div className="flex items-center justify-center h-40 text-muted-foreground">
-          {t("detail.noPeriodData")}
-        </div>
-      );
-    }
-
-    const getColorScore = (val: number | null, other: number | null, lowerIsBetter = false) => {
-      if (val === null || other === null) return "";
-      if (val === other) return "";
-      if (val > other) return lowerIsBetter ? "text-red-500" : "text-green-500";
-      return lowerIsBetter ? "text-green-500" : "text-red-500";
-    };
-
-    return (
-      <div className="space-y-4">
-        {/* Mini stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="text-center p-2 bg-accent/30 rounded-lg">
-            <p className={`text-lg font-bold tabular-nums ${getColorScore(stats.avgGrade, otherStats.avgGrade)}`}>
-              {stats.avgGrade !== null ? stats.avgGrade.toFixed(1) : "—"}
-            </p>
-            <p className="text-xs text-muted-foreground">{tc("general.averageGrade")}</p>
-          </div>
-          <div className="text-center p-2 bg-accent/30 rounded-lg">
-            <p className={`text-lg font-bold tabular-nums ${getColorScore(stats.attRate, otherStats.attRate)}`}>
-              {stats.attRate !== null ? `${stats.attRate.toFixed(0)}%` : "—"}
-            </p>
-            <p className="text-xs text-muted-foreground">{tc("general.attendanceRate")}</p>
-          </div>
-          <div className="text-center p-2 bg-accent/30 rounded-lg">
-            <p className={`text-lg font-bold tabular-nums ${getColorScore(stats.totalAbsences, otherStats.totalAbsences, true)}`}>
-              {stats.totalAbsences}
-            </p>
-            <p className="text-xs text-muted-foreground">{tc("general.absences")}</p>
-          </div>
-        </div>
-
-        {/* Subject grades table */}
-        {stats.subjectAvgs.length > 0 && (
-          <div>
-            <p className="text-sm font-medium mb-2">{t("detail.gradesBySubject")}</p>
-            <Table>
-              <TableBody>
-                {stats.subjectAvgs.map((s) => {
-                  const otherSubject = otherStats.subjectAvgs.find(os => os.subject === s.subject);
-                  const colorClass = getColorScore(s.avg, otherSubject ? otherSubject.avg : null);
-                  return (
-                    <TableRow key={s.subject}>
-                      <TableCell className="py-1.5 text-sm">{s.subject}</TableCell>
-                      <TableCell
-                        className={`py-1.5 text-sm font-bold text-left ${colorClass || (s.avg < atRiskGradeThreshold ? "text-red-600" : s.avg >= goodGradeThreshold ? "text-green-600" : "")}`}
-                      >
-                        {s.avg}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <Card>
@@ -602,14 +531,14 @@ function PeriodComparisonSection({
               <div className="p-4 border-b">
                 <h4 className="font-bold text-center">{period1}</h4>
               </div>
-              <CardContent className="p-4">{renderPeriodCard(period1, period1Stats, period2Stats)}</CardContent>
+              <CardContent className="p-4"><PeriodCard stats={period1Stats} otherStats={period2Stats} /></CardContent>
             </Card>
             <div className="w-px bg-border self-stretch" />
             <Card>
               <div className="p-4 border-b">
                 <h4 className="font-bold text-center">{period2}</h4>
               </div>
-              <CardContent className="p-4">{renderPeriodCard(period2, period2Stats, period1Stats)}</CardContent>
+              <CardContent className="p-4"><PeriodCard stats={period2Stats} otherStats={period1Stats} /></CardContent>
             </Card>
           </div>
         ) : (
@@ -619,6 +548,92 @@ function PeriodComparisonSection({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+type PeriodStats = {
+  avgGrade: number | null;
+  attRate: number | null;
+  totalAbsences: number;
+  subjectAvgs: { subject: string; avg: number }[];
+};
+
+function PeriodCard({
+  stats,
+  otherStats,
+}: {
+  stats: PeriodStats;
+  otherStats: PeriodStats;
+}) {
+  const { t } = useTranslation("students");
+  const { t: tc } = useTranslation();
+  const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
+  const goodGradeThreshold = useConfigStore((s) => s.goodGradeThreshold);
+
+  if (stats.avgGrade === null && stats.attRate === null) {
+    return (
+      <div className="flex items-center justify-center h-40 text-muted-foreground">
+        {t("detail.noPeriodData")}
+      </div>
+    );
+  }
+
+  const getColorScore = (val: number | null, other: number | null, lowerIsBetter = false) => {
+    if (val === null || other === null) return "";
+    if (val === other) return "";
+    if (val > other) return lowerIsBetter ? "text-red-500" : "text-green-500";
+    return lowerIsBetter ? "text-green-500" : "text-red-500";
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Mini stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="text-center p-2 bg-accent/30 rounded-lg">
+          <p className={`text-lg font-bold tabular-nums ${getColorScore(stats.avgGrade, otherStats.avgGrade)}`}>
+            {stats.avgGrade !== null ? stats.avgGrade.toFixed(1) : "—"}
+          </p>
+          <p className="text-xs text-muted-foreground">{tc("general.averageGrade")}</p>
+        </div>
+        <div className="text-center p-2 bg-accent/30 rounded-lg">
+          <p className={`text-lg font-bold tabular-nums ${getColorScore(stats.attRate, otherStats.attRate)}`}>
+            {stats.attRate !== null ? `${stats.attRate.toFixed(0)}%` : "—"}
+          </p>
+          <p className="text-xs text-muted-foreground">{tc("general.attendanceRate")}</p>
+        </div>
+        <div className="text-center p-2 bg-accent/30 rounded-lg">
+          <p className={`text-lg font-bold tabular-nums ${getColorScore(stats.totalAbsences, otherStats.totalAbsences, true)}`}>
+            {stats.totalAbsences}
+          </p>
+          <p className="text-xs text-muted-foreground">{tc("general.absences")}</p>
+        </div>
+      </div>
+
+      {/* Subject grades table */}
+      {stats.subjectAvgs.length > 0 && (
+        <div>
+          <p className="text-sm font-medium mb-2">{t("detail.gradesBySubject")}</p>
+          <Table>
+            <TableBody>
+              {stats.subjectAvgs.map((s) => {
+                const otherSubject = otherStats.subjectAvgs.find(os => os.subject === s.subject);
+                const colorClass = getColorScore(s.avg, otherSubject ? otherSubject.avg : null);
+                return (
+                  <TableRow key={s.subject}>
+                    <TableCell className="py-1.5 text-sm">{s.subject}</TableCell>
+                    <TableCell
+                      className={`py-1.5 text-sm font-bold text-left ${colorClass || (s.avg < atRiskGradeThreshold ? "text-red-600" : s.avg >= goodGradeThreshold ? "text-green-600" : "")}`}
+                    >
+                      {s.avg}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -673,7 +688,7 @@ function SubjectBarChart({
               />
               <Bar
                 dataKey="average"
-                shape={(props: any) => {
+                shape={(props: { x: number; y: number; width: number; height: number; index: number }) => {
                   const { x, y, width, height, index } = props;
                   return (
                     <rect
