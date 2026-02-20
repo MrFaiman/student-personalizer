@@ -3,6 +3,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from io import BytesIO
+from uuid import UUID
 
 import pandas as pd
 from sqlmodel import Session, select
@@ -29,14 +30,30 @@ def _build_class_name(row) -> str:
 
 
 def _generate_student_tz(row, tz_col: str = "student_tz") -> str:
-    """Return cleaned TZ, falling back to serial_num or row index."""
+    """Return cleaned TZ, falling back to name/class combination or row index."""
     tz = row.get(tz_col)
-    if pd.notna(tz) and str(tz).strip():
+    if pd.notna(tz) and str(tz).strip() and str(tz).strip().lower() != "nan":
         return str(tz).strip()
+
+    # Fallback to student name + class info
+    name = str(row.get("student_name", "")).strip()
+    grade = str(row.get("grade_level", "")).strip()
+    class_num = str(row.get("class_num", "")).strip()
+
+    if name and name.lower() != "nan":
+        fallback_str = name
+        if grade and grade.lower() != "nan":
+            fallback_str += f"_{grade}"
+        if class_num and class_num.lower() != "nan":
+            fallback_str += f"_{class_num}"
+        # Generate a consistent positive numeric string of up to 9 digits
+        numeric_id = str(abs(hash(fallback_str)))[:9]
+        return numeric_id
+
     serial = row.get("serial_num", 0)
     if pd.notna(serial):
-        return f"STU-{int(serial):04d}"
-    return f"STU-{row.name:04d}"
+        return f"{int(serial):04d}"
+    return f"{row.name:04d}"
 
 
 @dataclass
@@ -198,6 +215,7 @@ def ingest_grades_file(
     filename: str,
     content_type: str,
     period: str = DEFAULT_PERIOD,
+    uploaded_file_id: UUID | None = None,
 ) -> ImportResult:
     """
     Ingest a grades XLSX file.
@@ -248,7 +266,17 @@ def ingest_grades_file(
             teacher_name = row.get("teacher_name")
             grade_value = row.get("grade")
 
+            # Skip rows where metadata is explicitly missing (NaN converted to "nan" string)
+            if class_name.lower() == "nan" or grade_level.lower() == "nan" or student_name.lower() == "nan" or subject.lower() == "nan":
+                result.errors.append(f"Row {idx + 2}: Missing required metadata (name/class/grade/subject is NaN)")
+                result.rows_failed += 1
+                continue
+
+            print(student_name, class_name, grade_level, subject, teacher_name, grade_value)
+
             if not student_name or not class_name or not subject:
+                result.errors.append(f"Row {idx + 2}: Missing required metadata (name/class/subject is empty)")
+                result.rows_failed += 1
                 continue
 
             if class_name not in classes_created:
@@ -294,6 +322,7 @@ def ingest_grades_file(
         rows_failed=result.rows_failed,
         errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
         period=period,
+        uploaded_file_id=uploaded_file_id,
     )
     session.add(import_log)
     session.commit()
@@ -388,6 +417,7 @@ def ingest_events_file(
     filename: str,
     content_type: str,
     period: str = DEFAULT_PERIOD,
+    uploaded_file_id: UUID | None = None,
 ) -> ImportResult:
     """
     Ingest an events/attendance XLSX file.
@@ -476,6 +506,7 @@ def ingest_events_file(
         rows_failed=result.rows_failed,
         errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
         period=period,
+        uploaded_file_id=uploaded_file_id,
     )
     session.add(import_log)
     session.commit()
@@ -490,6 +521,7 @@ def ingest_file(
     content_type: str,
     file_type: str | None = None,
     period: str = DEFAULT_PERIOD,
+    uploaded_file_id: UUID | None = None,
 ) -> ImportResult:
     """
     Ingest an XLSX/CSV file, auto-detecting type if not specified.
@@ -501,6 +533,7 @@ def ingest_file(
         content_type: MIME type of the uploaded file
         file_type: "grades" or "events", or None for auto-detect
         period: Period name to associate with this import
+        uploaded_file_id: Optional ID of the UploadedFile record
 
     Returns:
         ImportResult with details of the import
@@ -518,9 +551,9 @@ def ingest_file(
         file_type = detect_file_type(df)
 
     if file_type == "grades":
-        return ingest_grades_file(session, file_content, filename, content_type, period)
+        return ingest_grades_file(session, file_content, filename, content_type, period, uploaded_file_id)
     elif file_type == "events":
-        return ingest_events_file(session, file_content, filename, content_type, period)
+        return ingest_events_file(session, file_content, filename, content_type, period, uploaded_file_id)
     else:
         return ImportResult(
             batch_id=str(uuid.uuid4()),

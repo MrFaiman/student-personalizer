@@ -1,171 +1,20 @@
-import os
+import hashlib
 from pathlib import Path
 from typing import Literal
 
-import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, func, select
 
-from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, VALID_MIME_TYPES
-from ..database import get_session, get_session_context, reset_db
-from ..models import AttendanceRecord, Class, Grade, ImportLog, Student
+from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, UPLOAD_DIR, VALID_MIME_TYPES
+from ..database import get_session
+from ..models import AttendanceRecord, Grade, ImportLog, UploadedFile
 from ..schemas.ingestion import ImportLogListResponse, ImportLogResponse, ImportResponse
 from ..services.ingestion import ImportResult, ingest_file
 
-ALLOW_RESET = os.getenv("ALLOW_DB_RESET", "false").lower() in ("1", "true", "yes")
-
 router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
 
-DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
-
-
-@router.post("/reset")
-async def reset_database(
-    reload_data: bool = Query(
-        default=True,
-        description="Whether to reload data from CSV files after reset",
-    ),
-):
-    """
-    Reset the database by dropping all tables and recreating them.
-
-    Optionally reloads data from CSV files in the data directory.
-    Requires ALLOW_DB_RESET=true environment variable.
-    """
-    if not ALLOW_RESET:
-        raise HTTPException(status_code=403, detail="Database reset is disabled. Set ALLOW_DB_RESET=true to enable.")
-
-    reset_db()
-
-    result = {
-        "message": "Database reset successfully",
-        "tables_cleared": ["class", "student", "grade", "attendancerecord", "importlog"],
-        "data_reloaded": False,
-        "students_loaded": 0,
-        "events_loaded": 0,
-    }
-
-    if reload_data:
-        with get_session_context() as new_session:
-            grades_file = DATA_DIR / "avg_grades.csv"
-            if grades_file.exists():
-                students_loaded = _load_grades_csv(new_session, grades_file)
-                result["students_loaded"] = students_loaded
-
-            events_file = DATA_DIR / "events.csv"
-            if events_file.exists():
-                events_loaded = _load_events_csv(new_session, events_file)
-                result["events_loaded"] = events_loaded
-
-            result["data_reloaded"] = True
-
-    return result
-
-
-def _load_grades_csv(session: Session, file_path: Path) -> int:
-    """Load grades from CSV file."""
-    df = pd.read_csv(file_path, encoding="utf-8")
-
-    df = df[df["מס'"].notna() & (df["מס'"] != "")]
-
-    students_created = 0
-
-    for _, row in df.iterrows():
-        tz = str(row.get("ת.ז", "")).strip()
-        name = str(row.get("שם התלמיד", "")).strip()
-        grade_level = str(row.get("שכבה", "")).strip()
-        class_num = str(row.get("כיתה", "")).strip()
-
-        if not tz or not name:
-            continue
-
-        class_name = f"{grade_level}{class_num}"
-
-        existing_class = session.exec(select(Class).where(Class.class_name == class_name)).first()
-        if not existing_class:
-            new_class = Class(class_name=class_name, grade_level=grade_level)
-            session.add(new_class)
-            session.flush()
-            existing_class = new_class
-
-        existing_student = session.get(Student, tz)
-        if not existing_student:
-            student = Student(student_tz=tz, student_name=name, class_id=existing_class.id)
-            session.add(student)
-            students_created += 1
-
-        avg_col = "ממוצע"
-        if avg_col in df.columns:
-            avg_value = row[avg_col]
-            if pd.notna(avg_value) and avg_value != "":
-                try:
-                    grade_value = float(avg_value)
-                    grade = Grade(
-                        student_tz=tz,
-                        subject="ממוצע כללי",
-                        grade=grade_value,
-                        period=DEFAULT_PERIOD,
-                    )
-                    session.add(grade)
-                except (ValueError, TypeError):
-                    pass
-
-    session.commit()
-    return students_created
-
-
-def _safe_int(val, default=0):
-    """Convert value to int, handling NaN and empty values."""
-    if pd.isna(val) or val == "":
-        return default
-    try:
-        return int(val)
-    except (ValueError, TypeError):
-        return default
-
-
-def _load_events_csv(session: Session, file_path: Path) -> int:
-    """Load attendance events from CSV file."""
-    df = pd.read_csv(file_path, encoding="utf-8")
-
-    df = df[df["מס'"].notna() & (df["מס'"] != "")]
-
-    events_created = 0
-
-    for _, row in df.iterrows():
-        tz = str(row.get("ת.ז. התלמיד", "")).strip()
-
-        if not tz:
-            continue
-
-        student = session.get(Student, tz)
-        if not student:
-            continue
-
-        lessons_reported = _safe_int(row.get("שיעורים שדווחו", 0))
-        absence = _safe_int(row.get("חיסור", 0))
-        absence_justified = _safe_int(row.get("חיסור (מוצדק)", 0))
-        late = _safe_int(row.get("איחור", 0))
-        disturbance = _safe_int(row.get("הפרעה", 0))
-        positive = _safe_int(row.get("חיזוק חיובי", 0))
-        record = AttendanceRecord(
-            student_tz=tz,
-            lessons_reported=lessons_reported,
-            absence=absence,
-            absence_justified=absence_justified,
-            late=late,
-            disturbance=disturbance,
-            total_absences=absence,
-            attendance=lessons_reported - absence,
-            total_negative_events=absence + late + disturbance,
-            total_positive_events=positive,
-            period=DEFAULT_PERIOD,
-        )
-        session.add(record)
-        events_created += 1
-
-    session.commit()
-    return events_created
+_upload_path = Path(UPLOAD_DIR)
+_upload_path.mkdir(parents=True, exist_ok=True)
 
 
 @router.post("/upload", response_model=ImportResponse)
@@ -203,6 +52,35 @@ async def upload_file(
     if len(content) == 0:
         raise HTTPException(status_code=400, detail="Empty file uploaded")
 
+    # Check for duplicate upload
+    checksum = hashlib.sha256(content).hexdigest()
+    existing = session.exec(
+        select(UploadedFile).where(UploadedFile.checksum == checksum)
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"This file has already been uploaded as '{existing.original_filename}' on {existing.uploaded_at.isoformat()}",
+        )
+
+    # Save the uploaded file to disk and create a tracking record
+    uploaded = UploadedFile(
+        original_filename=file.filename or "upload",
+        stored_path="",  # set after we know the id
+        content_type=content_type,
+        file_size=len(content),
+        checksum=checksum,
+    )
+    suffix = Path(uploaded.original_filename).suffix
+    stored_name = f"{uploaded.id}{suffix}"
+    uploaded.stored_path = stored_name
+
+    dest = _upload_path / stored_name
+    dest.write_bytes(content)
+
+    session.add(uploaded)
+    session.flush()
+
     result: ImportResult = ingest_file(
         session=session,
         file_content=content,
@@ -210,6 +88,7 @@ async def upload_file(
         content_type=content_type,
         file_type=file_type,
         period=period,
+        uploaded_file_id=uploaded.id,
     )
 
     if result.file_type == "unknown":
@@ -297,6 +176,7 @@ async def delete_import_log(
     This will remove:
     - The import log entry
     - All grades/attendance records imported in this batch (identified by period and file type)
+    - The physical file from disk and its UploadedFile tracking record
 
     Note: This does NOT delete students or classes, only the data from this specific import.
     """
@@ -307,6 +187,9 @@ async def delete_import_log(
 
     if not log:
         raise HTTPException(status_code=404, detail="Import log not found")
+
+    # Capture the uploaded file record before deleting the log
+    uploaded_file = log.uploaded_file
 
     deleted_records = 0
     if log.file_type == "grades":
@@ -319,6 +202,13 @@ async def delete_import_log(
         deleted_records = result.rowcount
 
     session.delete(log)
+
+    if uploaded_file:
+        physical_path = _upload_path / uploaded_file.stored_path
+        if physical_path.is_file():
+            physical_path.unlink()
+        session.delete(uploaded_file)
+
     session.commit()
 
     return {
