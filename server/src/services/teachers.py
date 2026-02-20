@@ -1,7 +1,6 @@
 from uuid import UUID
 
-import numpy as np
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from ..constants import AT_RISK_GRADE_THRESHOLD
 from ..models import Class, Grade, Student, Teacher
@@ -24,54 +23,38 @@ class TeacherService:
         self, period: str | None = None, grade_level: str | None = None
     ) -> list[dict]:
         """Get list of all teachers with summary stats (pre-calculated)."""
-        query = select(Grade)
+        # SQL: aggregate grades grouped by teacher
+        query = (
+            select(
+                Grade.teacher_name,
+                Grade.teacher_id,
+                func.avg(Grade.grade).label("avg_grade"),
+                func.count(func.distinct(Grade.student_tz)).label("student_count"),
+                func.array_agg(func.distinct(Grade.subject)).label("subjects"),
+            )
+            .where(Grade.teacher_name.isnot(None))
+            .group_by(Grade.teacher_name, Grade.teacher_id)
+        )
         if period:
             query = query.where(Grade.period == period)
 
-        grades = self.session.exec(query).all()
-
-        valid_student_tzs = set()
         if grade_level:
-            student_query = (
-                select(Student.student_tz)
-                .join(Class)
+            query = (
+                query.join(Student, Grade.student_tz == Student.student_tz)
+                .join(Class, Student.class_id == Class.id)
                 .where(Class.grade_level == grade_level)
             )
-            valid_student_tzs = set(self.session.exec(student_query).all())
-            grades = [g for g in grades if g.student_tz in valid_student_tzs]
 
-        teacher_stats: dict = {}
-
-        for g in grades:
-            if not g.teacher_name:
-                continue
-
-            if g.teacher_name not in teacher_stats:
-                teacher_stats[g.teacher_name] = {
-                    "teacher_id": g.teacher_id,
-                    "grades": [],
-                    "students": set(),
-                    "subjects": set(),
-                }
-
-            stats = teacher_stats[g.teacher_name]
-            stats["grades"].append(g.grade)
-            stats["students"].add(g.student_tz)
-            stats["subjects"].add(g.subject)
-            if g.teacher_id:
-                stats["teacher_id"] = g.teacher_id
+        rows = self.session.exec(query).all()
 
         results = []
-        for name, stats in teacher_stats.items():
-            grades_list = stats["grades"]
-            avg = float(np.mean(grades_list)) if grades_list else 0
-
+        for name, tid, avg_grade, student_count, subjects in rows:
             results.append({
-                "id": stats["teacher_id"],
+                "id": tid,
                 "name": name,
-                "student_count": len(stats["students"]),
-                "average_grade": avg,
-                "subjects": stats["subjects"],
+                "student_count": student_count,
+                "average_grade": float(avg_grade) if avg_grade is not None else 0,
+                "subjects": set(subjects) if subjects else set(),
             })
 
         return results
@@ -122,16 +105,50 @@ class TeacherService:
 
         student_tzs = set(g.student_tz for g in grades)
 
+        # Overall stats via SQL
+        stats_query = (
+            select(
+                func.avg(Grade.grade).label("avg_grade"),
+                func.count(func.distinct(Grade.student_tz)).label("student_count"),
+            )
+            .where(Grade.teacher_id == teacher_id)
+        )
+        if period:
+            stats_query = stats_query.where(Grade.period == period)
+        stats_row = self.session.exec(stats_query).one()
+        avg_grade = float(stats_row[0]) if stats_row[0] is not None else 0
+
+        # At-risk: students with avg < threshold for this teacher
+        at_risk_query = (
+            select(func.count())
+            .select_from(
+                select(Grade.student_tz)
+                .where(Grade.teacher_id == teacher_id)
+                .group_by(Grade.student_tz)
+                .having(func.avg(Grade.grade) < AT_RISK_GRADE_THRESHOLD)
+                .subquery()
+            )
+        )
+        if period:
+            at_risk_inner = (
+                select(Grade.student_tz)
+                .where(Grade.teacher_id == teacher_id)
+                .where(Grade.period == period)
+                .group_by(Grade.student_tz)
+                .having(func.avg(Grade.grade) < AT_RISK_GRADE_THRESHOLD)
+                .subquery()
+            )
+            at_risk_query = select(func.count()).select_from(at_risk_inner)
+        at_risk_students = self.session.exec(at_risk_query).one()
+
+        # Class breakdown via SQL
         students = self.session.exec(select(Student).where(Student.student_tz.in_(student_tzs))).all()
         student_map = {s.student_tz: s for s in students}
 
         class_ids = set(s.class_id for s in students if s.class_id)
-        classes = self.session.exec(select(Class).where(Class.id.in_(class_ids))).all()
+        classes = self.session.exec(select(Class).where(Class.id.in_(class_ids))).all() if class_ids else []
         class_map = {c.id: c for c in classes}
 
-        avg_grade = float(np.mean([g.grade for g in grades])) if grades else 0
-
-        # Analyze by class
         class_stats: dict = {}
         for g in grades:
             s = student_map.get(g.student_tz)
@@ -154,7 +171,7 @@ class TeacherService:
                 continue
 
             c_grades = stats["grades"]
-            c_avg = float(np.mean(c_grades))
+            c_avg = sum(c_grades) / len(c_grades) if c_grades else 0
 
             classes_data.append({
                 "id": str(cls.id),
@@ -163,18 +180,6 @@ class TeacherService:
                 "average_grade": round(c_avg, 1),
                 "at_risk_count": stats["at_risk"],
             })
-
-        # At-risk: students with avg < threshold with this teacher
-        student_avgs: dict[str, list[float]] = {}
-        for g in grades:
-            if g.student_tz not in student_avgs:
-                student_avgs[g.student_tz] = []
-            student_avgs[g.student_tz].append(g.grade)
-
-        at_risk_students = 0
-        for grades_list in student_avgs.values():
-            if np.mean(grades_list) < AT_RISK_GRADE_THRESHOLD:
-                at_risk_students += 1
 
         return {
             "teacher": teacher,
