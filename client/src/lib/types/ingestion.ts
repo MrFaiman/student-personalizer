@@ -1,27 +1,32 @@
-export interface ImportResponse {
-    batch_id: string;
-    file_type: "grades" | "events" | "unknown";
-    rows_imported: number;
-    rows_failed: number;
-    students_created: number;
-    classes_created: number;
-    errors: string[];
-}
+import { z } from "zod";
 
-export interface ImportLogResponse {
-    id: number;
-    batch_id: string;
-    filename: string;
-    file_type: string;
-    rows_imported: number;
-    rows_failed: number;
-    period: string;
-    created_at: string;
-}
+export const ImportResponseSchema = z.object({
+    batch_id: z.string(),
+    file_type: z.enum(["grades", "events", "unknown"]),
+    rows_imported: z.number(),
+    rows_failed: z.number(),
+    students_created: z.number(),
+    classes_created: z.number(),
+    errors: z.array(z.string()),
+});
+export type ImportResponse = z.infer<typeof ImportResponseSchema>;
 
-export interface ImportLogListResponse {
-    items: ImportLogResponse[];
-    total: number;
-    page: number;
-    page_size: number;
-}
+export const ImportLogResponseSchema = z.object({
+    id: z.number(),
+    batch_id: z.string(),
+    filename: z.string(),
+    file_type: z.string(),
+    rows_imported: z.number(),
+    rows_failed: z.number(),
+    period: z.string(),
+    created_at: z.string(),
+});
+export type ImportLogResponse = z.infer<typeof ImportLogResponseSchema>;
+
+export const ImportLogListResponseSchema = z.object({
+    items: z.array(ImportLogResponseSchema),
+    total: z.number(),
+    page: z.number(),
+    page_size: z.number(),
+});
+export type ImportLogListResponse = z.infer<typeof ImportLogListResponseSchema>;

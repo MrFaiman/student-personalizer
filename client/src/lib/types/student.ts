@@ -1,70 +1,79 @@
-export interface StudentListItem {
-    student_tz: string;
-    student_name: string;
-    class_id: string;
-    class_name: string;
-    grade_level: string;
-    average_grade: number | null;
-    total_absences: number;
-    is_at_risk: boolean;
-}
+import { z } from "zod";
 
-export interface StudentListResponse {
-    items: StudentListItem[];
-    total: number;
-    page: number;
-    page_size: number;
-}
+export const StudentListItemSchema = z.object({
+    student_tz: z.string(),
+    student_name: z.string(),
+    class_id: z.string(),
+    class_name: z.string(),
+    grade_level: z.string(),
+    average_grade: z.number().nullable(),
+    total_absences: z.number(),
+    is_at_risk: z.boolean(),
+});
+export type StudentListItem = z.infer<typeof StudentListItemSchema>;
 
-export interface StudentDetailResponse {
-    student_tz: string;
-    student_name: string;
-    class_id: string;
-    class_name: string;
-    grade_level: string;
-    average_grade: number | null;
-    total_absences: number;
-    total_negative_events: number;
-    total_positive_events: number;
-    is_at_risk: boolean;
-    performance_score: number | null;
-}
+export const StudentListResponseSchema = z.object({
+    items: z.array(StudentListItemSchema),
+    total: z.number(),
+    page: z.number(),
+    page_size: z.number(),
+});
+export type StudentListResponse = z.infer<typeof StudentListResponseSchema>;
 
-export interface GradeResponse {
-    id: number;
-    subject: string;
-    teacher_name: string | null;
-    grade: number;
-    period: string;
-}
+export const StudentDetailResponseSchema = z.object({
+    student_tz: z.string(),
+    student_name: z.string(),
+    class_id: z.string(),
+    class_name: z.string(),
+    grade_level: z.string(),
+    average_grade: z.number().nullable(),
+    total_absences: z.number(),
+    total_negative_events: z.number(),
+    total_positive_events: z.number(),
+    is_at_risk: z.boolean(),
+    performance_score: z.number().nullable(),
+});
+export type StudentDetailResponse = z.infer<typeof StudentDetailResponseSchema>;
 
-export interface AttendanceResponse {
-    id: number;
-    lessons_reported: number;
-    absence: number;
-    absence_justified: number;
-    late: number;
-    disturbance: number;
-    total_absences: number;
-    attendance: number;
-    total_negative_events: number;
-    total_positive_events: number;
-    period: string;
-}
+export const GradeResponseSchema = z.object({
+    id: z.number(),
+    subject: z.string(),
+    teacher_name: z.string().nullable(),
+    grade: z.number(),
+    period: z.string(),
+});
+export type GradeResponse = z.infer<typeof GradeResponseSchema>;
 
-export interface ClassResponse {
-    id: string;
-    class_name: string;
-    grade_level: string;
-    student_count: number;
-    average_grade: number | null;
-    at_risk_count: number;
-}
+export const AttendanceResponseSchema = z.object({
+    id: z.number(),
+    lessons_reported: z.number(),
+    absence: z.number(),
+    absence_justified: z.number(),
+    late: z.number(),
+    disturbance: z.number(),
+    total_absences: z.number(),
+    attendance: z.number(),
+    total_negative_events: z.number(),
+    total_positive_events: z.number(),
+    period: z.string(),
+});
+export type AttendanceResponse = z.infer<typeof AttendanceResponseSchema>;
 
-export interface DashboardStats {
-    total_students: number;
-    average_grade: number | null;
-    at_risk_count: number;
-    total_classes: number;
-    classes: ClassResponse[];
-}
+export const ClassResponseSchema = z.object({
+    id: z.string(),
+    class_name: z.string(),
+    grade_level: z.string(),
+    student_count: z.number(),
+    average_grade: z.number().nullable(),
+    at_risk_count: z.number(),
+});
+export type ClassResponse = z.infer<typeof ClassResponseSchema>;
+
+export const DashboardStatsSchema = z.object({
+    total_students: z.number(),
+    average_grade: z.number().nullable(),
+    at_risk_count: z.number(),
+    total_classes: z.number(),
+    classes: z.array(ClassResponseSchema),
+});
+export type DashboardStats = z.infer<typeof DashboardStatsSchema>;
