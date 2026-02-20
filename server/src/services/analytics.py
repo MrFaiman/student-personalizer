@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from sqlalchemy import case, literal
-from sqlmodel import Session, col, func, select
+from sqlmodel import Session, func, select
 
 from ..constants import AT_RISK_GRADE_THRESHOLD
 from ..models import AttendanceRecord, Class, Grade, Student, Teacher

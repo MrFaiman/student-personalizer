@@ -28,20 +28,18 @@ class AnalyticsDefaultView:
 
     def render_class_comparison(self, data: list[dict]) -> list[ClassComparisonItem]:
         """Render class comparison bar chart with rounding and sorting."""
-        result = []
-        for item in data:
-            cls = item["class"]
-            result.append(
+        return sorted(
+            [
                 ClassComparisonItem(
-                    id=cls.id,
-                    class_name=cls.class_name,
+                    id=item["class"].id,
+                    class_name=item["class"].class_name,
                     average_grade=round(item["average_grade"], 1),
                     student_count=item["student_count"],
                 )
-            )
-
-        result.sort(key=lambda x: x.class_name)
-        return result
+                for item in data
+            ],
+            key=lambda x: x.class_name,
+        )
 
     def render_metadata(self, data: dict) -> MetadataResponse:
         """Render metadata options with sorting."""
@@ -136,7 +134,7 @@ class AnalyticsDefaultView:
             "red_student_count": item["red_student_count"],
             "total_student_count": total,
             "percentage": round(item["red_student_count"] / total * 100, 1) if total > 0 else 0,
-            "average_grade": round(sum(red_grades) / len(red_grades), 1) if red_grades else 0,
+            "average_grade": round(float(np.mean(red_grades)), 1) if red_grades else 0,
         }
 
     def render_red_student_segmentation(self, data: dict) -> RedStudentSegmentation:

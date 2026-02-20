@@ -7,43 +7,37 @@ class ClassDefaultView:
 
     def render_list(self, data: list[dict]) -> list[ClassResponse]:
         """Render list of classes with rounding and sorting."""
-        result = []
-        for item in data:
-            cls = item["class"]
-            avg = item["average_grade"]
-            result.append(
+        return sorted(
+            [
                 ClassResponse(
-                    id=cls.id,
-                    class_name=cls.class_name,
-                    grade_level=cls.grade_level,
+                    id=item["class"].id,
+                    class_name=item["class"].class_name,
+                    grade_level=item["class"].grade_level,
                     student_count=item["student_count"],
-                    average_grade=round(avg, 1) if avg is not None else None,
+                    average_grade=round(item["average_grade"], 1) if item["average_grade"] is not None else None,
                     at_risk_count=item["at_risk_count"],
                 )
-            )
-
-        result.sort(key=lambda x: x.class_name)
-        return result
+                for item in data
+            ],
+            key=lambda x: x.class_name,
+        )
 
     def render_heatmap(self, data: dict) -> dict:
         """Render heatmap: sort subjects/students, round averages, fill missing."""
         subjects = sorted(data["subjects"])
-        student_rows = []
 
-        for row in data["students"]:
-            grades_dict = dict(row["grades"])
-            for subj in subjects:
-                if subj not in grades_dict:
-                    grades_dict[subj] = None
-
-            student_rows.append({
-                "student_name": row["student_name"],
-                "student_tz": row["student_tz"],
-                "grades": grades_dict,
-                "average": round(row["average"], 1),
-            })
-
-        student_rows.sort(key=lambda x: x["student_name"])
+        student_rows = sorted(
+            [
+                {
+                    "student_name": row["student_name"],
+                    "student_tz": row["student_tz"],
+                    "grades": {subj: dict(row["grades"]).get(subj) for subj in subjects},
+                    "average": round(row["average"], 1),
+                }
+                for row in data["students"]
+            ],
+            key=lambda x: x["student_name"],
+        )
 
         return {
             "subjects": subjects,

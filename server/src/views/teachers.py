@@ -1,5 +1,7 @@
 from collections import Counter
 
+import numpy as np
+
 from ..schemas.analytics import (
     GradeHistogramBin,
     TeacherClassDetail,
@@ -18,9 +20,8 @@ class TeacherDefaultView:
 
     def render_list(self, data: list[dict]) -> list[TeacherListItem]:
         """Render list of teachers."""
-        result = []
-        for item in data:
-            result.append(
+        return sorted(
+            [
                 TeacherListItem(
                     id=str(item["id"]) if item["id"] else None,
                     name=item["name"],
@@ -28,27 +29,33 @@ class TeacherDefaultView:
                     average_grade=round(item["average_grade"], 1),
                     subjects=sorted(item["subjects"]),
                 )
-            )
-
-        result.sort(key=lambda x: x.name)
-        return result
+                for item in data
+            ],
+            key=lambda x: x.name,
+        )
 
     def render_stats(self, data: dict) -> TeacherStatsResponse:
         """Render teacher stats."""
         grades = data["grades"]
+        
+        if not grades:
+            return TeacherStatsResponse(
+                teacher_name=data["teacher_name"],
+                total_students=data["total_students"],
+                average_grade=0.0,
+                distribution={"fail": 0, "medium": 0, "good": 0, "excellent": 0},
+                subjects=sorted(data["subjects"]),
+            )
 
-        distribution = {"fail": 0, "medium": 0, "good": 0, "excellent": 0}
-        for grade in grades:
-            if grade < 55:
-                distribution["fail"] += 1
-            elif grade <= 75:
-                distribution["medium"] += 1
-            elif grade <= 90:
-                distribution["good"] += 1
-            else:
-                distribution["excellent"] += 1
+        grades_arr = np.array(grades)
+        distribution = {
+            "fail": int(np.sum(grades_arr < 55)),
+            "medium": int(np.sum((grades_arr >= 55) & (grades_arr <= 75))),
+            "good": int(np.sum((grades_arr > 75) & (grades_arr <= 90))),
+            "excellent": int(np.sum(grades_arr > 90)),
+        }
 
-        avg_grade = sum(grades) / len(grades) if grades else 0
+        avg_grade = float(np.mean(grades_arr))
 
         return TeacherStatsResponse(
             teacher_name=data["teacher_name"],
@@ -60,16 +67,16 @@ class TeacherDefaultView:
 
     def _build_grade_histogram(self, grades: list) -> list[GradeHistogramBin]:
         """Bin grades into a histogram with fixed-width bins."""
-        binned = Counter()
-        for g in grades:
-            bin_start = min(
+        binned = Counter(
+            min(
                 int(g.grade // HISTOGRAM_BIN_SIZE) * HISTOGRAM_BIN_SIZE,
                 HISTOGRAM_MAX_GRADE - HISTOGRAM_BIN_SIZE,
             )
-            binned[bin_start] += 1
+            for g in grades
+        )
 
         return [
-            GradeHistogramBin(grade=b, count=binned.get(b, 0))
+            GradeHistogramBin(grade=b, count=binned[b])
             for b in range(0, HISTOGRAM_MAX_GRADE, HISTOGRAM_BIN_SIZE)
         ]
 
