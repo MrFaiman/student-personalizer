@@ -30,7 +30,7 @@ class TeacherService:
                 Grade.teacher_id,
                 func.avg(Grade.grade).label("avg_grade"),
                 func.count(func.distinct(Grade.student_tz)).label("student_count"),
-                func.array_agg(func.distinct(Grade.subject)).label("subjects"),
+                func.array_agg(func.distinct(Grade.subject_name)).label("subjects"),
             )
             .where(Grade.teacher_name.isnot(None))
             .group_by(Grade.teacher_name, Grade.teacher_id)
@@ -76,7 +76,7 @@ class TeacherService:
             "teacher_name": teacher_name,
             "total_students": len(student_tzs),
             "grades": [g.grade for g in grades],
-            "subjects": set(g.subject for g in grades),
+            "subjects": set(g.subject_name for g in grades),
         }
 
     def get_teacher_detail(self, teacher_id: UUID, period: str | None = None) -> dict | None:

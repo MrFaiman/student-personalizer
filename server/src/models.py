@@ -16,6 +16,16 @@ class Teacher(SQLModel, table=True):
     grades: list["Grade"] = Relationship(back_populates="teacher")
 
 
+class Subject(SQLModel, table=True):
+    """Subject record."""
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(index=True, unique=True)
+
+    # Relationships
+    grades: list["Grade"] = Relationship(back_populates="subject")
+
+
 class Class(SQLModel, table=True):
     """Class/homeroom."""
 
@@ -26,6 +36,7 @@ class Class(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     class_name: str = Field(index=True, unique=True)  # e.g. "י-1"
     grade_level: str  # e.g. "10", "י"
+    class_num: int | None = None  # extracted from "י-1" -> 1
 
     # Relationships
     students: list["Student"] = Relationship(back_populates="class_")
@@ -55,12 +66,15 @@ class Grade(SQLModel, table=True):
         Index("ix_grade_student_period", "student_tz", "period"),
         Index("ix_grade_teacher_id_period", "teacher_id", "period"),
         Index("ix_grade_teacher_name_period", "teacher_name", "period"),
+        Index("ix_grade_subject_name_period", "subject_name", "period"),
+        Index("ix_grade_subject_id_period", "subject_id", "period"),
         CheckConstraint("grade >= 0 AND grade <= 100", name="ck_grade_range"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
     student_tz: str = Field(foreign_key="student.student_tz", index=True)
-    subject: str
+    subject_name: str
+    subject_id: UUID | None = Field(default=None, foreign_key="subject.id", index=True)
     teacher_name: str | None = None
     teacher_id: UUID | None = Field(default=None, foreign_key="teacher.id", index=True)
     grade: float
@@ -69,6 +83,7 @@ class Grade(SQLModel, table=True):
     # Relationships
     student: Student = Relationship(back_populates="grades")
     teacher: Teacher | None = Relationship(back_populates="grades")
+    subject: Subject | None = Relationship(back_populates="grades")
 
 
 class AttendanceRecord(SQLModel, table=True):

@@ -9,7 +9,7 @@ from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, MAX_ERRORS_IN_RESPONS
 from ..database import get_session
 from ..models import AttendanceRecord, Grade, ImportLog, UploadedFile
 from ..schemas.ingestion import ImportLogListResponse, ImportLogResponse, ImportResponse
-from ..services.ingestion import ImportResult, ingest_file
+from ..services.ingestion import ImportResult, IngestionService
 
 router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
 
@@ -81,8 +81,8 @@ async def upload_file(
     session.add(uploaded)
     session.flush()
 
-    result: ImportResult = ingest_file(
-        session=session,
+    ingestion_service = IngestionService(session)
+    result: ImportResult = ingestion_service.ingest_file(
         file_content=content,
         filename=file.filename or "upload",
         content_type=content_type,

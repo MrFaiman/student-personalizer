@@ -280,7 +280,7 @@ class StudentService:
         return [
             {
                 "id": g.id,
-                "subject": g.subject,
+                "subject": g.subject_name,
                 "teacher_name": g.teacher_name,
                 "grade": g.grade,
                 "period": g.period,

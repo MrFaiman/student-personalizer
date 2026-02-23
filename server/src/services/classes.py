@@ -86,8 +86,8 @@ class ClassService:
 
         for g in grades:
             if g.student_tz in student_data:
-                student_data[g.student_tz]["grades"][g.subject] = g.grade
-                all_subjects.add(g.subject)
+                student_data[g.student_tz]["grades"][g.subject_name] = g.grade
+                all_subjects.add(g.subject_name)
 
         # Get per-student averages via SQL
         avg_query = (
