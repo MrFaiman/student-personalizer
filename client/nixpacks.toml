@@ -1,0 +1,14 @@
+[providers]
+- "node"
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "nginx"]
+
+[phases.install]
+cmds = ["corepack enable pnpm", "pnpm install", "mkdir -p /usr/share/nginx/html || true"]
+
+[phases.build]
+cmds = ["pnpm exec vite build", "cp -r dist/* /usr/share/nginx/html/ || true"]
+
+[start]
+cmd = "nginx -g 'daemon off;'"
