@@ -46,6 +46,7 @@ def _generate_student_tz(row, tz_col: str = "student_tz") -> str:
             fallback_str += f"_{grade}"
         if class_num and class_num.lower() != "nan":
             fallback_str += f"_{class_num}"
+        fallback_str += f"_{row.name}"
         # Generate a consistent positive numeric string of up to 9 digits
         numeric_id = str(abs(hash(fallback_str)))[:9]
         return numeric_id
@@ -150,18 +151,19 @@ def get_or_create_teacher(session: Session, teacher_name: str) -> Teacher:
 
 def parse_subject_teacher_header(header_str: str) -> tuple[str, str | None]:
     """
-    Parse "Subject - Teacher" format from column header.
-    E.g., "אנגלית- ישראל ישראלי" -> ("אנגלית", "ישראל ישראלי")
+    Parse format from column header to extract subject and teacher.
+    Supports formats:
+    - "{subject}\\n{teacher_name}\\n{teacher_num}"
     """
     clean_header = re.sub(r"\.\d+$", "", str(header_str))
 
-    if "-" in clean_header:
-        parts = clean_header.split("-", 1)
-        subject = parts[0].strip()
-        teacher = parts[1].strip() if len(parts) > 1 else None
-        return subject, teacher if teacher else None
-    else:
-        return clean_header.strip(), None
+    parts = clean_header.split("\n")
+    subject = parts[0].strip()
+    
+    subject = re.sub(r"\s+[a-zA-Zא-ת]*\d[-a-zA-Zא-ת\d\s]*$", "", subject).strip()
+    
+    teacher = parts[1].strip() if len(parts) > 1 else None
+    return subject, teacher if teacher else None
 
 
 def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
