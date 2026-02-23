@@ -1,6 +1,3 @@
-# Build the client
-ARG VITE_API_URL
-
 FROM node:20-alpine AS build
 
 WORKDIR /app
@@ -12,6 +9,9 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install
 
 COPY . .
+
+# Accept build arguments
+ARG VITE_API_URL
 
 ENV VITE_API_URL=$VITE_API_URL
 
