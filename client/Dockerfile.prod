@@ -1,25 +1,14 @@
+# Build the client
 FROM node:20-alpine AS build
-
 WORKDIR /app
-
-RUN corepack enable pnpm
-
-COPY package.json pnpm-lock.yaml ./
-
-RUN pnpm install
-
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
-
-# Accept build arguments
 ARG VITE_API_URL
-
 ENV VITE_API_URL=$VITE_API_URL
-
-RUN pnpm build
+RUN npm run build
 
 # Serve the static files
 FROM nginx:alpine
-
-COPY --from=0 /app/dist /usr/share/nginx/html
-
+COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
