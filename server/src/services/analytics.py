@@ -118,9 +118,9 @@ class AnalyticsService:
     def get_student_radar(self, student_tz: str, period: str | None = None) -> dict:
         """Returns subject -> average grade mapping."""
         query = (
-            select(Grade.subject, func.avg(Grade.grade))
+            select(Grade.subject_name, func.avg(Grade.grade))
             .where(Grade.student_tz == student_tz)
-            .group_by(Grade.subject)
+            .group_by(Grade.subject_name)
         )
         if period:
             query = query.where(Grade.period == period)
@@ -246,12 +246,12 @@ class AnalyticsService:
         def aggregate_by_subject_teacher(grades: list) -> dict:
             data: dict = {}
             for g in grades:
-                key = f"{g.subject}|{g.teacher_name or 'Unknown'}"
+                key = f"{g.subject_name}|{g.teacher_name or 'Unknown'}"
                 if key not in data:
                     data[key] = {
                         "grades": [],
                         "students": set(),
-                        "subject": g.subject,
+                        "subject": g.subject_name,
                         "teacher_name": g.teacher_name,
                     }
                 data[key]["grades"].append(g.grade)
@@ -295,16 +295,16 @@ class AnalyticsService:
         def aggregate_by_subject(grades: list) -> dict:
             data: dict = {}
             for g in grades:
-                if g.subject not in data:
-                    data[g.subject] = {
+                if g.subject_name not in data:
+                    data[g.subject_name] = {
                         "grades": [],
                         "students": set(),
                         "teachers": set(),
                     }
-                data[g.subject]["grades"].append(g.grade)
-                data[g.subject]["students"].add(g.student_tz)
+                data[g.subject_name]["grades"].append(g.grade)
+                data[g.subject_name]["students"].add(g.student_tz)
                 if g.teacher_name:
-                    data[g.subject]["teachers"].add(g.teacher_name)
+                    data[g.subject_name]["teachers"].add(g.teacher_name)
             return data
 
         data_a = aggregate_by_subject(grades_a)
@@ -471,11 +471,11 @@ class AnalyticsService:
         by_subject: dict = {}
         for g in grades:
             if g.student_tz in red_student_tzs:
-                if g.subject not in by_subject:
-                    by_subject[g.subject] = {"students": set(), "grades": []}
-                by_subject[g.subject]["students"].add(g.student_tz)
+                if g.subject_name not in by_subject:
+                    by_subject[g.subject_name] = {"students": set(), "grades": []}
+                by_subject[g.subject_name]["students"].add(g.student_tz)
                 if g.grade < AT_RISK_GRADE_THRESHOLD:
-                    by_subject[g.subject]["grades"].append(g.grade)
+                    by_subject[g.subject_name]["grades"].append(g.grade)
 
         by_subject_result = [
             {
@@ -515,7 +515,7 @@ class AnalyticsService:
         if teacher_name:
             grade_conditions.append(Grade.teacher_name == teacher_name)
         if subject:
-            grade_conditions.append(Grade.subject == subject)
+            grade_conditions.append(Grade.subject_name == subject)
 
         # Subquery: per-student avg with HAVING < threshold
         student_avg_query = (
@@ -559,7 +559,7 @@ class AnalyticsService:
         # Get failing subjects for these students
         red_tzs = [row[0] for row in red_rows]
         failing_query = (
-            select(Grade.student_tz, Grade.subject, Grade.teacher_name, Grade.grade)
+            select(Grade.student_tz, Grade.subject_name, Grade.teacher_name, Grade.grade)
             .where(Grade.student_tz.in_(red_tzs))
             .where(Grade.grade < AT_RISK_GRADE_THRESHOLD)
         )
@@ -631,7 +631,7 @@ class AnalyticsService:
 
                 # Get subjects per class
                 subj_query = (
-                    select(Student.class_id, func.array_agg(func.distinct(Grade.subject)))
+                    select(Student.class_id, func.array_agg(func.distinct(Grade.subject_name)))
                     .join(Student, Grade.student_tz == Student.student_tz)
                     .where(Student.class_id.in_(class_uuids))
                     .group_by(Student.class_id)
@@ -679,7 +679,7 @@ class AnalyticsService:
 
                 # Get subjects per teacher
                 subj_query = (
-                    select(Grade.teacher_id, func.array_agg(func.distinct(Grade.subject)))
+                    select(Grade.teacher_id, func.array_agg(func.distinct(Grade.subject_name)))
                     .where(Grade.teacher_id.in_(teacher_uuids))
                     .group_by(Grade.teacher_id)
                 )
@@ -719,7 +719,7 @@ class AnalyticsService:
 
                 # Get subjects per layer
                 subj_query = (
-                    select(Class.grade_level, func.array_agg(func.distinct(Grade.subject)))
+                    select(Class.grade_level, func.array_agg(func.distinct(Grade.subject_name)))
                     .join(Student, Grade.student_tz == Student.student_tz)
                     .join(Class, Student.class_id == Class.id)
                     .where(Class.grade_level.in_(entity_ids))
@@ -785,7 +785,7 @@ class AnalyticsService:
 
         # Single query for teacher_name, teacher_id, subject — no N+1
         teacher_subject_query = select(
-            Grade.teacher_name, Grade.teacher_id, Grade.subject
+            Grade.teacher_name, Grade.teacher_id, Grade.subject_name
         ).distinct()
         if student_tzs:
             teacher_subject_query = teacher_subject_query.where(Grade.student_tz.in_(student_tzs))
