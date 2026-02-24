@@ -78,9 +78,9 @@ export const PeriodComparisonItemSchema = z.object({
     change_percent: z.number().nullable(),
     student_count_a: z.number(),
     student_count_b: z.number(),
-    teacher_name: z.string().optional(),
-    subject: z.string().optional(),
-    class_name: z.string().optional(),
+    teacher_name: z.string().nullish(),
+    subject: z.string().nullish(),
+    class_name: z.string().nullish(),
 });
 export type PeriodComparisonItem = z.infer<typeof PeriodComparisonItemSchema>;
 
