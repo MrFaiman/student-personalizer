@@ -86,7 +86,7 @@ class TeacherDefaultView:
         stats = data["stats"]
         grades = data["grades"]
         classes_data = sorted(data["classes"], key=lambda x: x["name"])
-        subjects = sorted({g.subject for g in grades})
+        subjects = sorted({g.subject_name for g in grades if g.subject_name})
 
         return TeacherDetailResponse(
             id=str(teacher.id),
