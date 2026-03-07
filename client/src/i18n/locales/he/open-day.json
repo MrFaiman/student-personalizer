@@ -1,0 +1,81 @@
+{
+  "title": "רשימות יום פתוח",
+  "subtitle": "העלאה וצפייה ברשימות תלמידים המתעניינים בבית הספר",
+  "upload": {
+    "dragHere": "גרור קובץ לכאן",
+    "orClick": "או לחץ לבחירת קובץ",
+    "button": "בחר קובץ",
+    "uploadingProgress": "מעלה... ({{current}} מתוך {{total}})"
+  },
+  "success": {
+    "title": "הועלה בהצלחה",
+    "imported": "{{count}} רשומות יובאו",
+    "failed": "{{count}} שורות נכשלו"
+  },
+  "errors": {
+    "uploadFailed": "שגיאה בהעלאה",
+    "title": "שגיאות בקובץ"
+  },
+  "stats": {
+    "total": "סה\"כ רשומות",
+    "tracks": "מגמות",
+    "grades": "שכבות כיתה",
+    "uploads": "העלאות"
+  },
+  "charts": {
+    "title": "תרשימים",
+    "byGrade": "לפי שכבת כיתה",
+    "byTrack": "לפי מגמה",
+    "pie": "עוגה",
+    "bar": "עמודות",
+    "bySchool": "לפי בית ספר נוכחי",
+    "timeline": "רישומים לפי תאריך",
+    "trackByGrade": "מגמות לפי שכבה",
+    "count": "רשומות"
+  },
+  "filters": {
+    "searchPlaceholder": "חיפוש לפי שם, ת.ז...",
+    "allTracks": "כל המגמות",
+    "allGrades": "כל הכיתות"
+  },
+  "table": {
+    "submittedAt": "תאריך הגשה",
+    "firstName": "שם פרטי",
+    "lastName": "שם משפחה",
+    "studentId": "ת.ז",
+    "parentName": "הורה ממלא",
+    "phone": "טלפון",
+    "email": "אימייל",
+    "currentSchool": "בי\"ס נוכחי",
+    "nextGrade": "כיתה הבאה",
+    "interestedTrack": "מגמה",
+    "referralSource": "מקור הגעה",
+    "additionalNotes": "הערות"
+  },
+  "history": {
+    "title": "היסטוריית העלאות",
+    "filename": "קובץ",
+    "imported": "יובאו",
+    "failed": "סטטוס",
+    "date": "תאריך",
+    "actions": "פעולות",
+    "noHistory": "לא הועלו קבצים עדיין",
+    "failedRows": "({{count}} נכשלו)"
+  },
+  "delete": {
+    "title": "מחיקת יבוא",
+    "description": "פעולה זו תמחק את כל הרשומות מהעלאה זו. לא ניתן לבטל פעולה זו.",
+    "confirm": "מחק",
+    "cancel": "ביטול",
+    "deleting": "מוחק..."
+  },
+  "reset": {
+    "button": "איפוס נתונים",
+    "title": "איפוס כל נתוני יום פתוח",
+    "description": "פעולה זו תמחק לצמיתות את כל הרשומות וההיסטוריה של יום פתוח. לא ניתן לבטל פעולה זו.",
+    "confirm": "אפס הכל",
+    "cancel": "ביטול",
+    "resetting": "מאפס..."
+  },
+  "noData": "אין רשומות להצגה. העלה קובץ יום פתוח להתחלה."
+}
