@@ -1,0 +1,20 @@
+{
+    "list": {
+        "title": "מקצועות",
+        "subtitle": "צפייה וניתוח ביצועים לפי מקצועות",
+        "totalSubjects": "סה״כ מקצועות",
+        "overallAverage": "ממוצע כללי",
+        "teacherCount": "{{count}} מורים",
+        "studentCount": "{{count}} תלמידים",
+        "noSubjects": "לא נמצאו מקצועות"
+    },
+    "detail": {
+        "backToList": "חזרה לרשימת המקצועות",
+        "subtitle": "{{teachers}} מורים | {{classes}} כיתות",
+        "gradeDistribution": "התפלגות ציונים",
+        "classPerformance": "ביצועים לפי כיתה",
+        "notFound": "מקצוע לא נמצא",
+        "gradeAxis": "ציון",
+        "studentCount": "מספר תלמידים"
+    }
+}
