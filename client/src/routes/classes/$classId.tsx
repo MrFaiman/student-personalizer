@@ -36,20 +36,20 @@ function ClassDetailPage() {
     const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
 
     const { data: classes } = useQuery({
-        queryKey: ["classes", filters.period],
-        queryFn: () => studentsApi.getClasses({ period: filters.period }),
+        queryKey: ["classes", filters.year, filters.period],
+        queryFn: () => studentsApi.getClasses({ year: filters.year, period: filters.period }),
     });
 
     const classInfo = classes?.find((c) => c.id === classId);
 
     const { data: heatmapData, isLoading: isLoadingHeatmap } = useQuery({
-        queryKey: ["class-heatmap", classId, filters.period],
-        queryFn: () => analyticsApi.getClassHeatmap(classId, { period: filters.period }),
+        queryKey: ["class-heatmap", filters.year, classId, filters.period],
+        queryFn: () => analyticsApi.getClassHeatmap(classId, { year: filters.year, period: filters.period }),
     });
 
     const { data: rankings, isLoading: isLoadingRankings } = useQuery({
-        queryKey: ["class-rankings", classId, filters.period],
-        queryFn: () => analyticsApi.getClassRankings(classId, { period: filters.period }),
+        queryKey: ["class-rankings", filters.year, classId, filters.period],
+        queryFn: () => analyticsApi.getClassRankings(classId, { year: filters.year, period: filters.period }),
     });
 
     const getGradeColor = (grade: number | null) => {

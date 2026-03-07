@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { useFilters } from "@/components/FilterContext";
+import { useFilterStore } from "@/lib/filter-store";
 import { type StudentListItem } from "@/lib/types";
 import { analyticsApi, studentsApi } from "@/lib/api";
 import { AT_RISK_PREVIEW_COUNT } from "@/lib/constants";
@@ -32,12 +32,13 @@ export const Route = createFileRoute("/")({ component: HomePage });
 
 function HomePage() {
   const { t } = useTranslation();
-  const { filters } = useFilters();
+  const filters = useFilterStore();
 
   const { data: kpis, isLoading } = useQuery({
-    queryKey: ["kpis", filters.period, filters.gradeLevel],
+    queryKey: ["kpis", filters.year, filters.period, filters.gradeLevel],
     queryFn: () =>
       analyticsApi.getKPIs({
+        year: filters.year,
         period: filters.period,
         grade_level: filters.gradeLevel,
       }),
@@ -61,12 +62,13 @@ function HomePage() {
 
 function KPISection() {
   const { t } = useTranslation("dashboard");
-  const { filters } = useFilters();
+  const filters = useFilterStore();
 
   const { data: kpis, isLoading } = useQuery({
-    queryKey: ["kpis", filters.period, filters.gradeLevel],
+    queryKey: ["kpis", filters.year, filters.period, filters.gradeLevel],
     queryFn: () =>
       analyticsApi.getKPIs({
+        year: filters.year,
         period: filters.period,
         grade_level: filters.gradeLevel,
       }),
@@ -116,12 +118,13 @@ function KPISection() {
 function ChartsSection() {
   const { t } = useTranslation("dashboard");
   const { t: tc } = useTranslation();
-  const { filters } = useFilters();
+  const filters = useFilterStore();
 
   const { data: classComparison, isLoading } = useQuery({
-    queryKey: ["class-comparison", filters.period, filters.gradeLevel],
+    queryKey: ["class-comparison", filters.year, filters.period, filters.gradeLevel],
     queryFn: () =>
       analyticsApi.getClassComparison({
+        year: filters.year,
         period: filters.period,
         grade_level: filters.gradeLevel,
       }),
@@ -136,16 +139,15 @@ function ChartsSection() {
 
   const avgGrade = classComparison?.length
     ? (
-        classComparison.reduce((sum, c) => sum + c.average_grade, 0) /
-        classComparison.length
-      ).toFixed(1)
+      classComparison.reduce((sum, c) => sum + c.average_grade, 0) /
+      classComparison.length
+    ).toFixed(1)
     : "—";
 
-  const filterSubtitle = `${filters.period || tc("filters.allPeriods")} | ${
-    filters.gradeLevel
-      ? tc("filters.gradeLevel", { level: filters.gradeLevel })
-      : tc("filters.allGradeLevels")
-  }`;
+  const filterSubtitle = `${filters.period || tc("filters.allPeriods")} | ${filters.gradeLevel
+    ? tc("filters.gradeLevel", { level: filters.gradeLevel })
+    : tc("filters.allGradeLevels")
+    }`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -180,14 +182,15 @@ function ChartsSection() {
 function StudentsTable() {
   const { t } = useTranslation("dashboard");
   const { t: tc } = useTranslation();
-  const { filters } = useFilters();
+  const filters = useFilterStore();
   const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
 
   const { data: students, isLoading } = useQuery({
-    queryKey: ["at-risk-students", filters.period, filters.classId],
+    queryKey: ["at-risk-students", filters.year, filters.period, filters.classId],
     queryFn: () =>
       studentsApi.list({
         at_risk_only: true,
+        year: filters.year,
         period: filters.period,
         class_id: filters.classId || undefined,
       }),

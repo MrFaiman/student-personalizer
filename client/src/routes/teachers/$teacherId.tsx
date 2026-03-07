@@ -36,8 +36,8 @@ function TeacherDetailPage() {
     const gradeRange = useConfigStore((s) => s.gradeRange);
 
     const { data: teacher, isLoading } = useQuery({
-        queryKey: ["teacher-detail", teacherId, filters.period],
-        queryFn: () => analyticsApi.getTeacherDetail(teacherId, { period: filters.period }),
+        queryKey: ["teacher-detail", filters.year, teacherId, filters.period],
+        queryFn: () => analyticsApi.getTeacherDetail(teacherId, { year: filters.year, period: filters.period }),
     });
 
     const classChartData = teacher?.classes.map((cls) => ({
@@ -157,12 +157,12 @@ function TeacherDetailPage() {
                                             tc("table.average"),
                                         ]}
                                     />
-                                    <Bar 
-                                        dataKey="average" 
-                                        radius={[4, 4, 0, 0]} 
+                                    <Bar
+                                        dataKey="average"
+                                        radius={[4, 4, 0, 0]}
                                         shape={(props) => (
                                             <Rectangle {...props} fill={getBarColor(props.index)} />
-                                        )} 
+                                        )}
                                     />
                                 </BarChart>
                             </ResponsiveContainer>

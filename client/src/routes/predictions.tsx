@@ -32,6 +32,8 @@ import {
 import { useState } from "react";
 import { useFilters } from "@/components/FilterContext";
 import { TablePagination } from "@/components/TablePagination";
+import { SortableTableHead } from "@/components/SortableTableHead";
+import { useTableSort } from "@/hooks/useTableSort";
 import { StudentLink } from "@/components/StudentLink";
 import { mlApi } from "@/lib/api";
 import { useConfigStore } from "@/lib/config-store";
@@ -49,10 +51,13 @@ function PredictionsPage() {
   const goodGradeThreshold = useConfigStore((s) => s.goodGradeThreshold);
   const [page, setPage] = useState(1);
   const pageSize = defaultPageSize;
+  const { sort, toggleSort } = useTableSort<string>();
 
   const [prevPeriod, setPrevPeriod] = useState(filters.period);
-  if (prevPeriod !== filters.period) {
+  const [prevYear, setPrevYear] = useState(filters.year);
+  if (prevPeriod !== filters.period || prevYear !== filters.year) {
     setPrevPeriod(filters.period);
+    setPrevYear(filters.year);
     setPage(1);
   }
 
@@ -62,15 +67,18 @@ function PredictionsPage() {
   });
 
   const { data: predictions, isLoading: predictionsLoading } = useQuery({
-    queryKey: ["ml-predictions", filters.period, page],
+    queryKey: ["ml-predictions", filters.year, filters.period, page, sort.column, sort.direction],
     queryFn: () =>
-      mlApi.predictAll({ period: filters.period, page, page_size: pageSize }),
+      mlApi.predictAll({
+        year: filters.year, period: filters.period, page, page_size: pageSize,
+        sort_by: sort.column || undefined, sort_order: sort.direction,
+      }),
     enabled: !!status?.trained,
     placeholderData: keepPreviousData,
   });
 
   const trainMutation = useMutation({
-    mutationFn: () => mlApi.train({ period: filters.period }),
+    mutationFn: () => mlApi.train({ year: filters.year, period: filters.period }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ml-status"] });
       queryClient.invalidateQueries({ queryKey: ["ml-predictions"] });
@@ -114,9 +122,8 @@ function PredictionsPage() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div
-                className={`rounded-lg p-3 ${
-                  status?.trained ? "bg-green-100" : "bg-yellow-100"
-                }`}
+                className={`rounded-lg p-3 ${status?.trained ? "bg-green-100" : "bg-yellow-100"
+                  }`}
               >
                 <Brain
                   className={`size-8 ${status?.trained ? "text-green-600" : "text-yellow-600"}`}
@@ -255,18 +262,18 @@ function PredictionsPage() {
             <TableHeader>
               <TableRow className="bg-accent/50">
                 <TableHead className="text-right font-bold w-12">#</TableHead>
-                <TableHead className="text-right font-bold">
+                <SortableTableHead column="student_name" sort={sort} onSort={toggleSort}>
                   שם התלמיד
-                </TableHead>
-                <TableHead className="text-right font-bold">
+                </SortableTableHead>
+                <SortableTableHead column="predicted_grade" sort={sort} onSort={toggleSort}>
                   ציון חזוי
-                </TableHead>
-                <TableHead className="text-right font-bold">
+                </SortableTableHead>
+                <SortableTableHead column="dropout_risk" sort={sort} onSort={toggleSort}>
                   סיכון נשירה
-                </TableHead>
-                <TableHead className="text-right font-bold">
+                </SortableTableHead>
+                <SortableTableHead column="risk_level" sort={sort} onSort={toggleSort}>
                   רמת סיכון
-                </TableHead>
+                </SortableTableHead>
                 <TableHead className="text-right font-bold">גורמים</TableHead>
               </TableRow>
             </TableHeader>
@@ -310,13 +317,12 @@ function PredictionsPage() {
                       />
                     </TableCell>
                     <TableCell
-                      className={`font-bold ${
-                        (pred.predicted_grade ?? 0) < atRiskGradeThreshold
+                      className={`font-bold ${(pred.predicted_grade ?? 0) < atRiskGradeThreshold
                           ? "text-red-600"
                           : (pred.predicted_grade ?? 0) >= goodGradeThreshold
                             ? "text-green-600"
                             : ""
-                      }`}
+                        }`}
                     >
                       {pred.predicted_grade?.toFixed(1) ?? "—"}
                     </TableCell>

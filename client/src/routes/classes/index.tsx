@@ -20,8 +20,8 @@ function ClassesListPage() {
     const { filters } = useFilters();
 
     const { data: classes, isLoading } = useQuery({
-        queryKey: ["classes", filters.period],
-        queryFn: () => studentsApi.getClasses({ period: filters.period }),
+        queryKey: ["classes", filters.year, filters.period],
+        queryFn: () => studentsApi.getClasses({ year: filters.year, period: filters.period }),
     });
 
     const totalStudents = classes?.reduce((sum, c) => sum + c.student_count, 0) || 0;

@@ -20,9 +20,10 @@ function TeachersListPage() {
     const { filters } = useFilters();
 
     const { data: teachers, isLoading } = useQuery({
-        queryKey: ["teachers-list", filters.period, filters.gradeLevel],
+        queryKey: ["teachers-list", filters.year, filters.period, filters.gradeLevel],
         queryFn: () =>
             analyticsApi.getTeachersList({
+                year: filters.year,
                 period: filters.period,
                 grade_level: filters.gradeLevel,
             }),
