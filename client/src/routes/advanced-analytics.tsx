@@ -7,6 +7,7 @@ import { BarChart3 } from "lucide-react";
 
 import { analyticsApi } from "@/lib/api";
 import { useCascadingFilters } from "@/hooks/useCascadingFilters";
+import { useFilters } from "@/components/FilterContext";
 import {
   PeriodComparisonChart,
   RedStudentBreakdown,
@@ -39,6 +40,8 @@ function AdvancedAnalyticsPage() {
 
   const periods = useMemo(() => metadata?.periods || [], [metadata?.periods]);
 
+  const { filters: globalFilters } = useFilters();
+
   const {
     filters,
     options,
@@ -47,7 +50,7 @@ function AdvancedAnalyticsPage() {
     setPeriodA,
     setPeriodB,
     resetFilters,
-  } = useCascadingFilters(periods);
+  } = useCascadingFilters(periods, globalFilters.year);
 
   // Set initial periods when metadata loads
   useEffect(() => {
@@ -92,9 +95,7 @@ function AdvancedAnalyticsPage() {
                 </label>
                 <Select
                   value={filters.gradeLevel || "all"}
-                  onValueChange={(v) =>
-                    setGradeLevel(v === "all" ? undefined : v)
-                  }
+                  onValueChange={(v) => setGradeLevel(v === "all" ? undefined : v)}
                 >
                   <SelectTrigger className="w-36">
                     <SelectValue placeholder={tc("filters.allGradeLevels")} />
@@ -144,7 +145,7 @@ function AdvancedAnalyticsPage() {
                 </label>
                 <Select
                   value={filters.periodA || ""}
-                  onValueChange={setPeriodA}
+                  onValueChange={(v) => setPeriodA(v)}
                 >
                   <SelectTrigger className="w-40">
                     <SelectValue placeholder={t("filters.selectPeriod")} />
@@ -166,7 +167,7 @@ function AdvancedAnalyticsPage() {
                 </label>
                 <Select
                   value={filters.periodB || ""}
-                  onValueChange={setPeriodB}
+                  onValueChange={(v) => setPeriodB(v)}
                 >
                   <SelectTrigger className="w-40">
                     <SelectValue placeholder={t("filters.selectPeriod")} />
@@ -214,11 +215,7 @@ function AdvancedAnalyticsPage() {
             <div className="flex gap-2">
               <Select
                 value={comparisonType}
-                onValueChange={(v) =>
-                  setComparisonType(
-                    v as "class" | "subject_teacher" | "subject",
-                  )
-                }
+                onValueChange={(v) => setComparisonType(v as "class" | "subject_teacher" | "subject")}
               >
                 <SelectTrigger className="w-56">
                   <SelectValue />

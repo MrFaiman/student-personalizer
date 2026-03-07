@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 import { getBarColor } from "@/lib/utils";
+import { useFilters } from "@/components/FilterContext";
 
 type ComparisonType = "class" | "teacher" | "layer";
 
@@ -39,6 +40,7 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
   const { t } = useTranslation("advancedAnalytics");
   const [comparisonType, setComparisonType] = useState<ComparisonType>("class");
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
+  const { filters } = useFilters();
 
   // Fetch available entities based on comparison type
   const { data: metadata } = useQuery({
@@ -47,14 +49,14 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
   });
 
   const { data: classes } = useQuery({
-    queryKey: ["classes", period],
-    queryFn: () => studentsApi.getClasses({ period }),
+    queryKey: ["classes", filters.year, period],
+    queryFn: () => studentsApi.getClasses({ year: filters.year, period }),
     enabled: comparisonType === "class",
   });
 
   const { data: teachers } = useQuery({
-    queryKey: ["teachers-list", period],
-    queryFn: () => analyticsApi.getTeachersList({ period }),
+    queryKey: ["teachers-list", filters.year, period],
+    queryFn: () => analyticsApi.getTeachersList({ year: filters.year, period }),
     enabled: comparisonType === "teacher",
   });
 
@@ -79,9 +81,10 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
 
   // Fetch comparison data
   const { data: chartData, isLoading } = useQuery({
-    queryKey: ["versus-comparison", comparisonType, selectedEntities, period],
+    queryKey: ["versus-comparison", comparisonType, selectedEntities, filters.year, period],
     queryFn: () =>
       analyticsApi.getVersusComparison({
+        year: filters.year,
         comparison_type: comparisonType,
         entity_ids: selectedEntities.join(","),
         period,

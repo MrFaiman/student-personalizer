@@ -63,6 +63,7 @@ export const SubjectGradeItemSchema = z.object({
 export type SubjectGradeItem = z.infer<typeof SubjectGradeItemSchema>;
 
 export const MetadataResponseSchema = z.object({
+    years: z.array(z.string()),
     periods: z.array(z.string()),
     grade_levels: z.array(z.string()),
     teachers: z.array(z.string()),

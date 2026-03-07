@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
+import { useFilters } from "@/components/FilterContext";
 
 // Shades of red for at-risk student visualization
 const RED_SHADES = [
@@ -199,11 +200,13 @@ export function RedStudentBreakdown({
 }: RedStudentBreakdownProps) {
   const { t, i18n } = useTranslation("advancedAnalytics");
   const isRTL = i18n.language === "he";
+  const { filters } = useFilters();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["red-student-segmentation", period, gradeLevel],
+    queryKey: ["red-student-segmentation", filters.year, period, gradeLevel],
     queryFn: () =>
       analyticsApi.getRedStudentSegmentation({
+        year: filters.year,
         period,
         grade_level: gradeLevel,
       }),

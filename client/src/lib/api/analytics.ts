@@ -18,8 +18,14 @@ import {
   CascadingFilterOptionsSchema,
 } from "../types";
 
+import {
+  SubjectListItemSchema,
+  SubjectStatsResponseSchema,
+  SubjectDetailResponseSchema,
+} from "../types";
+
 export const analyticsApi = {
-  getKPIs: (params: { period?: string; grade_level?: string } = {}) =>
+  getKPIs: (params: { period?: string; grade_level?: string; year?: string } = {}) =>
     fetchApi(
       `/api/analytics/kpis${buildQueryString(params)}`,
       undefined,
@@ -27,7 +33,7 @@ export const analyticsApi = {
     ),
 
   getClassComparison: (
-    params: { period?: string; grade_level?: string } = {},
+    params: { period?: string; grade_level?: string; year?: string } = {},
   ) =>
     fetchApi(
       `/api/analytics/class-comparison${buildQueryString(params)}`,
@@ -35,7 +41,7 @@ export const analyticsApi = {
       z.array(ClassComparisonItemSchema),
     ),
 
-  getClassHeatmap: (classId: string, params: { period?: string } = {}) =>
+  getClassHeatmap: (classId: string, params: { period?: string; year?: string } = {}) =>
     fetchApi(
       `/api/classes/${classId}/heatmap${buildQueryString(params)}`,
       undefined,
@@ -44,7 +50,7 @@ export const analyticsApi = {
 
   getClassRankings: (
     classId: string,
-    params: { period?: string; top_n?: number; bottom_n?: number } = {},
+    params: { period?: string; top_n?: number; bottom_n?: number; year?: string } = {},
   ) =>
     fetchApi(
       `/api/classes/${classId}/rankings${buildQueryString(params)}`,
@@ -52,31 +58,31 @@ export const analyticsApi = {
       TopBottomResponseSchema,
     ),
 
-  getTeacherStats: (teacherName: string, params: { period?: string } = {}) =>
+  getTeacherStats: (teacherName: string, params: { period?: string; year?: string } = {}) =>
     fetchApi(
       `/api/teachers/${encodeURIComponent(teacherName)}/stats${buildQueryString(params)}`,
       undefined,
       TeacherStatsResponseSchema,
     ),
 
-  getStudentRadar: (studentTz: string, params: { period?: string } = {}) =>
+  getStudentRadar: (studentTz: string, params: { period?: string; year?: string } = {}) =>
     fetchApi(
       `/api/analytics/student/${encodeURIComponent(studentTz)}/radar${buildQueryString(params)}`,
       undefined,
       z.array(SubjectGradeItemSchema),
     ),
 
-  getTeachers: (params: { period?: string } = {}) =>
+  getTeachers: (params: { period?: string; year?: string } = {}) =>
     fetchApi<string[]>(`/api/teachers${buildQueryString(params)}`),
 
-  getTeachersList: (params: { period?: string; grade_level?: string } = {}) =>
+  getTeachersList: (params: { period?: string; grade_level?: string; year?: string } = {}) =>
     fetchApi(
       `/api/teachers/list${buildQueryString(params)}`,
       undefined,
       z.array(TeacherListItemSchema),
     ),
 
-  getTeacherDetail: (teacherId: string, params: { period?: string } = {}) =>
+  getTeacherDetail: (teacherId: string, params: { period?: string; year?: string } = {}) =>
     fetchApi(
       `/api/teachers/${encodeURIComponent(teacherId)}/detail${buildQueryString(params)}`,
       undefined,
@@ -92,6 +98,7 @@ export const analyticsApi = {
     comparison_type?: "class" | "subject_teacher" | "subject";
     grade_level?: string;
     class_id?: string;
+    year?: string;
   }) =>
     fetchApi(
       `/api/analytics/period-comparison${buildQueryString(params)}`,
@@ -103,6 +110,7 @@ export const analyticsApi = {
     params: {
       period?: string;
       grade_level?: string;
+      year?: string;
     } = {},
   ) =>
     fetchApi(
@@ -120,6 +128,7 @@ export const analyticsApi = {
       subject?: string;
       page?: number;
       page_size?: number;
+      year?: string;
     } = {},
   ) =>
     fetchApi(
@@ -133,6 +142,7 @@ export const analyticsApi = {
     entity_ids: string;
     period?: string;
     metric?: "average_grade" | "at_risk_count";
+    year?: string;
   }) =>
     fetchApi(
       `/api/analytics/versus${buildQueryString(params)}`,
@@ -145,11 +155,36 @@ export const analyticsApi = {
       grade_level?: string;
       class_id?: string;
       period?: string;
+      year?: string;
     } = {},
   ) =>
     fetchApi(
       `/api/analytics/filter-options${buildQueryString(params)}`,
       undefined,
       CascadingFilterOptionsSchema,
+    ),
+
+  getSubjects: (params: { period?: string; year?: string } = {}) =>
+    fetchApi<string[]>(`/api/subjects${buildQueryString(params)}`),
+
+  getSubjectsList: (params: { period?: string; grade_level?: string; year?: string } = {}) =>
+    fetchApi(
+      `/api/subjects/list${buildQueryString(params)}`,
+      undefined,
+      z.array(SubjectListItemSchema),
+    ),
+
+  getSubjectStats: (subjectName: string, params: { period?: string; year?: string } = {}) =>
+    fetchApi(
+      `/api/subjects/${encodeURIComponent(subjectName)}/stats${buildQueryString(params)}`,
+      undefined,
+      SubjectStatsResponseSchema,
+    ),
+
+  getSubjectDetail: (subjectId: string, params: { period?: string; year?: string } = {}) =>
+    fetchApi(
+      `/api/subjects/${encodeURIComponent(subjectId)}/detail${buildQueryString(params)}`,
+      undefined,
+      SubjectDetailResponseSchema,
     ),
 };

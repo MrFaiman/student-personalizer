@@ -16,6 +16,7 @@ import type { PeriodComparisonItem } from "@/lib/types/analytics";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
+import { useFilters } from "@/components/FilterContext";
 
 interface PeriodComparisonChartProps {
   periodA: string;
@@ -33,10 +34,12 @@ export function PeriodComparisonChart({
   classId,
 }: PeriodComparisonChartProps) {
   const { t } = useTranslation("advancedAnalytics");
+  const { filters } = useFilters();
 
   const { data, isLoading, error } = useQuery({
     queryKey: [
       "period-comparison",
+      filters.year,
       periodA,
       periodB,
       comparisonType,
@@ -45,6 +48,7 @@ export function PeriodComparisonChart({
     ],
     queryFn: () =>
       analyticsApi.getPeriodComparison({
+        year: filters.year,
         period_a: periodA,
         period_b: periodB,
         comparison_type: comparisonType,
@@ -138,9 +142,8 @@ export function PeriodComparisonChart({
         </div>
         {item.change !== null && (
           <p
-            className={`mt-2 font-medium ${
-              item.change >= 0 ? "text-green-600" : "text-red-600"
-            }`}
+            className={`mt-2 font-medium ${item.change >= 0 ? "text-green-600" : "text-red-600"
+              }`}
           >
             {t("tooltip.change")}: {item.change >= 0 ? "+" : ""}
             {item.change.toFixed(1)} ({item.changePercent?.toFixed(1)}%)
