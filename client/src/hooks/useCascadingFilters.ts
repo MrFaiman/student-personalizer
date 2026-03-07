@@ -11,7 +11,7 @@ export interface CascadingFilterState {
   periodB: string | undefined;
 }
 
-export function useCascadingFilters(initialPeriods: string[] = []) {
+export function useCascadingFilters(initialPeriods: string[] = [], year?: string) {
   const [filters, setFilters] = useState<CascadingFilterState>({
     gradeLevel: undefined,
     classId: undefined,
@@ -25,12 +25,14 @@ export function useCascadingFilters(initialPeriods: string[] = []) {
   const { data: options, isLoading } = useQuery({
     queryKey: [
       "cascading-filters",
+      year,
       filters.gradeLevel,
       filters.classId,
       filters.periodA,
     ],
     queryFn: () =>
       analyticsApi.getCascadingFilterOptions({
+        year,
         grade_level: filters.gradeLevel,
         class_id: filters.classId,
         period: filters.periodA,
