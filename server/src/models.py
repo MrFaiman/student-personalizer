@@ -63,11 +63,12 @@ class Grade(SQLModel, table=True):
     """Individual grade record."""
 
     __table_args__ = (
-        Index("ix_grade_student_period", "student_tz", "period"),
-        Index("ix_grade_teacher_id_period", "teacher_id", "period"),
-        Index("ix_grade_teacher_name_period", "teacher_name", "period"),
-        Index("ix_grade_subject_name_period", "subject_name", "period"),
-        Index("ix_grade_subject_id_period", "subject_id", "period"),
+        Index("ix_grade_student_period_year", "student_tz", "period", "year"),
+        Index("ix_grade_teacher_id_period_year", "teacher_id", "period", "year"),
+        Index("ix_grade_teacher_name_period_year", "teacher_name", "period", "year"),
+        Index("ix_grade_subject_name_period_year", "subject_name", "period", "year"),
+        Index("ix_grade_subject_id_period_year", "subject_id", "period", "year"),
+        Index("ix_grade_year", "year"),
         CheckConstraint("grade >= 0 AND grade <= 100", name="ck_grade_range"),
     )
 
@@ -79,6 +80,7 @@ class Grade(SQLModel, table=True):
     teacher_id: UUID | None = Field(default=None, foreign_key="teacher.id", index=True)
     grade: float
     period: str  # e.g. "Quarter 1", "סמסטר א'"
+    year: str = Field(default="")
 
     # Relationships
     student: Student = Relationship(back_populates="grades")
@@ -90,7 +92,8 @@ class AttendanceRecord(SQLModel, table=True):
     """Attendance and behavior record."""
 
     __table_args__ = (
-        Index("ix_attendance_student_period", "student_tz", "period"),
+        Index("ix_attendance_student_period_year", "student_tz", "period", "year"),
+        Index("ix_attendance_year", "year"),
         CheckConstraint("lessons_reported >= 0", name="ck_attendance_lessons_reported"),
         CheckConstraint("absence >= 0", name="ck_attendance_absence"),
         CheckConstraint("late >= 0", name="ck_attendance_late"),
@@ -108,6 +111,7 @@ class AttendanceRecord(SQLModel, table=True):
     total_negative_events: int = 0
     total_positive_events: int = 0
     period: str  # e.g. "Quarter 1", "סמסטר א'"
+    year: str = Field(default="")
 
     # Relationships
     student: Student = Relationship(back_populates="attendance_records")
@@ -133,6 +137,51 @@ class UploadedFile(SQLModel, table=True):
     import_log: Optional["ImportLog"] = Relationship(back_populates="uploaded_file")
 
 
+class OpenDayImport(SQLModel, table=True):
+    """Track open day file imports."""
+
+    __table_args__ = (
+        Index("ix_opendayimport_import_date", "import_date"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    batch_id: str = Field(index=True, unique=True)
+    filename: str
+    rows_imported: int = 0
+    rows_failed: int = 0
+    import_date: datetime = Field(default_factory=datetime.utcnow)
+
+    registrations: list["OpenDayRegistration"] = Relationship(back_populates="import_log")
+
+
+class OpenDayRegistration(SQLModel, table=True):
+    """Registration submitted during an open day event."""
+
+    __table_args__ = (
+        Index("ix_opendayreg_import_id", "import_id"),
+        Index("ix_opendayreg_next_grade", "next_grade"),
+        Index("ix_opendayreg_interested_track", "interested_track"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    import_id: int | None = Field(default=None, foreign_key="opendayimport.id", index=True)
+    submitted_at: datetime | None = None
+    first_name: str
+    last_name: str
+    student_id: str | None = None
+    parent_name: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    current_school: str | None = None
+    next_grade: str | None = None
+    interested_track: str | None = None
+    referral_source: str | None = None
+    additional_notes: str | None = None
+    import_date: datetime = Field(default_factory=datetime.utcnow)
+
+    import_log: OpenDayImport | None = Relationship(back_populates="registrations")
+
+
 class ImportLog(SQLModel, table=True):
     """Track file imports."""
 
@@ -148,6 +197,7 @@ class ImportLog(SQLModel, table=True):
     rows_failed: int = 0
     errors: str | None = None  # JSON string of errors
     period: str | None = None
+    year: str = Field(default="")
     uploaded_file_id: UUID | None = Field(default=None, foreign_key="uploadedfile.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

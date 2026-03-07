@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, ORIGIN_URL, PORT
 from .database import init_db
-from .routers import analytics, classes, config, ingestion, ml, students, teachers
+from .routers import analytics, classes, config, ingestion, ml, open_day, students, subjects, teachers
 
 
 @asynccontextmanager
@@ -39,6 +39,8 @@ app.include_router(classes.router)
 app.include_router(teachers.router)
 app.include_router(students.router)
 app.include_router(analytics.router)
+app.include_router(subjects.router)
+app.include_router(open_day.router)
 
 app.include_router(ml.router)
 

@@ -47,12 +47,14 @@ async def predict_all(
     period: str | None = Query(default=None, description="Period filter"),
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
+    sort_by: str | None = Query(default=None, description="Column to sort by: student_name, predicted_grade, dropout_risk, risk_level"),
+    sort_order: str = Query(default="asc", description="Sort direction: asc or desc"),
     session: Session = Depends(get_session),
 ):
     """Get predictions for all students."""
     service = MLService(session)
     try:
-        result = service.predict_all(period=period, page=page, page_size=page_size)
+        result = service.predict_all(period=period, page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order)
     except FileNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return result

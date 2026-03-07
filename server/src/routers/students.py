@@ -11,6 +11,7 @@ from ..schemas.student import (
     GradeResponse,
     StudentDetailResponse,
     StudentListResponse,
+    StudentTimelineResponse,
 )
 from ..services.students import StudentService
 from ..views.students import StudentDefaultView
@@ -26,9 +27,12 @@ async def list_students(
     search: str | None = Query(default=None),
     at_risk_only: bool = Query(default=False),
     period: str | None = Query(default=None),
+    year: str | None = Query(default=None),
+    sort_by: str | None = Query(default=None, description="Column to sort by: student_name, average_grade, total_absences, class_name"),
+    sort_order: str = Query(default="asc", description="Sort direction: asc or desc"),
     session: Session = Depends(get_session),
 ):
-    """List students with optional filtering."""
+    """List students with optional filtering and sorting."""
     service = StudentService(session)
     view = StudentDefaultView()
 
@@ -39,6 +43,9 @@ async def list_students(
         search=search,
         at_risk_only=at_risk_only,
         period=period,
+        year=year,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
     return view.render_list(data)
 
@@ -47,13 +54,14 @@ async def list_students(
 async def get_dashboard_stats(
     class_id: UUID | None = Query(default=None),
     period: str | None = Query(default=None),
+    year: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
     """Get dashboard statistics."""
     service = StudentService(session)
     view = StudentDefaultView()
 
-    data = service.get_dashboard_stats(class_id=class_id, period=period)
+    data = service.get_dashboard_stats(class_id=class_id, period=period, year=year)
     return view.render_dashboard(data)
 
 
@@ -61,13 +69,14 @@ async def get_dashboard_stats(
 async def get_student(
     student_tz: str,
     period: str | None = Query(default=None),
+    year: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
     """Get a specific student by TZ."""
     service = StudentService(session)
     view = StudentDefaultView()
 
-    data = service.get_student_detail(student_tz, period)
+    data = service.get_student_detail(student_tz, period, year)
     if not data:
         raise HTTPException(status_code=404, detail="Student not found")
     return view.render_detail(data)
@@ -77,13 +86,14 @@ async def get_student(
 async def get_student_grades(
     student_tz: str,
     period: str | None = Query(default=None),
+    year: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
     """Get all grades for a student."""
     service = StudentService(session)
     view = StudentDefaultView()
 
-    data = service.get_student_grades(student_tz, period)
+    data = service.get_student_grades(student_tz, period, year)
     if data is None:
         raise HTTPException(status_code=404, detail="Student not found")
     return view.render_grades(data)
@@ -93,13 +103,29 @@ async def get_student_grades(
 async def get_student_attendance(
     student_tz: str,
     period: str | None = Query(default=None),
+    year: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
     """Get all attendance records for a student."""
     service = StudentService(session)
     view = StudentDefaultView()
 
-    data = service.get_student_attendance(student_tz, period)
+    data = service.get_student_attendance(student_tz, period, year)
     if data is None:
         raise HTTPException(status_code=404, detail="Student not found")
     return view.render_attendance(data)
+
+
+@router.get("/{student_tz}/timeline", response_model=StudentTimelineResponse)
+async def get_student_timeline(
+    student_tz: str,
+    session: Session = Depends(get_session),
+):
+    """Get multi-year timeline data for a student."""
+    service = StudentService(session)
+    data = service.get_student_timeline(student_tz)
+    if not data:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    return StudentTimelineResponse(**data)
+

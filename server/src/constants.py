@@ -58,4 +58,5 @@ VALID_MIME_TYPES = {
     "application/vnd.ms-excel": "excel",
 }
 DEFAULT_PERIOD = "Default"
+DEFAULT_YEAR = ""
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")

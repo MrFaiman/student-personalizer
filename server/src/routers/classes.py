@@ -15,13 +15,14 @@ router = APIRouter(prefix="/api/classes", tags=["classes"])
 @router.get("", response_model=list[ClassResponse])
 async def list_classes(
     period: str | None = Query(default=None),
+    year: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
     """Get all classes with statistics."""
     service = ClassService(session)
     view = ClassDefaultView()
 
-    data = service.list_classes_with_stats(period)
+    data = service.list_classes_with_stats(period, year)
     return view.render_list(data)
 
 
@@ -29,13 +30,14 @@ async def list_classes(
 async def get_class_heatmap(
     class_id: UUID,
     period: str | None = Query(default=None, description="Period filter"),
+    year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
 ):
     """Get heatmap data for a specific class."""
     service = ClassService(session)
     view = ClassDefaultView()
 
-    data = service.get_class_heatmap(class_id, period)
+    data = service.get_class_heatmap(class_id, period, year)
     if not data:
         raise HTTPException(status_code=404, detail=f"Class ID '{class_id}' not found or has no data")
     return view.render_heatmap(data)
@@ -47,11 +49,12 @@ async def get_class_rankings(
     period: str | None = Query(default=None, description="Period filter"),
     top_n: int = Query(default=5, ge=1, le=20, description="Number of top students"),
     bottom_n: int = Query(default=5, ge=1, le=20, description="Number of bottom students"),
+    year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
 ):
     """Get top and bottom students in a class."""
     service = ClassService(session)
     view = ClassDefaultView()
 
-    data = service.get_top_bottom_students(class_id, period, top_n, bottom_n)
+    data = service.get_top_bottom_students(class_id, period, top_n, bottom_n, year)
     return view.render_rankings(data)

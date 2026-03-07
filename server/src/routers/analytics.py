@@ -25,13 +25,14 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 async def get_layer_kpis(
     period: str | None = Query(default=None, description="Period filter (e.g., 'Q1')"),
     grade_level: str | None = Query(default=None, description="Grade level filter (e.g., 'י')"),
+    year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
 ):
     """Get Dashboard KPIs."""
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
-    data = service.get_layer_kpis(period, grade_level)
+    data = service.get_layer_kpis(period, grade_level, year)
     return view.render_kpis(data)
 
 
@@ -39,13 +40,14 @@ async def get_layer_kpis(
 async def get_class_comparison(
     period: str | None = Query(default=None, description="Period filter"),
     grade_level: str | None = Query(default=None, description="Grade level filter"),
+    year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
 ):
     """Get class comparison data."""
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
-    data = service.get_class_comparison(period, grade_level)
+    data = service.get_class_comparison(period, grade_level, year)
     return view.render_class_comparison(data)
 
 
@@ -53,13 +55,14 @@ async def get_class_comparison(
 async def get_student_radar(
     student_tz: str,
     period: str | None = Query(default=None, description="Period filter"),
+    year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
 ):
     """Get radar chart data for a student."""
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
-    data = service.get_student_radar(student_tz, period)
+    data = service.get_student_radar(student_tz, period, year)
     if not data:
         raise HTTPException(status_code=404, detail=f"Student '{student_tz}' not found or has no grades")
         
@@ -88,6 +91,7 @@ async def get_period_comparison(
     ),
     grade_level: str | None = Query(default=None, description="Grade level filter"),
     class_id: str | None = Query(default=None, description="Class ID filter"),
+    year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
 ):
     """Compare average grades between two periods."""
@@ -100,6 +104,7 @@ async def get_period_comparison(
         comparison_type=comparison_type,
         grade_level=grade_level,
         class_id=class_id,
+        year=year,
     )
     return view.render_period_comparison(data)
 
@@ -108,6 +113,7 @@ async def get_period_comparison(
 async def get_red_student_segmentation(
     period: str | None = Query(default=None, description="Period filter"),
     grade_level: str | None = Query(default=None, description="Grade level filter"),
+    year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
 ):
     """Get at-risk student segmentation."""
@@ -117,6 +123,7 @@ async def get_red_student_segmentation(
     data = service.get_red_student_segmentation(
         period=period,
         grade_level=grade_level,
+        year=year,
     )
     return view.render_red_student_segmentation(data)
 
@@ -130,6 +137,7 @@ async def get_red_student_list(
     subject: str | None = Query(default=None, description="Subject filter"),
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
+    year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
 ):
     """Get paginated list of at-risk students."""
@@ -144,6 +152,7 @@ async def get_red_student_list(
         subject=subject,
         page=page,
         page_size=page_size,
+        year=year,
     )
     return view.render_red_student_list(data)
 
@@ -154,6 +163,7 @@ async def get_versus_comparison(
     entity_ids: str = Query(..., description="Comma-separated list of entity IDs to compare"),
     period: str | None = Query(default=None, description="Period filter"),
     metric: str = Query(default="average_grade", description="Metric to compare: average_grade or at_risk_count"),
+    year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
 ):
     """Get versus comparison data."""
@@ -167,6 +177,7 @@ async def get_versus_comparison(
         entity_ids=ids,
         period=period,
         metric=metric,
+        year=year,
     )
     return view.render_versus_comparison(data)
 
@@ -176,6 +187,7 @@ async def get_cascading_filter_options(
     grade_level: str | None = Query(default=None, description="Selected grade level"),
     class_id: str | None = Query(default=None, description="Selected class ID"),
     period: str | None = Query(default=None, description="Selected period"),
+    year: str | None = Query(default=None, description="Selected year"),
     session: Session = Depends(get_session),
 ):
     """Get available filter options."""
@@ -186,5 +198,6 @@ async def get_cascading_filter_options(
         grade_level=grade_level,
         class_id=class_id,
         period=period,
+        year=year,
     )
     return view.render_cascading_filter_options(data)

@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, func, select
 
-from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, UPLOAD_DIR, VALID_MIME_TYPES
+from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, DEFAULT_YEAR, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, UPLOAD_DIR, VALID_MIME_TYPES
 from ..database import get_session
 from ..models import AttendanceRecord, Grade, ImportLog, UploadedFile
 from ..schemas.ingestion import ImportLogListResponse, ImportLogResponse, ImportResponse
@@ -27,6 +27,10 @@ async def upload_file(
     period: str = Query(
         default=DEFAULT_PERIOD,
         description="Period name to associate with this import (e.g., 'Quarter 1', 'סמסטר א').",
+    ),
+    year: str = Query(
+        default=DEFAULT_YEAR,
+        description="Academic year to associate with this import (e.g., '2024-2025').",
     ),
     session: Session = Depends(get_session),
 ):
@@ -88,6 +92,7 @@ async def upload_file(
         content_type=content_type,
         file_type=file_type,
         period=period,
+        year=year,
         uploaded_file_id=uploaded.id,
     )
 
@@ -112,13 +117,26 @@ async def upload_file(
 async def get_import_logs(
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
+    sort_by: str | None = Query(default=None, description="Column to sort by: filename, file_type, year, period, rows_imported, created_at"),
+    sort_order: str = Query(default="desc", description="Sort direction: asc or desc"),
     session: Session = Depends(get_session),
 ):
     """Get a paginated list of import logs."""
     total = session.exec(select(func.count(ImportLog.id))).one()
 
+    sort_columns = {
+        "filename": ImportLog.filename,
+        "file_type": ImportLog.file_type,
+        "year": ImportLog.year,
+        "period": ImportLog.period,
+        "rows_imported": ImportLog.rows_imported,
+        "created_at": ImportLog.created_at,
+    }
+    sort_col = sort_columns.get(sort_by, ImportLog.created_at)
+    order = sort_col.desc() if sort_order == "desc" else sort_col.asc()
+
     offset = (page - 1) * page_size
-    statement = select(ImportLog).order_by(ImportLog.created_at.desc()).offset(offset).limit(page_size)
+    statement = select(ImportLog).order_by(order).offset(offset).limit(page_size)
     logs = session.exec(statement).all()
 
     return ImportLogListResponse(
@@ -131,6 +149,7 @@ async def get_import_logs(
                 rows_imported=log.rows_imported,
                 rows_failed=log.rows_failed,
                 period=log.period,
+                year=log.year or None,
                 created_at=log.created_at.isoformat(),
             )
             for log in logs
@@ -161,6 +180,7 @@ async def get_import_log(
         rows_imported=log.rows_imported,
         rows_failed=log.rows_failed,
         period=log.period,
+        year=log.year or None,
         created_at=log.created_at.isoformat(),
     )
 
@@ -192,12 +212,13 @@ async def delete_import_log(
     uploaded_file = log.uploaded_file
 
     deleted_records = 0
+    year_value = log.year if log.year else ""
     if log.file_type == "grades":
-        statement = delete(Grade).where(Grade.period == log.period)
+        statement = delete(Grade).where(Grade.period == log.period).where(Grade.year == year_value)
         result = session.exec(statement)
         deleted_records = result.rowcount
     elif log.file_type == "events":
-        statement = delete(AttendanceRecord).where(AttendanceRecord.period == log.period)
+        statement = delete(AttendanceRecord).where(AttendanceRecord.period == log.period).where(AttendanceRecord.year == year_value)
         result = session.exec(statement)
         deleted_records = result.rowcount
 
