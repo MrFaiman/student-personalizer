@@ -8,7 +8,7 @@ from uuid import UUID
 import pandas as pd
 from sqlmodel import Session, select
 
-from ..constants import DEFAULT_PERIOD, MAX_STORED_ERRORS, VALID_MIME_TYPES
+from ..constants import DEFAULT_PERIOD, DEFAULT_YEAR, MAX_STORED_ERRORS, VALID_MIME_TYPES
 from ..models import AttendanceRecord, Class, Grade, ImportLog, Student, Subject, Teacher
 
 
@@ -94,17 +94,33 @@ def parse_subject_teacher_header(header_str: str) -> tuple[str, str | None]:
     """
     Parse format from column header to extract subject and teacher.
     Supports formats:
-    - "{subject}\\n{teacher_name}\\n{teacher_num}"
+    - "{subject}\\n{teacher_name}\\n{teacher_num}"  (Excel multi-line headers)
+    - "{subject}-{teacher_name}"                   (CSV single-line headers)
+    - "{subject}- {teacher_name}"                  (CSV with space after hyphen)
     """
     clean_header = re.sub(r"\.\d+$", "", str(header_str))
 
     parts = clean_header.split("\n")
-    subject = parts[0].strip()
-    
-    subject = re.sub(r"\s+[a-zA-Zא-ת]*\d[-a-zA-Zא-ת\d\s]*$", "", subject).strip()
-    
-    teacher = parts[1].strip() if len(parts) > 1 else None
-    return subject, teacher if teacher else None
+    if len(parts) > 1:
+        # Excel multi-line format
+        subject = parts[0].strip()
+        subject = re.sub(r"\s+[a-zA-Zא-ת]*\d[-a-zA-Zא-ת\d\s]*$", "", subject).strip()
+        teacher = parts[1].strip() if len(parts) > 1 else None
+        return subject, teacher if teacher else None
+
+    # CSV single-line format: "subject - teacher_name" or "subject- teacher_name"
+    # Try spaced separator first (" - "), then fall back to "- " to avoid
+    # splitting subjects that contain hyphens (e.g. "Biology-Advanced").
+    for sep in (" - ", "- "):
+        idx = clean_header.rfind(sep)
+        if idx > 0:
+            subject = clean_header[:idx].strip()
+            teacher = clean_header[idx + len(sep):].strip()
+            if subject and teacher:
+                return subject, teacher
+
+    # Fallback: entire string is the subject, no teacher
+    return clean_header.strip(), None
 
 
 def load_grades_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -302,6 +318,7 @@ class IngestionService:
         filename: str,
         content_type: str,
         period: str = DEFAULT_PERIOD,
+        year: str = DEFAULT_YEAR,
         uploaded_file_id: UUID | None = None,
     ) -> ImportResult:
         """
@@ -392,6 +409,7 @@ class IngestionService:
                     teacher_id=teacher_id,
                     grade=float(grade_value),
                     period=period,
+                    year=year,
                 )
                 self.session.add(grade_record)
                 grades_imported += 1
@@ -410,6 +428,7 @@ class IngestionService:
             rows_failed=result.rows_failed,
             errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
             period=period,
+            year=year,
             uploaded_file_id=uploaded_file_id,
         )
         self.session.add(import_log)
@@ -423,6 +442,7 @@ class IngestionService:
         filename: str,
         content_type: str,
         period: str = DEFAULT_PERIOD,
+        year: str = DEFAULT_YEAR,
         uploaded_file_id: UUID | None = None,
     ) -> ImportResult:
         """
@@ -493,6 +513,7 @@ class IngestionService:
                     total_negative_events=int(row.get("total_negative_events", 0)),
                     total_positive_events=int(row.get("total_positive_events", 0)),
                     period=period,
+                    year=year,
                 )
                 self.session.add(attendance_record)
                 result.rows_imported += 1
@@ -509,6 +530,7 @@ class IngestionService:
             rows_failed=result.rows_failed,
             errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
             period=period,
+            year=year,
             uploaded_file_id=uploaded_file_id,
         )
         self.session.add(import_log)
@@ -523,6 +545,7 @@ class IngestionService:
         content_type: str,
         file_type: str | None = None,
         period: str = DEFAULT_PERIOD,
+        year: str = DEFAULT_YEAR,
         uploaded_file_id: UUID | None = None,
     ) -> ImportResult:
         """
@@ -541,9 +564,9 @@ class IngestionService:
             file_type = detect_file_type(df)
 
         if file_type == "grades":
-            return self.ingest_grades_file(file_content, filename, content_type, period, uploaded_file_id)
+            return self.ingest_grades_file(file_content, filename, content_type, period, year, uploaded_file_id)
         elif file_type == "events":
-            return self.ingest_events_file(file_content, filename, content_type, period, uploaded_file_id)
+            return self.ingest_events_file(file_content, filename, content_type, period, year, uploaded_file_id)
         else:
             return ImportResult(
                 batch_id=str(uuid.uuid4()),

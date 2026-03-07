@@ -13,7 +13,7 @@ class ClassService:
     def __init__(self, session: Session):
         self.session = session
 
-    def list_classes_with_stats(self, period: str | None = None) -> list[dict]:
+    def list_classes_with_stats(self, period: str | None = None, year: str | None = None) -> list[dict]:
         """
         Get all classes with calculated statistics.
         Returns pre-calculated dicts for the view to format.
@@ -32,6 +32,8 @@ class ClassService:
             )
             .group_by(Grade.student_tz)
         )
+        if year:
+            student_avg_query = student_avg_query.where(Grade.year == year)
         if period:
             student_avg_query = student_avg_query.where(Grade.period == period)
         student_avg_sub = student_avg_query.subquery()
@@ -65,7 +67,7 @@ class ClassService:
 
         return result_data
 
-    def get_class_heatmap(self, class_id: UUID, period: str | None = None) -> dict:
+    def get_class_heatmap(self, class_id: UUID, period: str | None = None, year: str | None = None) -> dict:
         """
         Returns Heatmap Matrix: Student x Subject.
         All averages are pre-calculated.
@@ -77,6 +79,8 @@ class ClassService:
         student_tzs = [s.student_tz for s in students]
 
         grade_query = select(Grade).where(Grade.student_tz.in_(student_tzs))
+        if year:
+            grade_query = grade_query.where(Grade.year == year)
         if period:
             grade_query = grade_query.where(Grade.period == period)
         grades = self.session.exec(grade_query).all()
@@ -95,6 +99,8 @@ class ClassService:
             .where(Grade.student_tz.in_(student_tzs))
             .group_by(Grade.student_tz)
         )
+        if year:
+            avg_query = avg_query.where(Grade.year == year)
         if period:
             avg_query = avg_query.where(Grade.period == period)
         avg_map = {row[0]: float(row[1]) for row in self.session.exec(avg_query).all()}
@@ -113,7 +119,7 @@ class ClassService:
             "students": student_rows,
         }
 
-    def get_top_bottom_students(self, class_id: UUID, period: str | None = None, top_n: int = 5, bottom_n: int = 5) -> dict:
+    def get_top_bottom_students(self, class_id: UUID, period: str | None = None, top_n: int = 5, bottom_n: int = 5, year: str | None = None) -> dict:
         """
         Returns sorted students with pre-calculated averages.
         """
@@ -130,6 +136,8 @@ class ClassService:
             .where(Grade.student_tz.in_(student_tzs))
             .group_by(Grade.student_tz)
         )
+        if year:
+            avg_query = avg_query.where(Grade.year == year)
         if period:
             avg_query = avg_query.where(Grade.period == period)
         avg_rows = self.session.exec(avg_query).all()

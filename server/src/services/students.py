@@ -29,6 +29,9 @@ class StudentService:
         search: str | None = None,
         at_risk_only: bool = False,
         period: str | None = None,
+        year: str | None = None,
+        sort_by: str | None = None,
+        sort_order: str = "asc",
     ) -> dict:
         """List students with filters and related data. Returns a dict for the view."""
         query = select(Student)
@@ -44,12 +47,18 @@ class StudentService:
                 .group_by(Grade.student_tz)
                 .having(func.avg(Grade.grade) < AT_RISK_GRADE_THRESHOLD)
             )
+            if year:
+                subquery = subquery.where(Grade.year == year)
             if period:
                 subquery = subquery.where(Grade.period == period)
             query = query.where(Student.student_tz.in_(subquery))
 
         count_query = select(func.count()).select_from(query.subquery())
         total = self.session.exec(count_query).one()
+
+        # Apply SQL-level sorting for direct Student columns
+        if sort_by == "student_name":
+            query = query.order_by(Student.student_name.desc() if sort_order == "desc" else Student.student_name.asc())
 
         query = query.offset((page - 1) * page_size).limit(page_size)
         students = self.session.exec(query).all()
@@ -76,6 +85,8 @@ class StudentService:
             .where(Grade.student_tz.in_(student_tzs))
             .group_by(Grade.student_tz)
         )
+        if year:
+            grade_avg_query = grade_avg_query.where(Grade.year == year)
         if period:
             grade_avg_query = grade_avg_query.where(Grade.period == period)
         grade_avgs = {row[0]: float(row[1]) for row in self.session.exec(grade_avg_query).all()}
@@ -91,6 +102,8 @@ class StudentService:
             .where(AttendanceRecord.student_tz.in_(student_tzs))
             .group_by(AttendanceRecord.student_tz)
         )
+        if year:
+            att_agg_query = att_agg_query.where(AttendanceRecord.year == year)
         if period:
             att_agg_query = att_agg_query.where(AttendanceRecord.period == period)
         att_stats = {
@@ -126,6 +139,16 @@ class StudentService:
                 "is_at_risk": is_at_risk,
             })
 
+        # Sort by computed columns in Python
+        if sort_by in ("average_grade", "total_absences", "class_name"):
+            reverse = sort_order == "desc"
+            if sort_by == "average_grade":
+                result_items.sort(key=lambda x: (x["average_grade"] is None, x["average_grade"] or 0), reverse=reverse)
+            elif sort_by == "total_absences":
+                result_items.sort(key=lambda x: x["total_absences"], reverse=reverse)
+            elif sort_by == "class_name":
+                result_items.sort(key=lambda x: x["class_name"] or "", reverse=reverse)
+
         return {
             "items": result_items,
             "total": total,
@@ -133,7 +156,7 @@ class StudentService:
             "page_size": page_size,
         }
 
-    def get_student_detail(self, student_tz: str, period: str | None = None) -> dict | None:
+    def get_student_detail(self, student_tz: str, period: str | None = None, year: str | None = None) -> dict | None:
         """Get flattened detailed student data as a dict for the view."""
         student = self.session.get(Student, student_tz)
         if not student:
@@ -143,6 +166,8 @@ class StudentService:
 
         # Get average grade via SQL
         avg_query = select(func.avg(Grade.grade)).where(Grade.student_tz == student_tz)
+        if year:
+            avg_query = avg_query.where(Grade.year == year)
         if period:
             avg_query = avg_query.where(Grade.period == period)
         avg_grade_raw = self.session.exec(avg_query).one()
@@ -154,6 +179,8 @@ class StudentService:
             func.sum(AttendanceRecord.total_negative_events),
             func.sum(AttendanceRecord.total_positive_events),
         ).where(AttendanceRecord.student_tz == student_tz)
+        if year:
+            att_query = att_query.where(AttendanceRecord.year == year)
         if period:
             att_query = att_query.where(AttendanceRecord.period == period)
         att_row = self.session.exec(att_query).one()
@@ -164,7 +191,7 @@ class StudentService:
 
         is_at_risk = avg_grade is not None and avg_grade < AT_RISK_GRADE_THRESHOLD
 
-        performance_score = self._calculate_performance_score(student_tz, period)
+        performance_score = self._calculate_performance_score(student_tz, period, year)
 
         grade_level = cls.grade_level if cls else None
         class_name = cls.class_name if cls else "Unknown"
@@ -187,6 +214,7 @@ class StudentService:
         self,
         class_id: UUID | None = None,
         period: str | None = None,
+        year: str | None = None,
     ) -> dict:
         """Get dashboard statistics as a dict for the view."""
         class_query = select(Class)
@@ -212,6 +240,8 @@ class StudentService:
             )
             .group_by(Grade.student_tz)
         )
+        if year:
+            student_avg_subquery = student_avg_subquery.where(Grade.year == year)
         if period:
             student_avg_subquery = student_avg_subquery.where(Grade.period == period)
         student_avg_sub = student_avg_subquery.subquery()
@@ -265,13 +295,15 @@ class StudentService:
             "classes": class_responses,
         }
 
-    def get_student_grades(self, student_tz: str, period: str | None = None) -> list[dict] | None:
+    def get_student_grades(self, student_tz: str, period: str | None = None, year: str | None = None) -> list[dict] | None:
         """Get all grades for a student as a list of dicts for the view."""
         student = self.session.get(Student, student_tz)
         if not student:
             return None
 
         query = select(Grade).where(Grade.student_tz == student_tz)
+        if year:
+            query = query.where(Grade.year == year)
         if period:
             query = query.where(Grade.period == period)
 
@@ -284,17 +316,20 @@ class StudentService:
                 "teacher_name": g.teacher_name,
                 "grade": g.grade,
                 "period": g.period,
+                "year": g.year,
             }
             for g in grades
         ]
 
-    def get_student_attendance(self, student_tz: str, period: str | None = None) -> list[dict] | None:
+    def get_student_attendance(self, student_tz: str, period: str | None = None, year: str | None = None) -> list[dict] | None:
         """Get all attendance records for a student as a list of dicts for the view."""
         student = self.session.get(Student, student_tz)
         if not student:
             return None
 
         query = select(AttendanceRecord).where(AttendanceRecord.student_tz == student_tz)
+        if year:
+            query = query.where(AttendanceRecord.year == year)
         if period:
             query = query.where(AttendanceRecord.period == period)
 
@@ -313,11 +348,12 @@ class StudentService:
                 "total_negative_events": r.total_negative_events,
                 "total_positive_events": r.total_positive_events,
                 "period": r.period,
+                "year": r.year,
             }
             for r in records
         ]
 
-    def _calculate_performance_score(self, student_tz: str, period: str | None) -> float | None:
+    def _calculate_performance_score(self, student_tz: str, period: str | None, year: str | None = None) -> float | None:
         """Internal logic to calculate performance score percentile."""
         total_students_count = self.session.exec(select(func.count(Student.student_tz))).one()
         if total_students_count <= 1:
@@ -325,6 +361,8 @@ class StudentService:
 
         # Get all student average grades via SQL
         avg_query = select(Grade.student_tz, func.avg(Grade.grade)).group_by(Grade.student_tz)
+        if year:
+            avg_query = avg_query.where(Grade.year == year)
         if period:
             avg_query = avg_query.where(Grade.period == period)
         all_avg_grades = self.session.exec(avg_query).all()
@@ -337,6 +375,8 @@ class StudentService:
             func.sum(AttendanceRecord.total_negative_events),
             func.sum(AttendanceRecord.total_positive_events),
         ).group_by(AttendanceRecord.student_tz)
+        if year:
+            att_stats_query = att_stats_query.where(AttendanceRecord.year == year)
         if period:
             att_stats_query = att_stats_query.where(AttendanceRecord.period == period)
         all_att_stats = self.session.exec(att_stats_query).all()
@@ -385,3 +425,86 @@ class StudentService:
             return round(grade_pct * GRADE_WEIGHT + absence_pct * ATTENDANCE_WEIGHT + behavior_pct * BEHAVIOR_WEIGHT, 1)
         else:
             return round(absence_pct * ATTENDANCE_WEIGHT_NO_GRADES + behavior_pct * BEHAVIOR_WEIGHT_NO_GRADES, 1)
+
+    def get_student_timeline(self, student_tz: str) -> dict | None:
+        """Query grades/attendance grouped by year+period, return list of timeline points."""
+        student = self.session.get(Student, student_tz)
+        if not student:
+            return None
+
+        # Aggregate grades at DB level: avg grade per (year, period)
+        grades_agg_query = (
+            select(
+                Grade.year,
+                Grade.period,
+                func.avg(Grade.grade).label("avg_grade"),
+            )
+            .where(Grade.student_tz == student_tz)
+            .group_by(Grade.year, Grade.period)
+        )
+        grade_rows = self.session.exec(grades_agg_query).all()
+
+        # Aggregate attendance at DB level: sum lessons/attendance/absences per (year, period)
+        att_agg_query = (
+            select(
+                AttendanceRecord.year,
+                AttendanceRecord.period,
+                func.sum(AttendanceRecord.lessons_reported).label("total_lessons"),
+                func.sum(AttendanceRecord.attendance).label("total_attended"),
+                func.sum(AttendanceRecord.total_absences).label("total_absences"),
+            )
+            .where(AttendanceRecord.student_tz == student_tz)
+            .group_by(AttendanceRecord.year, AttendanceRecord.period)
+        )
+        att_rows = self.session.exec(att_agg_query).all()
+
+        # Get per-subject grades for the subjects breakdown
+        subject_grades_query = select(Grade.year, Grade.period, Grade.subject_name, Grade.grade).where(Grade.student_tz == student_tz)
+        subject_grades = self.session.exec(subject_grades_query).all()
+
+        timeline_map: dict[tuple[str, str], dict] = {}
+
+        for row in grade_rows:
+            key = (row.year, row.period)
+            timeline_map[key] = {
+                "avg_grade": round(float(row.avg_grade), 1) if row.avg_grade is not None else None,
+                "attendance_rate": None,
+                "absences": 0,
+                "subjects": [],
+            }
+
+        for row in att_rows:
+            key = (row.year, row.period)
+            if key not in timeline_map:
+                timeline_map[key] = {"avg_grade": None, "attendance_rate": None, "absences": 0, "subjects": []}
+            total_lessons = row.total_lessons or 0
+            total_attended = row.total_attended or 0
+            timeline_map[key]["absences"] = row.total_absences or 0
+            timeline_map[key]["attendance_rate"] = round((total_attended / total_lessons) * 100, 1) if total_lessons > 0 else None
+
+        for sg in subject_grades:
+            key = (sg.year, sg.period)
+            if key in timeline_map:
+                timeline_map[key]["subjects"].append({"subject": sg.subject_name, "grade": sg.grade})
+
+        timeline = []
+        for (year, period), data in timeline_map.items():
+            label = f"{year} {period}" if year else period
+            timeline.append({
+                "year": year or "",
+                "period": period,
+                "label": label,
+                "average_grade": data["avg_grade"],
+                "attendance_rate": data["attendance_rate"],
+                "total_absences": data["absences"],
+                "subjects": data["subjects"],
+            })
+
+        # Sort chronologically: empty year sorts last, then by period
+        timeline.sort(key=lambda x: (x["year"] or "\uffff", x["period"]))
+
+        return {
+            "student_tz": student.student_tz,
+            "student_name": student.student_name,
+            "timeline": timeline,
+        }

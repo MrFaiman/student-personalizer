@@ -25,6 +25,7 @@ class ImportLogResponse(BaseModel):
     rows_imported: int
     rows_failed: int
     period: str | None
+    year: str | None = None
     created_at: str
 
 

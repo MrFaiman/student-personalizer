@@ -12,15 +12,17 @@ class TeacherService:
     def __init__(self, session: Session):
         self.session = session
 
-    def list_teachers(self, period: str | None = None) -> list[str]:
+    def list_teachers(self, period: str | None = None, year: str | None = None) -> list[str]:
         """Get list of all teacher names with available grades."""
         query = select(Grade.teacher_name).distinct().where(Grade.teacher_name.is_not(None))
+        if year:
+            query = query.where(Grade.year == year)
         if period:
             query = query.where(Grade.period == period)
         return list(self.session.exec(query).all())
 
     def get_teachers_list_with_stats(
-        self, period: str | None = None, grade_level: str | None = None
+        self, period: str | None = None, grade_level: str | None = None, year: str | None = None
     ) -> list[dict]:
         """Get list of all teachers with summary stats (pre-calculated)."""
         # SQL: aggregate grades grouped by teacher
@@ -35,6 +37,8 @@ class TeacherService:
             .where(Grade.teacher_name.isnot(None))
             .group_by(Grade.teacher_name, Grade.teacher_id)
         )
+        if year:
+            query = query.where(Grade.year == year)
         if period:
             query = query.where(Grade.period == period)
 
@@ -59,9 +63,11 @@ class TeacherService:
 
         return results
 
-    def get_teacher_stats(self, teacher_name: str, period: str | None = None) -> dict:
+    def get_teacher_stats(self, teacher_name: str, period: str | None = None, year: str | None = None) -> dict:
         """Get raw grade data for a teacher."""
         query = select(Grade).where(Grade.teacher_name == teacher_name)
+        if year:
+            query = query.where(Grade.year == year)
         if period:
             query = query.where(Grade.period == period)
 
@@ -79,13 +85,15 @@ class TeacherService:
             "subjects": set(g.subject_name for g in grades),
         }
 
-    def get_teacher_detail(self, teacher_id: UUID, period: str | None = None) -> dict | None:
+    def get_teacher_detail(self, teacher_id: UUID, period: str | None = None, year: str | None = None) -> dict | None:
         """Get detailed analytics for a specific teacher (pre-calculated)."""
         teacher = self.session.get(Teacher, teacher_id)
         if not teacher:
             return None
 
         query = select(Grade).where(Grade.teacher_id == teacher_id)
+        if year:
+            query = query.where(Grade.year == year)
         if period:
             query = query.where(Grade.period == period)
         grades = self.session.exec(query).all()
@@ -113,32 +121,30 @@ class TeacherService:
             )
             .where(Grade.teacher_id == teacher_id)
         )
+        if year:
+            stats_query = stats_query.where(Grade.year == year)
         if period:
             stats_query = stats_query.where(Grade.period == period)
         stats_row = self.session.exec(stats_query).one()
         avg_grade = float(stats_row[0]) if stats_row[0] is not None else 0
 
         # At-risk: students with avg < threshold for this teacher
-        at_risk_query = (
-            select(func.count())
-            .select_from(
-                select(Grade.student_tz)
-                .where(Grade.teacher_id == teacher_id)
-                .group_by(Grade.student_tz)
-                .having(func.avg(Grade.grade) < AT_RISK_GRADE_THRESHOLD)
-                .subquery()
-            )
+        at_risk_inner = (
+            select(Grade.student_tz)
+            .where(Grade.teacher_id == teacher_id)
         )
+        if year:
+            at_risk_inner = at_risk_inner.where(Grade.year == year)
         if period:
-            at_risk_inner = (
-                select(Grade.student_tz)
-                .where(Grade.teacher_id == teacher_id)
-                .where(Grade.period == period)
-                .group_by(Grade.student_tz)
-                .having(func.avg(Grade.grade) < AT_RISK_GRADE_THRESHOLD)
-                .subquery()
-            )
-            at_risk_query = select(func.count()).select_from(at_risk_inner)
+            at_risk_inner = at_risk_inner.where(Grade.period == period)
+
+        at_risk_inner = (
+            at_risk_inner
+            .group_by(Grade.student_tz)
+            .having(func.avg(Grade.grade) < AT_RISK_GRADE_THRESHOLD)
+            .subquery()
+        )
+        at_risk_query = select(func.count()).select_from(at_risk_inner)
         at_risk_students = self.session.exec(at_risk_query).one()
 
         # Class breakdown via SQL

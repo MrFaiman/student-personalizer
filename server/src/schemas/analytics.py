@@ -68,6 +68,7 @@ class MetadataResponse(BaseModel):
     periods: list[str]
     grade_levels: list[str]
     teachers: list[str]
+    years: list[str]
 
 
 class TeacherListItem(BaseModel):

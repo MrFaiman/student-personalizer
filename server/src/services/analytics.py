@@ -24,12 +24,14 @@ class AnalyticsService:
         )
         return list(self.session.exec(query).all())
 
-    def get_layer_kpis(self, period: str | None = None, grade_level: str | None = None) -> dict:
+    def get_layer_kpis(self, period: str | None = None, grade_level: str | None = None, year: str | None = None) -> dict:
         """Returns Dashboard Homepage KPIs as pre-calculated dict."""
         # Build base filter conditions for grades
         grade_conditions = []
         if period:
             grade_conditions.append(Grade.period == period)
+        if year:
+            grade_conditions.append(Grade.year == year)
 
         student_tzs = self._student_tz_filter(grade_level)
         if student_tzs is not None:
@@ -64,6 +66,8 @@ class AnalyticsService:
         att_query = select(func.avg(AttendanceRecord.total_absences))
         if period:
             att_query = att_query.where(AttendanceRecord.period == period)
+        if year:
+            att_query = att_query.where(AttendanceRecord.year == year)
         if student_tzs is not None:
             att_query = att_query.where(AttendanceRecord.student_tz.in_(student_tzs))
         avg_absences = self.session.exec(att_query).one() or 0.0
@@ -75,7 +79,7 @@ class AnalyticsService:
             "total_students": total_students,
         }
 
-    def get_class_comparison(self, period: str | None = None, grade_level: str | None = None) -> list[dict]:
+    def get_class_comparison(self, period: str | None = None, grade_level: str | None = None, year: str | None = None) -> list[dict]:
         """Returns class comparison data with pre-calculated averages."""
         class_query = select(Class)
         if grade_level:
@@ -100,6 +104,8 @@ class AnalyticsService:
         )
         if period:
             query = query.where(Grade.period == period)
+        if year:
+            query = query.where(Grade.year == year)
 
         rows = self.session.exec(query).all()
 
@@ -115,7 +121,7 @@ class AnalyticsService:
 
         return result
 
-    def get_student_radar(self, student_tz: str, period: str | None = None) -> dict:
+    def get_student_radar(self, student_tz: str, period: str | None = None, year: str | None = None) -> dict:
         """Returns subject -> average grade mapping."""
         query = (
             select(Grade.subject_name, func.avg(Grade.grade))
@@ -124,6 +130,8 @@ class AnalyticsService:
         )
         if period:
             query = query.where(Grade.period == period)
+        if year:
+            query = query.where(Grade.year == year)
 
         rows = self.session.exec(query).all()
         return {subject: float(avg) for subject, avg in rows}
@@ -134,11 +142,14 @@ class AnalyticsService:
         levels = self.session.exec(select(Class.grade_level).distinct()).all()
         teachers = self.session.exec(select(Grade.teacher_name).distinct()).all()
         valid_teachers = [t for t in teachers if t is not None]
+        years = self.session.exec(select(Grade.year).distinct()).all()
+        valid_years = [y for y in years if y]
 
         return {
             "periods": list(set(periods)),
             "grade_levels": list(set(levels)),
             "teachers": valid_teachers,
+            "years": valid_years,
         }
 
     def get_period_comparison(
@@ -148,10 +159,13 @@ class AnalyticsService:
         comparison_type: str = "class",
         grade_level: str | None = None,
         class_id: str | None = None,
+        year: str | None = None,
     ) -> dict:
         """Compare average grades between two periods."""
         def get_grades_for_period(period: str) -> list[Grade]:
             query = select(Grade).where(Grade.period == period)
+            if year:
+                query = query.where(Grade.year == year)
 
             if class_id:
                 query = query.join(
@@ -340,10 +354,13 @@ class AnalyticsService:
         self,
         period: str | None = None,
         grade_level: str | None = None,
+        year: str | None = None,
     ) -> dict:
         """Get at-risk student segmentation by class, layer, teacher, subject."""
         # CTE 1: per-student average grades
         grade_conditions = []
+        if year:
+            grade_conditions.append(Grade.year == year)
         if period:
             grade_conditions.append(Grade.period == period)
 
@@ -436,6 +453,8 @@ class AnalyticsService:
 
         # Segmentation by teacher and subject - need grade-level data
         grade_query = select(Grade)
+        if year:
+            grade_query = grade_query.where(Grade.year == year)
         if period:
             grade_query = grade_query.where(Grade.period == period)
         if all_student_tzs:
@@ -506,10 +525,13 @@ class AnalyticsService:
         subject: str | None = None,
         page: int = 1,
         page_size: int = 20,
+        year: str | None = None,
     ) -> dict:
         """Get paginated list of red students with details."""
         # Build base grade query with filters
         grade_conditions = []
+        if year:
+            grade_conditions.append(Grade.year == year)
         if period:
             grade_conditions.append(Grade.period == period)
         if teacher_name:
@@ -597,6 +619,7 @@ class AnalyticsService:
         entity_ids: list[str],
         period: str | None = None,
         metric: str = "average_grade",
+        year: str | None = None,
     ) -> dict:
         """Get versus comparison data for charts."""
         series = []
@@ -627,6 +650,8 @@ class AnalyticsService:
                 )
                 if period:
                     query = query.where(Grade.period == period)
+                if year:
+                    query = query.where(Grade.year == year)
                 rows = self.session.exec(query).all()
 
                 # Get subjects per class
@@ -638,6 +663,8 @@ class AnalyticsService:
                 )
                 if period:
                     subj_query = subj_query.where(Grade.period == period)
+                if year:
+                    subj_query = subj_query.where(Grade.year == year)
                 subj_rows = self.session.exec(subj_query).all()
                 subj_map = {row[0]: row[1] for row in subj_rows}
 
@@ -675,6 +702,8 @@ class AnalyticsService:
                 )
                 if period:
                     query = query.where(Grade.period == period)
+                if year:
+                    query = query.where(Grade.year == year)
                 rows = self.session.exec(query).all()
 
                 # Get subjects per teacher
@@ -685,6 +714,8 @@ class AnalyticsService:
                 )
                 if period:
                     subj_query = subj_query.where(Grade.period == period)
+                if year:
+                    subj_query = subj_query.where(Grade.year == year)
                 subj_rows = self.session.exec(subj_query).all()
                 subj_map = {row[0]: row[1] for row in subj_rows}
 
@@ -715,6 +746,8 @@ class AnalyticsService:
                 )
                 if period:
                     query = query.where(Grade.period == period)
+                if year:
+                    query = query.where(Grade.year == year)
                 rows = self.session.exec(query).all()
 
                 # Get subjects per layer
@@ -727,6 +760,8 @@ class AnalyticsService:
                 )
                 if period:
                     subj_query = subj_query.where(Grade.period == period)
+                if year:
+                    subj_query = subj_query.where(Grade.year == year)
                 subj_rows = self.session.exec(subj_query).all()
                 subj_map = {row[0]: row[1] for row in subj_rows}
 
@@ -750,6 +785,7 @@ class AnalyticsService:
         grade_level: str | None = None,
         class_id: str | None = None,
         period: str | None = None,
+        year: str | None = None,
     ) -> dict:
         """Get filter options based on current selections (cascading filters)."""
         class_query = select(Class)
@@ -789,6 +825,8 @@ class AnalyticsService:
         ).distinct()
         if student_tzs:
             teacher_subject_query = teacher_subject_query.where(Grade.student_tz.in_(student_tzs))
+        if year:
+            teacher_subject_query = teacher_subject_query.where(Grade.year == year)
         if period:
             teacher_subject_query = teacher_subject_query.where(Grade.period == period)
         teacher_subject_rows = self.session.exec(teacher_subject_query).all()

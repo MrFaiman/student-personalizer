@@ -47,6 +47,7 @@ class AnalyticsDefaultView:
             periods=sorted(data["periods"]),
             grade_levels=sorted(data["grade_levels"]),
             teachers=sorted(data["teachers"]),
+            years=sorted(data["years"]),
         )
 
     def render_student_radar(self, data: dict) -> list[SubjectGradeItem]:

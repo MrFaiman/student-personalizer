@@ -332,13 +332,20 @@ class MLService:
         _prediction_cache[cache_key] = all_predictions
         return all_predictions
 
-    def predict_all(self, period: str | None = None, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE) -> dict:
-        """Predict for all students with pagination."""
+    def predict_all(
+        self, period: str | None = None, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE,
+        sort_by: str | None = None, sort_order: str = "asc",
+    ) -> dict:
+        """Predict for all students with sorting and pagination."""
         all_predictions = self._compute_all_predictions(period=period)
 
         total = len(all_predictions)
         high_risk_count = sum(1 for p in all_predictions if p["risk_level"] == "high")
         medium_risk_count = sum(1 for p in all_predictions if p["risk_level"] == "medium")
+
+        if sort_by and sort_by in ("student_name", "predicted_grade", "dropout_risk", "risk_level"):
+            reverse = sort_order == "desc"
+            all_predictions.sort(key=lambda p: (p.get(sort_by) is None, p.get(sort_by, "")), reverse=reverse)
 
         start = (page - 1) * page_size
         end = start + page_size

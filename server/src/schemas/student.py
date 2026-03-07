@@ -34,6 +34,7 @@ class GradeResponse(BaseModel):
     teacher_name: str | None
     grade: float
     period: str
+    year: str
 
 
 class AttendanceResponse(BaseModel):
@@ -50,6 +51,7 @@ class AttendanceResponse(BaseModel):
     total_negative_events: int
     total_positive_events: int
     period: str
+    year: str
 
 
 class StudentListResponse(BaseModel):
@@ -80,3 +82,23 @@ class DashboardStats(BaseModel):
     at_risk_count: int
     total_classes: int
     classes: list[ClassResponse]
+
+
+class StudentTimelinePoint(BaseModel):
+    """A point in the student's multi-year timeline."""
+
+    year: str
+    period: str
+    label: str
+    average_grade: float | None
+    attendance_rate: float | None
+    total_absences: int
+    subjects: list[dict]
+
+
+class StudentTimelineResponse(BaseModel):
+    """Multi-year timeline data for a student."""
+
+    student_tz: str
+    student_name: str
+    timeline: list[StudentTimelinePoint]
