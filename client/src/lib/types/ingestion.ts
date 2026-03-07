@@ -19,6 +19,7 @@ export const ImportLogResponseSchema = z.object({
     rows_imported: z.number(),
     rows_failed: z.number(),
     period: z.string(),
+    year: z.string(),
     created_at: z.string(),
 });
 export type ImportLogResponse = z.infer<typeof ImportLogResponseSchema>;

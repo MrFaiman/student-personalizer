@@ -13,6 +13,10 @@
     "placeholder": "בחר תקופה",
     "quarter": "רבעון {{number}} (Q{{number}})"
   },
+  "year": {
+    "label": "שנת לימודים",
+    "placeholder": "בחר שנת לימודים"
+  },
   "dropzone": {
     "dragHere": "גרור קובץ Excel או CSV לכאן",
     "orClick": "או לחץ לבחירת קובץ",
@@ -38,6 +42,7 @@
     "file": "קובץ",
     "type": "סוג",
     "period": "תקופה",
+    "year": "שנה",
     "rows": "שורות",
     "date": "תאריך",
     "status": "סטטוס",

@@ -10,7 +10,7 @@ import {
 export const ingestionApi = {
   upload: async (
     file: File,
-    params: { file_type?: "grades" | "events"; period?: string } = {},
+    params: { file_type?: "grades" | "events"; period?: string; year?: string } = {},
   ) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -40,7 +40,7 @@ export const ingestionApi = {
     return result.data;
   },
 
-  getLogs: (params: { page?: number; page_size?: number } = {}) =>
+  getLogs: (params: { page?: number; page_size?: number; sort_by?: string; sort_order?: string } = {}) =>
     fetchApi(
       `/api/ingest/logs${buildQueryString(params)}`,
       undefined,

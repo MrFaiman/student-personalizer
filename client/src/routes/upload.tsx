@@ -46,7 +46,11 @@ import {
 } from "@/components/ui/table";
 import { ingestionApi } from "@/lib/api";
 import { ApiError } from "@/lib/api-error";
+import { formatHebrewYear } from "@/lib/hebrew-year";
+import { useAppForm } from "@/lib/form";
 import { TablePagination } from "@/components/TablePagination";
+import { SortableTableHead } from "@/components/SortableTableHead";
+import { useTableSort } from "@/hooks/useTableSort";
 import type { ImportResponse } from "@/lib/types";
 import { MAX_DISPLAYED_ERRORS } from "@/lib/constants";
 import { useConfigStore } from "@/lib/config-store";
@@ -61,8 +65,13 @@ function UploadPage() {
     const { t: tc } = useTranslation();
     const queryClient = useQueryClient();
     const [dragActive, setDragActive] = useState(false);
-    const [fileType, setFileType] = useState<"grades" | "events" | "__auto__">("__auto__");
-    const [period, setPeriod] = useState("Q1");
+    const form = useAppForm({
+        defaultValues: {
+            fileType: "__auto__" as "grades" | "events" | "__auto__",
+            period: "Q1",
+            year: "2024-2025",
+        },
+    });
     const [uploadResults, setUploadResults] = useState<Array<{ filename: string; result?: ImportResponse; error?: string; isDuplicate?: boolean }>>([]);
     const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -70,10 +79,14 @@ function UploadPage() {
     const defaultPageSize = useConfigStore((s) => s.defaultPageSize);
     const [logPage, setLogPage] = useState(1);
     const logPageSize = defaultPageSize;
+    const { sort: logSort, toggleSort: toggleLogSort } = useTableSort<string>();
 
     const { data: logs, isLoading: logsLoading } = useQuery({
-        queryKey: ["import-logs", logPage],
-        queryFn: () => ingestionApi.getLogs({ page: logPage, page_size: logPageSize }),
+        queryKey: ["import-logs", logPage, logSort.column, logSort.direction],
+        queryFn: () => ingestionApi.getLogs({
+            page: logPage, page_size: logPageSize,
+            sort_by: logSort.column || undefined, sort_order: logSort.direction,
+        }),
         placeholderData: keepPreviousData,
     });
 
@@ -91,9 +104,11 @@ function UploadPage() {
                 setUploadProgress({ current: i + 1, total: files.length });
 
                 try {
+                    const values = form.state.values;
                     const result = await ingestionApi.upload(file, {
-                        file_type: fileType === "__auto__" ? undefined : fileType,
-                        period: period || undefined,
+                        file_type: values.fileType === "__auto__" ? undefined : values.fileType,
+                        period: values.period || undefined,
+                        year: values.year || undefined,
                     });
                     results.push({ filename: file.name, result });
                 } catch (error) {
@@ -114,7 +129,7 @@ function UploadPage() {
             queryClient.invalidateQueries({ queryKey: ["classes"] });
             queryClient.invalidateQueries({ queryKey: ["kpis"] });
         },
-        [fileType, period, queryClient]
+        [form, queryClient]
     );
 
     const deleteMutation = useMutation({
@@ -199,34 +214,64 @@ function UploadPage() {
             >
                 <CardContent className="p-6">
                     {/* Upload Options Row */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-                        <div>
-                            <label className="block text-xs font-medium mb-1.5">{t("fileType.label")}</label>
-                            <Select value={fileType} onValueChange={(v) => setFileType(v as typeof fileType)}>
-                                <SelectTrigger className="h-9">
-                                    <SelectValue placeholder={t("fileType.placeholder")} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="__auto__">{t("fileType.auto")}</SelectItem>
-                                    <SelectItem value="grades">{t("fileType.grades")}</SelectItem>
-                                    <SelectItem value="events">{t("fileType.events")}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium mb-1.5">{t("period.label")}</label>
-                            <Select value={period} onValueChange={setPeriod}>
-                                <SelectTrigger className="h-9">
-                                    <SelectValue placeholder={t("period.placeholder")} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Q1">{t("period.quarter", { number: 1 })}</SelectItem>
-                                    <SelectItem value="Q2">{t("period.quarter", { number: 2 })}</SelectItem>
-                                    <SelectItem value="Q3">{t("period.quarter", { number: 3 })}</SelectItem>
-                                    <SelectItem value="Q4">{t("period.quarter", { number: 4 })}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+                        <form.Field name="fileType">
+                            {(field) => (
+                                <div>
+                                    <label className="block text-xs font-medium mb-1.5">{t("fileType.label")}</label>
+                                    <Select value={field.state.value} onValueChange={(v) => field.handleChange(v as typeof field.state.value)}>
+                                        <SelectTrigger className="h-9">
+                                            <SelectValue placeholder={t("fileType.placeholder")} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__auto__">{t("fileType.auto")}</SelectItem>
+                                            <SelectItem value="grades">{t("fileType.grades")}</SelectItem>
+                                            <SelectItem value="events">{t("fileType.events")}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </form.Field>
+                        <form.Field name="period">
+                            {(field) => (
+                                <div>
+                                    <label className="block text-xs font-medium mb-1.5">{t("period.label")}</label>
+                                    <Select value={field.state.value} onValueChange={(v) => field.handleChange(v as typeof field.state.value)}>
+                                        <SelectTrigger className="h-9">
+                                            <SelectValue placeholder={t("period.placeholder")} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Q1">{t("period.quarter", { number: 1 })}</SelectItem>
+                                            <SelectItem value="Q2">{t("period.quarter", { number: 2 })}</SelectItem>
+                                            <SelectItem value="Q3">{t("period.quarter", { number: 3 })}</SelectItem>
+                                            <SelectItem value="Q4">{t("period.quarter", { number: 4 })}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </form.Field>
+                        <form.Field name="year">
+                            {(field) => (
+                                <div>
+                                    <label className="block text-xs font-medium mb-1.5">{t("year.label", "שנה")}</label>
+                                    <Select value={field.state.value} onValueChange={(v) => field.handleChange(v as typeof field.state.value)} dir="rtl">
+                                        <SelectTrigger className="h-9">
+                                            <SelectValue placeholder={t("year.placeholder", "בחר שנה")} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Array.from({ length: 10 }, (_, i) => 2021 + i).map((y) => {
+                                                const yearStr = `${y}-${y + 1}`;
+                                                return (
+                                                    <SelectItem key={yearStr} value={yearStr}>
+                                                        {formatHebrewYear(yearStr)}
+                                                    </SelectItem>
+                                                );
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </form.Field>
                     </div>
 
                     {/* Drop Zone */}
@@ -363,11 +408,12 @@ function UploadPage() {
                     <TableHeader>
                         <TableRow className="bg-accent/50">
                             <TableHead className="text-right font-bold w-12 text-xs">#</TableHead>
-                            <TableHead className="text-right font-bold text-xs">{t("history.file")}</TableHead>
-                            <TableHead className="text-right font-bold text-xs">{t("history.type")}</TableHead>
-                            <TableHead className="text-right font-bold text-xs">{t("history.period")}</TableHead>
-                            <TableHead className="text-right font-bold text-xs">{t("history.rows")}</TableHead>
-                            <TableHead className="text-right font-bold text-xs">{t("history.date")}</TableHead>
+                            <SortableTableHead column="filename" sort={logSort} onSort={toggleLogSort} className="text-xs">{t("history.file")}</SortableTableHead>
+                            <SortableTableHead column="file_type" sort={logSort} onSort={toggleLogSort} className="text-xs">{t("history.type")}</SortableTableHead>
+                            <SortableTableHead column="year" sort={logSort} onSort={toggleLogSort} className="text-xs">{t("history.year", "שנה")}</SortableTableHead>
+                            <SortableTableHead column="period" sort={logSort} onSort={toggleLogSort} className="text-xs">{t("history.period")}</SortableTableHead>
+                            <SortableTableHead column="rows_imported" sort={logSort} onSort={toggleLogSort} className="text-xs">{t("history.rows")}</SortableTableHead>
+                            <SortableTableHead column="created_at" sort={logSort} onSort={toggleLogSort} className="text-xs">{t("history.date")}</SortableTableHead>
                             <TableHead className="text-right font-bold text-xs">{t("history.status")}</TableHead>
                             <TableHead className="text-right font-bold w-12 text-xs">{t("history.actions")}</TableHead>
                         </TableRow>
@@ -379,6 +425,7 @@ function UploadPage() {
                                     <TableCell className="py-2"><Skeleton className="h-4 w-8" /></TableCell>
                                     <TableCell className="py-2"><Skeleton className="h-4 w-40" /></TableCell>
                                     <TableCell className="py-2"><Skeleton className="h-4 w-16" /></TableCell>
+                                    <TableCell className="py-2"><Skeleton className="h-4 w-12" /></TableCell>
                                     <TableCell className="py-2"><Skeleton className="h-4 w-20" /></TableCell>
                                     <TableCell className="py-2"><Skeleton className="h-4 w-12" /></TableCell>
                                     <TableCell className="py-2"><Skeleton className="h-4 w-24" /></TableCell>
@@ -396,6 +443,7 @@ function UploadPage() {
                                             {log.file_type === "grades" ? t("fileType.grades") : t("fileType.events")}
                                         </Badge>
                                     </TableCell>
+                                    <TableCell className="text-sm py-2" dir="ltr">{formatHebrewYear(log.year)}</TableCell>
                                     <TableCell className="text-sm py-2">{log.period}</TableCell>
                                     <TableCell className="text-sm py-2">
                                         {log.rows_imported}
@@ -430,7 +478,7 @@ function UploadPage() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={8} className="text-center text-muted-foreground py-8 text-sm">
+                                <TableCell colSpan={9} className="text-center text-muted-foreground py-8 text-sm">
                                     {t("history.noHistory")}
                                 </TableCell>
                             </TableRow>
