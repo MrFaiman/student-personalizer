@@ -41,6 +41,7 @@ export const GradeResponseSchema = z.object({
     teacher_name: z.string().nullable(),
     grade: z.number(),
     period: z.string(),
+    year: z.string(),
 });
 export type GradeResponse = z.infer<typeof GradeResponseSchema>;
 
@@ -56,6 +57,7 @@ export const AttendanceResponseSchema = z.object({
     total_negative_events: z.number(),
     total_positive_events: z.number(),
     period: z.string(),
+    year: z.string(),
 });
 export type AttendanceResponse = z.infer<typeof AttendanceResponseSchema>;
 
@@ -77,3 +79,26 @@ export const DashboardStatsSchema = z.object({
     classes: z.array(ClassResponseSchema),
 });
 export type DashboardStats = z.infer<typeof DashboardStatsSchema>;
+
+export const StudentTimelinePointSchema = z.object({
+    year: z.string(),
+    period: z.string(),
+    label: z.string(),
+    average_grade: z.number().nullable(),
+    attendance_rate: z.number().nullable(),
+    total_absences: z.number(),
+    subjects: z.array(
+        z.object({
+            subject: z.string(),
+            grade: z.number(),
+        })
+    ),
+});
+export type StudentTimelinePoint = z.infer<typeof StudentTimelinePointSchema>;
+
+export const StudentTimelineResponseSchema = z.object({
+    student_tz: z.string(),
+    student_name: z.string(),
+    timeline: z.array(StudentTimelinePointSchema),
+});
+export type StudentTimelineResponse = z.infer<typeof StudentTimelineResponseSchema>;

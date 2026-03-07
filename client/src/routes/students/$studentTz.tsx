@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
@@ -45,9 +45,12 @@ import {
   TrendingDown,
   BookOpen,
   Clock,
+  History,
 } from "lucide-react";
 import { studentsApi } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
+import { SortableTableHead } from "@/components/SortableTableHead";
+import { useTableSort, useClientSort } from "@/hooks/useTableSort";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 import { getBarColor } from "@/lib/utils";
 import {
@@ -55,16 +58,19 @@ import {
   GRADE_TABLE_PREVIEW_COUNT,
 } from "@/lib/constants";
 import { useConfigStore } from "@/lib/config-store";
-import type { GradeResponse, AttendanceResponse } from "@/lib/types";
+import type { GradeResponse, AttendanceResponse, StudentTimelinePoint } from "@/lib/types";
+import { useFilters } from "@/components/FilterContext";
+import { useAppForm } from "@/lib/form";
 
-export const Route = createFileRoute("/students/$studentTz")(
-  { component: StudentDetailPage },
-);
+export const Route = createFileRoute("/students/$studentTz")({
+  component: RouteComponent,
+});
 
-function StudentDetailPage() {
+function RouteComponent() {
   const { t } = useTranslation("students");
   const { t: tc } = useTranslation();
   const { studentTz } = Route.useParams();
+  const { filters, setFilter } = useFilters();
   const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
   const goodGradeThreshold = useConfigStore((s) => s.goodGradeThreshold);
   const performanceGoodThreshold = useConfigStore((s) => s.performanceGoodThreshold);
@@ -72,30 +78,35 @@ function StudentDetailPage() {
   const gradeRange = useConfigStore((s) => s.gradeRange);
 
   const { data: student, isLoading } = useQuery({
-    queryKey: ["student", studentTz],
-    queryFn: () => studentsApi.get(studentTz),
+    queryKey: ["student", filters.year, studentTz],
+    queryFn: () => studentsApi.get(studentTz, { year: filters.year }),
   });
 
   const { data: grades } = useQuery({
-    queryKey: ["student-grades", studentTz],
-    queryFn: () => studentsApi.getGrades(studentTz),
+    queryKey: ["student-grades", filters.year, studentTz],
+    queryFn: () => studentsApi.getGrades(studentTz, { year: filters.year }),
   });
 
   const { data: attendance } = useQuery({
-    queryKey: ["student-attendance", studentTz],
-    queryFn: () => studentsApi.getAttendance(studentTz),
+    queryKey: ["student-attendance", filters.year, studentTz],
+    queryFn: () => studentsApi.getAttendance(studentTz, { year: filters.year }),
   });
 
-  const { subjectData, periods } = (() => {
+  const { data: timelineData } = useQuery({
+    queryKey: ["student-timeline", studentTz],
+    queryFn: () => studentsApi.getTimeline(studentTz),
+  });
+
+  const { subjectData, periods } = useMemo(() => {
     if (!grades?.length) return { subjectData: [], periods: [] as string[] };
-    
+
     const periodsSet = new Set<string>();
     const bySubject = new Map<string, { sum: number; count: number; teachers: Set<string> }>();
-    
+
     for (const g of grades) {
       const p = g.period || "—";
       periodsSet.add(p);
-      
+
       const entry = bySubject.get(g.subject);
       const teacherName = g.teacher_name || "—";
       if (entry) {
@@ -103,14 +114,14 @@ function StudentDetailPage() {
         entry.count += 1;
         if (teacherName !== "—") entry.teachers.add(teacherName);
       } else {
-        bySubject.set(g.subject, { 
-          sum: g.grade, 
-          count: 1, 
-          teachers: new Set(teacherName !== "—" ? [teacherName] : []) 
+        bySubject.set(g.subject, {
+          sum: g.grade,
+          count: 1,
+          teachers: new Set(teacherName !== "—" ? [teacherName] : [])
         });
       }
     }
-    
+
     const subjectData = Array.from(bySubject.entries()).map(([subject, { sum, count, teachers }]) => ({
       subject,
       average: Math.round(sum / count),
@@ -118,7 +129,7 @@ function StudentDetailPage() {
     }));
 
     return { subjectData, periods: Array.from(periodsSet) };
-  })();
+  }, [grades]);
 
   const totalLessons = attendance?.reduce((sum, a) => sum + a.lessons_reported, 0) || 0;
   const totalAttendance = attendance?.reduce((sum, a) => sum + a.attendance, 0) || 0;
@@ -133,6 +144,23 @@ function StudentDetailPage() {
         subject: g.subject,
         teacher: g.teacher_name || "—",
       })) || [];
+
+  const { sort: gradeSort, toggleSort: toggleGradeSort } = useTableSort<string>();
+  const gradeAccessors = useMemo(() => ({
+    subject: (g: GradeResponse) => g.subject,
+    teacher_name: (g: GradeResponse) => g.teacher_name || "",
+    grade: (g: GradeResponse) => g.grade,
+    period: (g: GradeResponse) => g.period,
+  }), []);
+  const sortedGrades = useClientSort(grades?.slice(0, GRADE_TABLE_PREVIEW_COUNT) || [], gradeSort, gradeAccessors);
+
+  const { sort: attSort, toggleSort: toggleAttSort } = useTableSort<string>();
+  const attAccessors = useMemo(() => ({
+    period: (a: AttendanceResponse) => a.period,
+    total_absences: (a: AttendanceResponse) => a.total_absences,
+    attendance: (a: AttendanceResponse) => a.lessons_reported > 0 ? a.attendance / a.lessons_reported : 0,
+  }), []);
+  const sortedAttendance = useClientSort(attendance || [], attSort, attAccessors);
 
   if (isLoading) {
     return (
@@ -318,6 +346,14 @@ function StudentDetailPage() {
         </Card>
       </div>
 
+      {/* Multi-Year Timeline */}
+      {timelineData && timelineData.timeline.length > 0 && (
+        <StudentTimelineSection
+          points={timelineData.timeline}
+          onYearClick={(year) => setFilter("year", year)}
+        />
+      )}
+
       {/* Period Comparison */}
       <PeriodComparisonSection grades={grades} attendance={attendance} periods={periods} />
 
@@ -358,15 +394,15 @@ function StudentDetailPage() {
           <TableHeader>
             <TableRow className="bg-accent/50">
               <TableHead className="text-right font-bold w-12">#</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.subject")}</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.teacher")}</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.grade")}</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.period")}</TableHead>
+              <SortableTableHead column="subject" sort={gradeSort} onSort={toggleGradeSort}>{tc("table.subject")}</SortableTableHead>
+              <SortableTableHead column="teacher_name" sort={gradeSort} onSort={toggleGradeSort}>{tc("table.teacher")}</SortableTableHead>
+              <SortableTableHead column="grade" sort={gradeSort} onSort={toggleGradeSort}>{tc("table.grade")}</SortableTableHead>
+              <SortableTableHead column="period" sort={gradeSort} onSort={toggleGradeSort}>{tc("table.period")}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {grades?.length ? (
-              grades.slice(0, GRADE_TABLE_PREVIEW_COUNT).map((grade, i) => (
+            {sortedGrades.length ? (
+              sortedGrades.map((grade, i) => (
                 <TableRow key={i}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell className="font-medium">{grade.subject}</TableCell>
@@ -402,14 +438,14 @@ function StudentDetailPage() {
           <TableHeader>
             <TableRow className="bg-accent/50">
               <TableHead className="text-right font-bold w-12">#</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.period")}</TableHead>
-              <TableHead className="text-right font-bold">{tc("table.absences")}</TableHead>
-              <TableHead className="text-right font-bold">{tc("general.attendance")}</TableHead>
+              <SortableTableHead column="period" sort={attSort} onSort={toggleAttSort}>{tc("table.period")}</SortableTableHead>
+              <SortableTableHead column="total_absences" sort={attSort} onSort={toggleAttSort}>{tc("table.absences")}</SortableTableHead>
+              <SortableTableHead column="attendance" sort={attSort} onSort={toggleAttSort}>{tc("general.attendance")}</SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {attendance?.length ? (
-              attendance.map((record, i) => (
+            {sortedAttendance.length ? (
+              sortedAttendance.map((record, i) => (
                 <TableRow key={record.id}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                   <TableCell>{record.period}</TableCell>
@@ -445,8 +481,14 @@ function PeriodComparisonSection({
   periods: string[];
 }) {
   const { t } = useTranslation("students");
-  const [period1, setPeriod1] = useState<string>(periods[0] ?? "");
-  const [period2, setPeriod2] = useState<string>(periods[1] ?? periods[0] ?? "");
+  const form = useAppForm({
+    defaultValues: {
+      period1: periods[0] ?? "",
+      period2: periods[1] ?? periods[0] ?? "",
+    },
+  });
+  const period1 = form.state.values.period1;
+  const period2 = form.state.values.period2;
 
   if (!periods.length) return null;
 
@@ -496,32 +538,40 @@ function PeriodComparisonSection({
       <CardContent className="p-6">
         {/* Period selectors */}
         <div className="grid grid-cols-2 gap-6 mb-6">
-          <div className="space-y-1">
-            <label className="text-sm font-medium">{t("detail.period1")}</label>
-            <Select value={period1} onValueChange={setPeriod1}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("detail.selectPeriod")} />
-              </SelectTrigger>
-              <SelectContent>
-                {periods.map((p) => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium">{t("detail.period2")}</label>
-            <Select value={period2} onValueChange={setPeriod2}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("detail.selectPeriod")} />
-              </SelectTrigger>
-              <SelectContent>
-                {periods.map((p) => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <form.Field name="period1">
+            {(field) => (
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t("detail.period1")}</label>
+                <Select value={field.state.value} onValueChange={(v) => field.handleChange(v as typeof field.state.value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("detail.selectPeriod")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periods.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </form.Field>
+          <form.Field name="period2">
+            {(field) => (
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t("detail.period2")}</label>
+                <Select value={field.state.value} onValueChange={(v) => field.handleChange(v as typeof field.state.value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("detail.selectPeriod")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {periods.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </form.Field>
         </div>
 
         {/* Comparison columns */}
@@ -710,6 +760,104 @@ function SubjectBarChart({
             {t("detail.noGradeData")}
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function StudentTimelineSection({
+  points,
+  onYearClick
+}: {
+  points: StudentTimelinePoint[];
+  onYearClick?: (year: string) => void;
+}) {
+  const { t } = useTranslation("students");
+  const { t: tc } = useTranslation();
+  const gradeRange = useConfigStore((s) => s.gradeRange);
+
+  return (
+    <Card>
+      <div className="p-6 border-b">
+        <h3 className="text-lg font-bold flex items-center gap-2">
+          <History className="size-4 text-muted-foreground" />
+          {t("detail.multiYearTimeline", "Multi-Year Timeline")}
+        </h3>
+      </div>
+      <CardContent className="p-4">
+        <ResponsiveContainer width="100%" height="100%" className="min-h-[35vh]">
+          <LineChart
+            data={points}
+            margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
+            onClick={(e: Record<string, unknown> | null) => {
+              const activePayload = (e as { activePayload?: { payload: StudentTimelinePoint }[] } | null)?.activePayload;
+              if (activePayload && activePayload.length > 0 && onYearClick) {
+                const data = activePayload[0].payload;
+                if (data.year) {
+                  onYearClick(data.year);
+                }
+              }
+            }}
+            className={onYearClick ? "cursor-pointer" : ""}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+            <YAxis yAxisId="left" domain={gradeRange} />
+            <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
+            <Tooltip
+              contentStyle={TOOLTIP_STYLE}
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const data = payload[0].payload as StudentTimelinePoint;
+                  return (
+                    <div className="bg-background border rounded-lg p-3 shadow-md text-sm border-border min-w-[200px]">
+                      <p className="font-bold mb-2 pb-1 border-b">{data.label}</p>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">{tc("general.averageGrade")}:</span>
+                          <span className="font-bold text-primary">{data.average_grade?.toFixed(1) ?? "—"}</span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">{tc("general.attendanceRate")}:</span>
+                          <span className="font-bold text-green-600">
+                            {data.attendance_rate ? `${data.attendance_rate.toFixed(1)}%` : "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">{tc("general.absences")}:</span>
+                          <span className="font-medium">{data.total_absences}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="average_grade"
+              name={tc("general.averageGrade")}
+              stroke="#6366f1"
+              strokeWidth={2.5}
+              dot={{ fill: "#6366f1", r: 4 }}
+              activeDot={{ r: 6 }}
+              connectNulls
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="attendance_rate"
+              name={tc("general.attendanceRate")}
+              stroke="#10b981"
+              strokeWidth={2.5}
+              dot={{ fill: "#10b981", r: 4 }}
+              activeDot={{ r: 6 }}
+              connectNulls
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );
