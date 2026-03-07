@@ -7,8 +7,10 @@
     "students": "תלמידים",
     "classes": "כיתות",
     "teachers": "מורים",
+    "subjects": "מקצועות",
     "upload": "טעינת נתונים",
-    "predictions": "תחזיות ML"
+    "predictions": "תחזיות ML",
+    "openDay": "יום פתוח"
   },
   "filters": {
     "title": "סינונים",
@@ -18,7 +20,9 @@
     "allClasses": "כל הכיתות",
     "searchStudent": "חיפוש תלמיד",
     "searchByStudentName": "חיפוש לפי שם תלמיד…",
-    "atRiskOnly": "תלמידים בסיכון בלבד"
+    "atRiskOnly": "תלמידים בסיכון בלבד",
+    "allYears": "כל השנים",
+    "year": "שנה"
   },
   "general": {
     "cancel": "ביטול",
@@ -49,7 +53,9 @@
     "teacher": "מורה",
     "averageGrade": "ממוצע ציונים",
     "attendanceRate": "אחוז נוכחות",
-    "atRisk": "בסיכון"
+    "atRisk": "בסיכון",
+    "vsLastYear": "לעומת שנה שעברה",
+    "year": "שנה"
   },
   "reset": {
     "button": "איפוס מסד נתונים",
@@ -90,7 +96,8 @@
     "name": "שם",
     "rank": "מקום",
     "average": "ממוצע",
-    "student": "תלמיד"
+    "student": "תלמיד",
+    "year": "שנה"
   },
   "noData": "אין נתונים להצגה",
   "viewStudent": "צפה בתלמיד",

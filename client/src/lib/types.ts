@@ -5,3 +5,5 @@ export * from "./types/ml";
 export * from "./types/teacher";
 export * from "./types/filters";
 export * from "./types/config";
+export * from "./types/subject";
+export * from "./types/open-day";

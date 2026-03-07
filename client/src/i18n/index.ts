@@ -7,7 +7,9 @@ import studentsHe from "./locales/he/students.json";
 import classesHe from "./locales/he/classes.json";
 import uploadHe from "./locales/he/upload.json";
 import teachersHe from "./locales/he/teachers.json";
+import subjectsHe from "./locales/he/subjects.json";
 import advancedAnalyticsHe from "./locales/he/advancedAnalytics.json";
+import openDayHe from "./locales/he/open-day.json";
 
 i18n.use(initReactI18next).init({
   lng: "he",
@@ -21,7 +23,9 @@ i18n.use(initReactI18next).init({
       classes: classesHe,
       upload: uploadHe,
       teachers: teachersHe,
+      subjects: subjectsHe,
       advancedAnalytics: advancedAnalyticsHe,
+      openDay: openDayHe,
     },
   },
   interpolation: {

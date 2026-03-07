@@ -8,7 +8,7 @@ import {
 } from "../types";
 
 export const mlApi = {
-  train: (params: { period?: string } = {}) =>
+  train: (params: { year?: string; period?: string } = {}) =>
     fetchApi(`/api/ml/train${buildQueryString(params)}`, {
       method: "POST",
     }, TrainResponseSchema),
@@ -21,7 +21,7 @@ export const mlApi = {
     ),
 
   predictAll: (
-    params: { period?: string; page?: number; page_size?: number } = {},
+    params: { year?: string; period?: string; page?: number; page_size?: number; sort_by?: string; sort_order?: string } = {},
   ) =>
     fetchApi(
       `/api/ml/predict${buildQueryString(params)}`,
