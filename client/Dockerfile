@@ -1,20 +1,26 @@
-FROM node:20-alpine AS build
+FROM node:20-slim AS base
 
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+FROM base AS build
+
+# 1. Copy only lockfile first to fetch dependencies incrementally
+COPY pnpm-lock.yaml /app/
 WORKDIR /app
+RUN pnpm fetch
 
-RUN corepack enable pnpm
+# 2. Copy source code and install offline (using fetched packages in the pnpm store)
+COPY . /app/
+RUN pnpm install -r --offline
 
-COPY package.json pnpm-lock.yaml ./
+# 3. Build the frontend
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+RUN pnpm run build
 
-RUN pnpm install
-
-COPY . .
-RUN pnpm build
-
-# Serve the static files
+# 4. Serve static files
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
