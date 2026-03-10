@@ -34,7 +34,10 @@
     "period2": "תקופה 2",
     "noPeriodData": "אין נתונים לתקופה זו",
     "selectTwoPeriods": "בחר שתי תקופות להשוואה",
+    "selectYear": "בחר שנה",
+    "filterBySubject": "סנן לפי מקצוע",
     "gradesBySubject": "ציונים לפי מקצוע",
-    "multiYearTimeline": "ציר זמן אישי רב שנתי"
+    "multiYearTimeline": "ציר זמן אישי רב שנתי",
+    "subjectGradeTimeline": "ציר זמן ציונים לפי מקצוע"
   }
 }

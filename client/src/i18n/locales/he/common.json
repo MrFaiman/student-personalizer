@@ -55,7 +55,8 @@
     "attendanceRate": "אחוז נוכחות",
     "atRisk": "בסיכון",
     "vsLastYear": "לעומת שנה שעברה",
-    "year": "שנה"
+    "year": "שנה",
+    "all": "הכל"
   },
   "reset": {
     "button": "איפוס מסד נתונים",
