@@ -819,7 +819,7 @@ class AnalyticsService:
                     ).all()
                 )
 
-        # Single query for teacher_name, teacher_id, subject — no N+1
+        # Single query for teacher_name, teacher_id, subject - no N+1
         teacher_subject_query = select(
             Grade.teacher_name, Grade.teacher_id, Grade.subject_name
         ).distinct()

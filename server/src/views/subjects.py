@@ -114,7 +114,7 @@ class SubjectDefaultView:
 
         return SubjectDetailResponse(
             id=str(subject.id),
-            name=subject.subject_name,
+            name=subject.name,
             stats=SubjectDetailStats(**stats),
             teachers=teachers_sorted,
             classes=classes,

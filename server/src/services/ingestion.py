@@ -367,8 +367,6 @@ class IngestionService:
                     result.rows_failed += 1
                     continue
 
-                print(student_name, class_name, grade_level, subject, teacher_name, grade_value)
-
                 if not student_name or not class_name or not subject:
                     result.errors.append(f"Row {idx + 2}: Missing required metadata (name/class/subject is empty)")
                     result.rows_failed += 1
