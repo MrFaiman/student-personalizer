@@ -59,4 +59,19 @@ export const ingestionApi = {
       `/api/ingest/logs/${encodeURIComponent(batchId)}`,
       { method: "DELETE" },
     ),
+
+  generateDebugData: (params: { years?: number[]; quarters?: number; students?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.years) params.years.forEach(y => query.append("years", String(y)));
+    if (params.quarters) query.set("quarters", String(params.quarters));
+    if (params.students) query.set("students", String(params.students));
+    const qs = query.toString() ? `?${query.toString()}` : "";
+    return fetchApi<{
+      files_processed: number;
+      total_rows_imported: number;
+      total_rows_failed: number;
+      total_students_created: number;
+      total_classes_created: number;
+    }>(`/api/debug/generate${qs}`, { method: "POST" });
+  },
 };

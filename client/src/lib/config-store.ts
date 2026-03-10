@@ -11,6 +11,7 @@ interface ConfigState {
   performanceMediumThreshold: number;
   defaultPageSize: number;
   gradeRange: [number, number];
+  enableDebug: boolean;
 
   // Meta
   isReady: boolean;
@@ -27,6 +28,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
   performanceMediumThreshold: 40,
   defaultPageSize: 20,
   gradeRange: [0, 100],
+  enableDebug: false,
 
   isReady: false,
 
@@ -42,6 +44,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
         performanceMediumThreshold: config.performance_medium_threshold,
         defaultPageSize: config.default_page_size,
         gradeRange: config.grade_range,
+        enableDebug: config.enable_debug,
         isReady: true,
       });
     } catch {

@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, ORIGIN_URL, PORT
+from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, ENABLE_DEBUG, ORIGIN_URL, PORT
 from .database import init_db
 from .routers import analytics, classes, config, ingestion, ml, open_day, students, subjects, teachers
 
@@ -43,6 +43,11 @@ app.include_router(subjects.router)
 app.include_router(open_day.router)
 
 app.include_router(ml.router)
+
+print(ENABLE_DEBUG)
+if ENABLE_DEBUG:
+    from .routers import debug
+    app.include_router(debug.router)
 
 
 @app.get("/")

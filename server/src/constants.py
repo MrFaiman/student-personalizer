@@ -57,6 +57,9 @@ VALID_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "excel",
     "application/vnd.ms-excel": "excel",
 }
+XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 DEFAULT_PERIOD = "Default"
 DEFAULT_YEAR = ""
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+# ENABLE_DEBUG = os.getenv("ENABLE_DEBUG", "").lower() in ("1", "true", "yes")
+ENABLE_DEBUG = True

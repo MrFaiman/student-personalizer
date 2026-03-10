@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from ..constants import (
     AT_RISK_GRADE_THRESHOLD,
     DEFAULT_PAGE_SIZE,
+    ENABLE_DEBUG,
     EXCELLENT_GRADE_THRESHOLD,
     GOOD_GRADE_THRESHOLD,
     GRADE_RANGE_MAX,
@@ -26,4 +27,5 @@ async def get_config():
         "performance_medium_threshold": PERFORMANCE_MEDIUM_THRESHOLD,
         "default_page_size": DEFAULT_PAGE_SIZE,
         "grade_range": [GRADE_RANGE_MIN, GRADE_RANGE_MAX],
+        "enable_debug": ENABLE_DEBUG,
     }
