@@ -136,14 +136,15 @@ export function PeriodComparisonChart({
         <div className="mt-2 space-y-1">
           {payload.map((entry) => (
             <p key={entry.dataKey} style={{ color: entry.color }}>
-              {entry.dataKey}: {entry.value?.toFixed(1) ?? "—"}
+              {entry.dataKey}: {entry.value?.toFixed(1) ?? "-"}
             </p>
           ))}
         </div>
         {item.change !== null && (
           <p
-            className={`mt-2 font-medium ${item.change >= 0 ? "text-green-600" : "text-red-600"
-              }`}
+            className={`mt-2 font-medium ${
+              item.change >= 0 ? "text-green-600" : "text-red-600"
+            }`}
           >
             {t("tooltip.change")}: {item.change >= 0 ? "+" : ""}
             {item.change.toFixed(1)} ({item.changePercent?.toFixed(1)}%)
@@ -169,7 +170,11 @@ export function PeriodComparisonChart({
             {t("noData")}
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%" className="min-h-[50vh]">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            className="min-h-[50vh]"
+          >
             <BarChart
               data={chartData}
               margin={{ top: 20, right: 30, left: 20, bottom: 60 }}

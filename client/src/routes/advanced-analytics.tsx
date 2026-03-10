@@ -41,6 +41,8 @@ function AdvancedAnalyticsPage() {
   const periods = useMemo(() => metadata?.periods || [], [metadata?.periods]);
 
   const { filters: globalFilters } = useFilters();
+  const periodWithYear = (period: string) =>
+    globalFilters.year ? `${period} - ${globalFilters.year}` : period;
 
   const {
     filters,
@@ -95,7 +97,9 @@ function AdvancedAnalyticsPage() {
                 </label>
                 <Select
                   value={filters.gradeLevel || "all"}
-                  onValueChange={(v) => setGradeLevel(v === "all" ? undefined : v)}
+                  onValueChange={(v) =>
+                    setGradeLevel(v === "all" ? undefined : v)
+                  }
                 >
                   <SelectTrigger className="w-36">
                     <SelectValue placeholder={tc("filters.allGradeLevels")} />
@@ -153,7 +157,7 @@ function AdvancedAnalyticsPage() {
                   <SelectContent>
                     {periods.map((period) => (
                       <SelectItem key={period} value={period}>
-                        {period}
+                        {periodWithYear(period)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -177,7 +181,7 @@ function AdvancedAnalyticsPage() {
                       .filter((p) => p !== filters.periodA)
                       .map((period) => (
                         <SelectItem key={period} value={period}>
-                          {period}
+                          {periodWithYear(period)}
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -215,7 +219,11 @@ function AdvancedAnalyticsPage() {
             <div className="flex gap-2">
               <Select
                 value={comparisonType}
-                onValueChange={(v) => setComparisonType(v as "class" | "subject_teacher" | "subject")}
+                onValueChange={(v) =>
+                  setComparisonType(
+                    v as "class" | "subject_teacher" | "subject",
+                  )
+                }
               >
                 <SelectTrigger className="w-56">
                   <SelectValue />

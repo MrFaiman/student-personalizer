@@ -77,13 +77,13 @@ function KPISection() {
   const kpiCards = [
     {
       title: t("kpi.layerAverage"),
-      value: kpis?.layer_average?.toFixed(1) || "—",
+      value: kpis?.layer_average?.toFixed(1) || "-",
       icon: Star,
       iconColor: "text-primary bg-primary/10",
     },
     {
       title: t("kpi.avgAbsences"),
-      value: kpis?.avg_absences?.toFixed(1) || "—",
+      value: kpis?.avg_absences?.toFixed(1) || "-",
       icon: CalendarCheck,
       iconColor: "text-orange-500 bg-orange-500/10",
     },
@@ -121,7 +121,12 @@ function ChartsSection() {
   const filters = useFilterStore();
 
   const { data: classComparison, isLoading } = useQuery({
-    queryKey: ["class-comparison", filters.year, filters.period, filters.gradeLevel],
+    queryKey: [
+      "class-comparison",
+      filters.year,
+      filters.period,
+      filters.gradeLevel,
+    ],
     queryFn: () =>
       analyticsApi.getClassComparison({
         year: filters.year,
@@ -139,15 +144,16 @@ function ChartsSection() {
 
   const avgGrade = classComparison?.length
     ? (
-      classComparison.reduce((sum, c) => sum + c.average_grade, 0) /
-      classComparison.length
-    ).toFixed(1)
-    : "—";
+        classComparison.reduce((sum, c) => sum + c.average_grade, 0) /
+        classComparison.length
+      ).toFixed(1)
+    : "-";
 
-  const filterSubtitle = `${filters.period || tc("filters.allPeriods")} | ${filters.gradeLevel
-    ? tc("filters.gradeLevel", { level: filters.gradeLevel })
-    : tc("filters.allGradeLevels")
-    }`;
+  const filterSubtitle = `${filters.period || tc("filters.allPeriods")} | ${
+    filters.gradeLevel
+      ? tc("filters.gradeLevel", { level: filters.gradeLevel })
+      : tc("filters.allGradeLevels")
+  }`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -186,7 +192,12 @@ function StudentsTable() {
   const atRiskGradeThreshold = useConfigStore((s) => s.atRiskGradeThreshold);
 
   const { data: students, isLoading } = useQuery({
-    queryKey: ["at-risk-students", filters.year, filters.period, filters.classId],
+    queryKey: [
+      "at-risk-students",
+      filters.year,
+      filters.period,
+      filters.classId,
+    ],
     queryFn: () =>
       studentsApi.list({
         at_risk_only: true,
@@ -275,7 +286,7 @@ function StudentsTable() {
                   <TableCell
                     className={`font-bold ${student.average_grade && student.average_grade < atRiskGradeThreshold ? "text-red-600" : ""}`}
                   >
-                    {student.average_grade?.toFixed(1) || "—"}
+                    {student.average_grade?.toFixed(1) || "-"}
                   </TableCell>
                   <TableCell>{student.total_absences}</TableCell>
                   <TableCell>
