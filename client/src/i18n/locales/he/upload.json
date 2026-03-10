@@ -18,11 +18,45 @@
     "placeholder": "בחר שנת לימודים"
   },
   "dropzone": {
-    "dragHere": "גרור קובץ Excel או CSV לכאן",
-    "orClick": "או לחץ לבחירת קובץ",
-    "button": "בחר קובץ",
+    "dragHere": "גרור קבצי Excel או CSV לכאן",
+    "orClick": "או לחץ לבחירת קבצים",
+    "button": "בחר קבצים",
     "uploading": "מעלה קובץ...",
     "uploadingProgress": "מעלה קובץ {{current}} מתוך {{total}}..."
+  },
+  "staging": {
+    "title": "תור העלאה",
+    "empty": "אין קבצים בתור",
+    "uploadReady": "העלה {{count}} קבצים מוכנים",
+    "clearAll": "נקה הכל"
+  },
+  "bulk": {
+    "fileType": "סוג קובץ לכולם",
+    "period": "תקופה לכולם",
+    "year": "שנה לכולם",
+    "apply": "החל על כולם"
+  },
+  "status": {
+    "ready": "מוכן",
+    "needsInput": "דרוש קלט",
+    "duplicate": "כפול",
+    "uploading": "מעלה...",
+    "success": "הצלחה",
+    "failed": "נכשל"
+  },
+  "summary": {
+    "ready": "{{count}} מוכן",
+    "needsInput": "{{count}} דרוש קלט",
+    "duplicate": "{{count}} כפול",
+    "success": "{{count}} הצליח",
+    "failed": "{{count}} נכשל"
+  },
+  "detected": {
+    "fromFilename": "זוהה מהשם"
+  },
+  "action": {
+    "remove": "הסר",
+    "retry": "נסה שוב"
   },
   "success": {
     "title": "הקובץ נטען בהצלחה!",
@@ -58,5 +92,15 @@
     "confirm": "מחק",
     "cancel": "ביטול",
     "deleting": "מוחק..."
+  },
+  "debug": {
+    "title": "יצירת נתוני בדיקה",
+    "subtitle": "מייצר {{students}} תלמידים עם ציונים ונוכחות לשנים {{startYear}}-{{endYear}}",
+    "studentsLabel": "מספר תלמידים",
+    "startYearLabel": "שנת התחלה",
+    "endYearLabel": "שנת סיום",
+    "button": "צור נתוני בדיקה",
+    "generating": "מייצר...",
+    "success": "נוצרו {{rows}} רשומות ו-{{students}} תלמידים חדשים"
   }
 }

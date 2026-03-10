@@ -7,3 +7,6 @@ export const RECENT_GRADES_COUNT = 10;
 export const AT_RISK_PREVIEW_COUNT = 10;
 export const GRADE_TABLE_PREVIEW_COUNT = 20;
 export const MAX_DISPLAYED_ERRORS = 5;
+
+export const YEAR_SELECT_START = 2021;
+export const YEAR_SELECT_COUNT = 10;
