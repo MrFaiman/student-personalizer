@@ -10,6 +10,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import {
   GraduationCap,
   LayoutDashboard,
   Users,
@@ -44,8 +56,9 @@ const navItems = [
   { icon: Upload, labelKey: "nav.upload", path: "/upload" },
 ];
 
-export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
+export function AppSidebar() {
   const { t } = useTranslation();
+  const { setOpenMobile } = useSidebar();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const { year, period, gradeLevel, setFilter } = useFilterStore();
@@ -72,9 +85,8 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
   const isEmptyState = !kpisLoading && kpis?.total_students === 0;
 
   return (
-    <div className="p-6 flex flex-col gap-6 h-full justify-between">
-      <div className="flex flex-col gap-6">
-        {/* Logo */}
+    <Sidebar side="right" dir="rtl" collapsible="offcanvas">
+      <SidebarHeader className="p-6">
         <div className="flex items-center gap-3">
           <div className="bg-primary/10 rounded-full p-2">
             <GraduationCap className="size-7 text-primary" />
@@ -84,45 +96,51 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
             <p className="text-muted-foreground text-xs">{t("appTagline")}</p>
           </div>
         </div>
+      </SidebarHeader>
 
+      <SidebarContent>
         {/* Navigation */}
-        <nav className="flex flex-col gap-1">
-          {navItems.map((item) => {
-            const isActive =
-              currentPath === item.path ||
-              (item.path !== "/" && currentPath.startsWith(item.path));
-            const isDisabled = isEmptyState && item.path !== "/upload" && item.path !== "/open-day";
+        <SidebarGroup>
+          <SidebarMenu>
+            {navItems.map((item) => {
+              const isActive =
+                currentPath === item.path ||
+                (item.path !== "/" && currentPath.startsWith(item.path));
+              const isDisabled =
+                isEmptyState &&
+                item.path !== "/upload" &&
+                item.path !== "/open-day";
 
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                disabled={isDisabled}
-                onClick={onNavigate}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent"
-                  } ${isDisabled ? "opacity-50 pointer-events-none grayscale" : ""}`}
-              >
-                <item.icon className="size-5" aria-hidden="true" />
-                <span
-                  className={`text-sm ${isActive ? "font-semibold" : "font-medium"}`}
-                >
-                  {t(item.labelKey)}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
+              return (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    disabled={isDisabled}
+                    className={isDisabled ? "opacity-50 grayscale" : ""}
+                    onClick={() => setOpenMobile(false)}
+                  >
+                    <Link to={item.path}>
+                      <item.icon aria-hidden="true" />
+                      <span>{t(item.labelKey)}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
 
         {/* Filters */}
-        <div
-          className={`pt-4 border-t border-border ${isEmptyState ? "opacity-50 pointer-events-none grayscale" : ""}`}
+        <SidebarGroup
+          className={
+            isEmptyState ? "opacity-50 pointer-events-none grayscale" : ""
+          }
         >
-          <p className="text-xs font-bold text-muted-foreground px-3 mb-3 uppercase tracking-wider">
+          <SidebarGroupLabel className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
             {t("filters.title")}
-          </p>
-          <div className="flex flex-col gap-3 px-1">
+          </SidebarGroupLabel>
+          <div className="flex flex-col gap-3 px-2 pt-1">
             {/* Year Filter */}
             <form.Field name="year">
               {(field) => (
@@ -136,7 +154,9 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
                   dir="rtl"
                 >
                   <SelectTrigger className="h-9 text-sm w-full">
-                    <SelectValue placeholder={t("filters.allYears", "כל השנים")} />
+                    <SelectValue
+                      placeholder={t("filters.allYears", "כל השנים")}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">
@@ -210,11 +230,10 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
               )}
             </form.Field>
           </div>
-        </div>
-      </div>
+        </SidebarGroup>
+      </SidebarContent>
 
-      {/* Bottom Actions */}
-      <div className="flex flex-col gap-3">
+      <SidebarFooter className="p-6">
         <Link
           to="/students"
           className={isEmptyState ? "pointer-events-none" : ""}
@@ -224,7 +243,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
             <span>{t("filters.searchStudent")}</span>
           </Button>
         </Link>
-      </div>
-    </div>
+      </SidebarFooter>
+    </Sidebar>
   );
 }

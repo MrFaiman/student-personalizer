@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
-import { GraduationCap, Menu } from "lucide-react";
+import { GraduationCap } from "lucide-react";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
-export function Header({ onMenuClick }: { onMenuClick: () => void }) {
+export function Header() {
   const { t } = useTranslation();
 
   return (
@@ -14,15 +14,7 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
         <span className="text-sm font-bold">{t("appName")}</span>
       </div>
       <div className="hidden md:flex items-center gap-6" />
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden"
-        onClick={onMenuClick}
-        aria-label="Open menu"
-      >
-        <Menu className="size-5" />
-      </Button>
+      <SidebarTrigger className="md:hidden" />
     </header>
   );
 }
