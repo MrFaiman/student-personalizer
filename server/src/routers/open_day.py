@@ -5,6 +5,7 @@ from sqlmodel import Session, func, select
 
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, VALID_MIME_TYPES
 from ..database import get_session
+from ..dependencies import require_write_access
 from ..models import OpenDayImport, OpenDayRegistration
 from ..schemas.open_day import (
     OpenDayImportItem,
@@ -19,7 +20,7 @@ from ..services.open_day import OpenDayService
 router = APIRouter(prefix="/api/open-day", tags=["open-day"])
 
 
-@router.post("/upload", response_model=OpenDayUploadResponse)
+@router.post("/upload", response_model=OpenDayUploadResponse, dependencies=[Depends(require_write_access)])
 async def upload_open_day_file(
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
@@ -174,7 +175,7 @@ async def list_imports(session: Session = Depends(get_session)):
     )
 
 
-@router.delete("/reset")
+@router.delete("/reset", dependencies=[Depends(require_write_access)])
 async def reset_all(session: Session = Depends(get_session)):
     """Delete all open day registrations and imports."""
     from sqlmodel import delete
@@ -185,7 +186,7 @@ async def reset_all(session: Session = Depends(get_session)):
     return {"message": "All open day data deleted"}
 
 
-@router.delete("/imports/{import_id}")
+@router.delete("/imports/{import_id}", dependencies=[Depends(require_write_access)])
 async def delete_import(import_id: int, session: Session = Depends(get_session)):
     """Delete an import and all its registrations."""
     from sqlmodel import delete

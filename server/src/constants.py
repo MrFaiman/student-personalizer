@@ -63,3 +63,6 @@ DEFAULT_YEAR = ""
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 # ENABLE_DEBUG = os.getenv("ENABLE_DEBUG", "").lower() in ("1", "true", "yes")
 ENABLE_DEBUG = True
+
+# Admin
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")

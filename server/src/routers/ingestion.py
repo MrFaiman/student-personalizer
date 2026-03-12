@@ -7,6 +7,7 @@ from sqlmodel import Session, func, select
 
 from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, DEFAULT_YEAR, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, UPLOAD_DIR, VALID_MIME_TYPES
 from ..database import get_session
+from ..dependencies import require_write_access
 from ..models import AttendanceRecord, Grade, ImportLog, UploadedFile
 from ..schemas.ingestion import ImportLogListResponse, ImportLogResponse, ImportResponse
 from ..services.ingestion import ImportResult, IngestionService
@@ -17,7 +18,7 @@ _upload_path = Path(UPLOAD_DIR)
 _upload_path.mkdir(parents=True, exist_ok=True)
 
 
-@router.post("/upload", response_model=ImportResponse)
+@router.post("/upload", response_model=ImportResponse, dependencies=[Depends(require_write_access)])
 async def upload_file(
     file: UploadFile = File(...),
     file_type: Literal["grades", "events"] | None = Query(
@@ -185,7 +186,7 @@ async def get_import_log(
     )
 
 
-@router.delete("/logs/{batch_id}")
+@router.delete("/logs/{batch_id}", dependencies=[Depends(require_write_access)])
 async def delete_import_log(
     batch_id: str,
     session: Session = Depends(get_session),

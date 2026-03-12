@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from ..constants import (
+    ADMIN_PASSWORD,
     AT_RISK_GRADE_THRESHOLD,
     DEFAULT_PAGE_SIZE,
     ENABLE_DEBUG,
@@ -12,8 +14,14 @@ from ..constants import (
     PERFORMANCE_GOOD_THRESHOLD,
     PERFORMANCE_MEDIUM_THRESHOLD,
 )
+from ..dependencies import get_preview_mode, set_preview_mode
 
 router = APIRouter(prefix="/api/config", tags=["config"])
+
+
+class PreviewModeToggle(BaseModel):
+    password: str
+    enabled: bool
 
 
 @router.get("")
@@ -28,4 +36,18 @@ async def get_config():
         "default_page_size": DEFAULT_PAGE_SIZE,
         "grade_range": [GRADE_RANGE_MIN, GRADE_RANGE_MAX],
         "enable_debug": ENABLE_DEBUG,
+        "preview_mode": get_preview_mode(),
     }
+
+
+@router.get("/preview-mode")
+async def get_preview_mode_status():
+    return {"preview_mode": get_preview_mode()}
+
+
+@router.post("/preview-mode")
+async def toggle_preview_mode(body: PreviewModeToggle):
+    if not ADMIN_PASSWORD or body.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid admin password.")
+    set_preview_mode(body.enabled)
+    return {"preview_mode": get_preview_mode()}
