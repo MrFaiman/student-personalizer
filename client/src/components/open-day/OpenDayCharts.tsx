@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+    PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { ChevronDown, ChevronUp, PieChart as PieChartIcon, BarChart2 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
 import { getBarColor } from "@/lib/utils";
-import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 import type { OpenDayStats } from "@/lib/types";
 
 interface OpenDayChartsProps {
@@ -54,11 +54,12 @@ export function OpenDayCharts({ stats }: OpenDayChartsProps) {
                         { title: t("charts.byTrack"), data: stats.by_track },
                     ].map(({ title, data }) => {
                         const chartData = Object.entries(data).map(([name, value]) => ({ name, value }));
+                        const config = Object.fromEntries(chartData.map((d, i) => [d.name, { label: d.name, color: getBarColor(i) }])) satisfies ChartConfig;
                         return (
                             <Card key={title}>
                                 <CardContent className="p-4">
                                     <p className="text-sm font-semibold mb-3">{title}</p>
-                                    <ResponsiveContainer width="100%" height={260}>
+                                    <ChartContainer config={config} className="h-[260px] w-full">
                                         {chartType === "pie" ? (
                                             <PieChart>
                                                 <Pie
@@ -69,20 +70,21 @@ export function OpenDayCharts({ stats }: OpenDayChartsProps) {
                                                     outerRadius={90}
                                                     paddingAngle={2}
                                                     dataKey="value"
+                                                    nameKey="name"
                                                 >
                                                     {chartData.map((_, i) => (
                                                         <Cell key={i} fill={getBarColor(i)} />
                                                     ))}
                                                 </Pie>
-                                                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(value, name) => [value, name]} />
-                                                <Legend iconType="circle" iconSize={8} formatter={(value) => <span style={{ fontSize: 12 }}>{value}</span>} />
+                                                <ChartTooltip content={(props) => <ChartTooltipContent {...props} nameKey="name" />} />
+                                                <ChartLegend content={(props) => <ChartLegendContent {...props} nameKey="name" />} />
                                             </PieChart>
                                         ) : (
                                             <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                                                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                                                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                                                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                                                <ChartTooltip content={(props) => <ChartTooltipContent {...props} />} />
                                                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                                                     {chartData.map((_, i) => (
                                                         <Cell key={i} fill={getBarColor(i)} />
@@ -90,7 +92,7 @@ export function OpenDayCharts({ stats }: OpenDayChartsProps) {
                                                 </Bar>
                                             </BarChart>
                                         )}
-                                    </ResponsiveContainer>
+                                    </ChartContainer>
                                 </CardContent>
                             </Card>
                         );
@@ -114,17 +116,17 @@ export function OpenDayCharts({ stats }: OpenDayChartsProps) {
                                 <Card>
                                     <CardContent className="p-4">
                                         <p className="text-sm font-semibold mb-3">{t("charts.bySchool")}</p>
-                                        <ResponsiveContainer width="100%" height={260}>
+                                        <ChartContainer config={{ value: { label: t("charts.count") } } satisfies ChartConfig} className="h-[260px] w-full">
                                             <BarChart data={schoolData} layout="vertical" margin={{ top: 4, right: 16, left: -16, bottom: 4 }}>
                                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--border)" />
                                                 <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
                                                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
-                                                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                                                <ChartTooltip content={(props) => <ChartTooltipContent {...props} />} />
                                                 <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                                                     {schoolData.map((_, i) => <Cell key={i} fill={getBarColor(i)} />)}
                                                 </Bar>
                                             </BarChart>
-                                        </ResponsiveContainer>
+                                        </ChartContainer>
                                     </CardContent>
                                 </Card>
                             )}
@@ -132,7 +134,7 @@ export function OpenDayCharts({ stats }: OpenDayChartsProps) {
                                 <Card>
                                     <CardContent className="p-4">
                                         <p className="text-sm font-semibold mb-3">{t("charts.timeline")}</p>
-                                        <ResponsiveContainer width="100%" height={260}>
+                                        <ChartContainer config={{ value: { label: t("charts.count"), color: getBarColor(0) } } satisfies ChartConfig} className="h-[260px] w-full">
                                             <AreaChart data={timelineData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
                                                 <defs>
                                                     <linearGradient id="timelineGradient" x1="0" y1="0" x2="0" y2="1">
@@ -143,34 +145,37 @@ export function OpenDayCharts({ stats }: OpenDayChartsProps) {
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                                                 <XAxis dataKey="date" tick={{ fontSize: 10 }} tickFormatter={(d) => new Date(d).toLocaleDateString("he-IL")} />
                                                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                                                <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={(d) => new Date(d).toLocaleDateString("he-IL")} />
+                                                <ChartTooltip content={(props) => <ChartTooltipContent {...props} labelFormatter={(d) => new Date(String(d)).toLocaleDateString("he-IL")} />} />
                                                 <Area type="monotone" dataKey="value" stroke={getBarColor(0)} fill="url(#timelineGradient)" strokeWidth={2} name={t("charts.count")} />
                                             </AreaChart>
-                                        </ResponsiveContainer>
+                                        </ChartContainer>
                                     </CardContent>
                                 </Card>
                             )}
                         </div>
 
-                        {crossTabData.length > 0 && allTracks.length > 0 && (
+                        {crossTabData.length > 0 && allTracks.length > 0 && (() => {
+                            const trackConfig = Object.fromEntries(allTracks.map((track, i) => [track, { label: track, color: getBarColor(i) }])) satisfies ChartConfig;
+                            return (
                             <Card>
                                 <CardContent className="p-4">
                                     <p className="text-sm font-semibold mb-3">{t("charts.trackByGrade")}</p>
-                                    <ResponsiveContainer width="100%" height={280}>
+                                    <ChartContainer config={trackConfig} className="h-[280px] w-full">
                                         <BarChart data={crossTabData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                                             <XAxis dataKey="grade" tick={{ fontSize: 11 }} />
                                             <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-                                            <Tooltip contentStyle={TOOLTIP_STYLE} />
-                                            <Legend iconType="circle" iconSize={8} formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
+                                            <ChartTooltip content={(props) => <ChartTooltipContent {...props} />} />
+                                            <ChartLegend content={(props) => <ChartLegendContent {...props} />} />
                                             {allTracks.map((track, i) => (
                                                 <Bar key={track} dataKey={track} fill={getBarColor(i)} radius={[4, 4, 0, 0]} stackId={undefined} />
                                             ))}
                                         </BarChart>
-                                    </ResponsiveContainer>
+                                    </ChartContainer>
                                 </CardContent>
                             </Card>
-                        )}
+                            );
+                        })()}
                     </div>
                 );
             })()}

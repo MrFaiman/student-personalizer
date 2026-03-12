@@ -5,8 +5,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   Rectangle,
 } from "recharts";
 import { useTranslation } from "react-i18next";
@@ -24,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TOOLTIP_STYLE } from "@/lib/chart-styles";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { useFilters } from "@/components/FilterContext";
 
 // Shades of red for at-risk student visualization
@@ -128,6 +126,10 @@ function SegmentationBarChart({ items }: SegmentationBarChartProps) {
     return RED_SHADES[index];
   };
 
+  const chartConfig = {
+    red_student_count: { label: t("chart.atRiskStudents") },
+  } satisfies ChartConfig;
+
   const renderTooltip = ({
     active,
     payload,
@@ -138,7 +140,7 @@ function SegmentationBarChart({ items }: SegmentationBarChartProps) {
     if (!active || !payload?.length) return null;
     const item = payload[0].payload;
     return (
-      <div className="bg-card border rounded-lg p-3 shadow-lg" style={TOOLTIP_STYLE}>
+      <div className="border-border/50 bg-background rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
         <p className="font-medium">{item.name}</p>
         <p className="text-red-600">
           {t("tooltip.atRisk")}: {item.red_student_count} /{" "}
@@ -155,7 +157,7 @@ function SegmentationBarChart({ items }: SegmentationBarChartProps) {
   };
 
   return (
-    <ResponsiveContainer width="100%" height="100%" className="min-h-[35vh]">
+    <ChartContainer config={chartConfig} className="h-[35vh] w-full">
       <BarChart
         data={items}
         layout="vertical"
@@ -169,7 +171,7 @@ function SegmentationBarChart({ items }: SegmentationBarChartProps) {
           width={90}
           tick={{ fontSize: 11 }}
         />
-        <Tooltip content={renderTooltip} />
+        <ChartTooltip content={renderTooltip} />
         <Bar
           dataKey="red_student_count"
           name={t("chart.atRiskStudents")}
@@ -185,7 +187,7 @@ function SegmentationBarChart({ items }: SegmentationBarChartProps) {
           }}
         />
       </BarChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
 

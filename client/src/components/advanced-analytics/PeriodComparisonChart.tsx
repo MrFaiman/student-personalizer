@@ -5,9 +5,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
 } from "recharts";
 import { useTranslation } from "react-i18next";
 
@@ -15,7 +12,7 @@ import { analyticsApi } from "@/lib/api";
 import type { PeriodComparisonItem } from "@/lib/types/analytics";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TOOLTIP_STYLE } from "@/lib/chart-styles";
+import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
 import { useFilters } from "@/components/FilterContext";
 
 interface PeriodComparisonChartProps {
@@ -92,6 +89,11 @@ export function PeriodComparisonChart({
     studentCountB: item.student_count_b,
   }));
 
+  const chartConfig = {
+    [periodA]: { label: periodA, color: "#3b82f6" },
+    [periodB]: { label: periodB, color: "#10b981" },
+  } satisfies ChartConfig;
+
   const renderTooltip = ({
     active,
     payload,
@@ -118,10 +120,7 @@ export function PeriodComparisonChart({
 
     const item = payload[0]?.payload;
     return (
-      <div
-        className="bg-card border rounded-lg p-3 shadow-lg"
-        style={TOOLTIP_STYLE}
-      >
+      <div className="border-border/50 bg-background rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
         <p className="font-medium">{label}</p>
         {item.teacherName && (
           <p className="text-sm text-muted-foreground">
@@ -170,11 +169,7 @@ export function PeriodComparisonChart({
             {t("noData")}
           </div>
         ) : (
-          <ResponsiveContainer
-            width="100%"
-            height="100%"
-            className="min-h-[50vh]"
-          >
+          <ChartContainer config={chartConfig} className="h-[50vh] w-full">
             <BarChart
               data={chartData}
               margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
@@ -189,8 +184,8 @@ export function PeriodComparisonChart({
                 tick={{ fontSize: 11 }}
               />
               <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
-              <Tooltip content={renderTooltip} />
-              <Legend />
+              <ChartTooltip content={renderTooltip} />
+              <ChartLegend content={(props) => <ChartLegendContent {...props} />} />
               <Bar
                 dataKey={periodA}
                 fill="#3b82f6"
@@ -204,7 +199,7 @@ export function PeriodComparisonChart({
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         )}
       </CardContent>
     </Card>

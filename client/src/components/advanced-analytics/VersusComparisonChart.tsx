@@ -6,8 +6,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   Rectangle,
 } from "recharts";
 import { X } from "lucide-react";
@@ -26,7 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TOOLTIP_STYLE } from "@/lib/chart-styles";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { getBarColor } from "@/lib/utils";
 import { useFilters } from "@/components/FilterContext";
 
@@ -107,6 +105,10 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
     setSelectedEntities([]);
   };
 
+  const chartConfig = {
+    value: { label: t("chart.averageGrade") },
+  } satisfies ChartConfig;
+
   const renderTooltip = ({
     active,
     payload,
@@ -118,10 +120,7 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
 
     const item = payload[0].payload;
     return (
-      <div
-        className="bg-card border rounded-lg p-3 shadow-lg"
-        style={TOOLTIP_STYLE}
-      >
+      <div className="border-border/50 bg-background rounded-lg border px-2.5 py-1.5 text-xs shadow-xl">
         <p className="font-medium">{item.name}</p>
         <p className="text-lg font-bold">{item.value.toFixed(1)}</p>
         <p className="text-sm text-muted-foreground">
@@ -208,12 +207,12 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
         ) : isLoading ? (
           <Skeleton className="h-[35vh] w-full" />
         ) : chartData ? (
-          <ResponsiveContainer width="100%" height="100%" className="min-h-[35vh]">
+          <ChartContainer config={chartConfig} className="h-[35vh] w-full">
             <BarChart data={chartData.series}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
-              <Tooltip content={renderTooltip} />
+              <ChartTooltip content={renderTooltip} />
               <Bar
                 dataKey="value"
                 name={t("chart.averageGrade")}
@@ -226,7 +225,7 @@ export function VersusComparisonChart({ period }: VersusComparisonChartProps) {
                 )}
               />
             </BarChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         ) : null}
       </CardContent>
     </Card>
