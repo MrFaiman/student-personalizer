@@ -27,3 +27,8 @@ models/
 *.njsproj
 *.sln
 *.sw?
+
+.agent/
+.agents/
+.claude/
+skills-lock.json
