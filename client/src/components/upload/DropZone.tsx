@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface DropZoneProps {
   onFiles: (files: File[]) => void;
@@ -55,13 +57,11 @@ export function DropZone({ onFiles }: DropZoneProps) {
       <CardContent className="p-6">
         <div className="flex flex-col items-center text-center py-6">
           <Upload className="size-10 text-muted-foreground mb-3" />
-          <p className="text-base font-medium mb-1">
-            {t("dropzone.dragHere")}
-          </p>
+          <p className="text-base font-medium mb-1">{t("dropzone.dragHere")}</p>
           <p className="text-sm text-muted-foreground mb-3">
             {t("dropzone.orClick")}
           </p>
-          <input
+          <Input
             type="file"
             accept=".xlsx,.xls,.csv"
             onChange={handleFileSelect}
@@ -69,11 +69,11 @@ export function DropZone({ onFiles }: DropZoneProps) {
             id="file-upload"
             multiple
           />
-          <label htmlFor="file-upload">
+          <Label htmlFor="file-upload" className="cursor-pointer">
             <Button asChild size="sm">
               <span>{t("dropzone.button")}</span>
             </Button>
-          </label>
+          </Label>
         </div>
       </CardContent>
     </Card>

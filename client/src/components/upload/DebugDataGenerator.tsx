@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { ingestionApi } from "@/lib/api";
 import { formatHebrewYear } from "@/lib/hebrew-year";
 
@@ -83,9 +84,9 @@ export function DebugDataGenerator() {
           </div>
           <div className="flex items-end gap-3 flex-wrap">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-yellow-800">
+              <Label className="text-xs text-yellow-800">
                 {t("debug.studentsLabel")}
-              </label>
+              </Label>
               <Input
                 type="number"
                 min={1}
@@ -100,9 +101,9 @@ export function DebugDataGenerator() {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-yellow-800">
+              <Label className="text-xs text-yellow-800">
                 {t("debug.startYearLabel")}
-              </label>
+              </Label>
               <Select
                 value={String(debugStartYear)}
                 onValueChange={(v) => setDebugStartYear(Number(v))}
@@ -123,9 +124,9 @@ export function DebugDataGenerator() {
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-yellow-800">
+              <Label className="text-xs text-yellow-800">
                 {t("debug.endYearLabel")}
-              </label>
+              </Label>
               <Select
                 value={String(debugEndYear)}
                 onValueChange={(v) => setDebugEndYear(Number(v))}

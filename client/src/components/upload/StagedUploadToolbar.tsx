@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { formatHebrewYear } from "@/lib/hebrew-year";
 import { YEAR_SELECT_START, YEAR_SELECT_COUNT } from "@/lib/constants";
 import type { FileTypeValue, StagedFile } from "@/lib/upload-detect";
@@ -57,9 +58,7 @@ export function StagedUploadToolbar({
       {/* Bulk selectors */}
       <div className="flex items-end gap-2 flex-wrap">
         <div>
-          <label className="block text-xs font-medium mb-1">
-            {t("bulk.fileType")}
-          </label>
+          <Label className="text-xs mb-1">{t("bulk.fileType")}</Label>
           <Select
             value={bulkFileType}
             onValueChange={(v) => setBulkFileType(v as typeof bulkFileType)}
@@ -76,9 +75,7 @@ export function StagedUploadToolbar({
           </Select>
         </div>
         <div>
-          <label className="block text-xs font-medium mb-1">
-            {t("bulk.period")}
-          </label>
+          <Label className="text-xs mb-1">{t("bulk.period")}</Label>
           <Select
             value={bulkPeriod}
             onValueChange={setBulkPeriod}
@@ -104,9 +101,7 @@ export function StagedUploadToolbar({
           </Select>
         </div>
         <div>
-          <label className="block text-xs font-medium mb-1">
-            {t("bulk.year")}
-          </label>
+          <Label className="text-xs mb-1">{t("bulk.year")}</Label>
           <Select
             value={bulkYear}
             onValueChange={setBulkYear}
