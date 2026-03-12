@@ -108,36 +108,36 @@ function ClassDetailPage() {
             <Skeleton className="h-[50vh]" />
           ) : heatmapData?.students.length ? (
             <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="text-right p-2 font-semibold sticky right-0 bg-background">
+              <Table className="text-sm">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right p-2 font-semibold sticky right-0 bg-background">
                       {tc("table.student")}
-                    </th>
+                    </TableHead>
                     {heatmapData.subjects.map((subject: string) => (
-                      <th
+                      <TableHead
                         key={subject}
                         className="p-2 font-semibold text-center min-w-[60px]"
                       >
                         {subject}
-                      </th>
+                      </TableHead>
                     ))}
-                    <th className="p-2 font-semibold text-center">
+                    <TableHead className="p-2 font-semibold text-center">
                       {tc("table.average")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {heatmapData.students.map((student: HeatmapStudent) => (
-                    <tr key={student.student_tz} className="border-t">
-                      <td className="p-2 sticky right-0 bg-background">
+                    <TableRow key={student.student_tz}>
+                      <TableCell className="p-2 sticky right-0 bg-background">
                         <StudentLink
                           studentTz={student.student_tz}
                           studentName={student.student_name}
                         />
-                      </td>
+                      </TableCell>
                       {heatmapData.subjects.map((subject: string) => (
-                        <td key={subject} className="p-1 text-center">
+                        <TableCell key={subject} className="p-1 text-center">
                           <div
                             className={`rounded px-2 py-1 text-xs font-medium ${getGradeColor(
                               student.grades[subject] ?? null,
@@ -145,17 +145,17 @@ function ClassDetailPage() {
                           >
                             {student.grades[subject]?.toFixed(0) || "-"}
                           </div>
-                        </td>
+                        </TableCell>
                       ))}
-                      <td className="p-1 text-center">
+                      <TableCell className="p-1 text-center">
                         <div className="font-bold">
                           {student.average.toFixed(1)}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">

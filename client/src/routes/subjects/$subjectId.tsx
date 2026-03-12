@@ -14,13 +14,16 @@ import {
   Rectangle,
   XAxis,
   YAxis,
-  Tooltip,
-  ResponsiveContainer,
 } from "recharts";
 import { useFilters } from "@/components/FilterContext";
 import { PageHeader } from "@/components/PageHeader";
 import { getBarColor } from "@/lib/utils";
-import { TOOLTIP_STYLE } from "@/lib/chart-styles";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import { analyticsApi } from "@/lib/api";
 import { useConfigStore } from "@/lib/config-store";
 
@@ -101,7 +104,17 @@ function SubjectDetailPage() {
           </h3>
           <div className="h-[30vh]">
             {subject.grade_histogram.some((d) => d.count > 0) ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <ChartContainer
+                config={
+                  {
+                    count: {
+                      label: t("detail.studentCount"),
+                      color: "#22c55e",
+                    },
+                  } satisfies ChartConfig
+                }
+                className="h-full w-full"
+              >
                 <AreaChart data={subject.grade_histogram}>
                   <defs>
                     <linearGradient
@@ -138,25 +151,32 @@ function SubjectDetailPage() {
                       fontSize: 12,
                     }}
                   />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    labelFormatter={(label) =>
-                      `${t("detail.gradeAxis")}: ${label}`
-                    }
-                    formatter={(value) => [
-                      `${value}`,
-                      t("detail.studentCount"),
-                    ]}
+                  <ChartTooltip
+                    content={(props) => (
+                      <ChartTooltipContent
+                        {...props}
+                        labelFormatter={(_label, payload) => {
+                          const grade = (
+                            payload as
+                              | { payload?: { grade?: number } }[]
+                              | undefined
+                          )?.[0]?.payload?.grade;
+                          return grade !== undefined
+                            ? `${t("detail.gradeAxis")}: ${grade}`
+                            : "";
+                        }}
+                      />
+                    )}
                   />
                   <Area
                     type="monotone"
                     dataKey="count"
-                    stroke="#22c55e"
+                    stroke="var(--color-count)"
                     strokeWidth={2}
                     fill="url(#distributionGrad)"
                   />
                 </AreaChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 {tc("noData")}
@@ -175,16 +195,33 @@ function SubjectDetailPage() {
           </h3>
           <div className="h-[30vh]">
             {classChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <ChartContainer
+                config={
+                  {
+                    average: { label: tc("table.average") },
+                  } satisfies ChartConfig
+                }
+                className="h-full w-full"
+              >
                 <BarChart data={classChartData}>
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis domain={gradeRange} tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
-                    formatter={(value) => [
-                      `${Number(value).toFixed(1)}`,
-                      tc("table.average"),
-                    ]}
+                  <ChartTooltip
+                    content={(props) => (
+                      <ChartTooltipContent
+                        {...props}
+                        formatter={(value) => (
+                          <div className="flex justify-between gap-4 w-full">
+                            <span className="text-muted-foreground">
+                              {tc("table.average")}
+                            </span>
+                            <span className="font-mono font-medium">
+                              {Number(value).toFixed(1)}
+                            </span>
+                          </div>
+                        )}
+                      />
+                    )}
                   />
                   <Bar
                     dataKey="average"
@@ -194,7 +231,7 @@ function SubjectDetailPage() {
                     )}
                   />
                 </BarChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 {tc("noData")}

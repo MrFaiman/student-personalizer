@@ -24,7 +24,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ResponsiveContainer,
   BarChart,
   Bar,
   LineChart,
@@ -32,8 +31,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  Legend,
 } from "recharts";
 import {
   ArrowRight,
@@ -53,7 +50,7 @@ import { StatCard } from "@/components/StatCard";
 import { SortableTableHead } from "@/components/SortableTableHead";
 import { TablePagination } from "@/components/TablePagination";
 import { useTableSort, useClientSort } from "@/hooks/useTableSort";
-import { TOOLTIP_STYLE } from "@/lib/chart-styles";
+import { ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent, type ChartConfig } from "@/components/ui/chart";
 import { BAR_COLORS, getBarColor } from "@/lib/utils";
 import { RECENT_GRADES_COUNT } from "@/lib/constants";
 import { useConfigStore } from "@/lib/config-store";
@@ -403,11 +400,7 @@ function RouteComponent() {
           </div>
           <CardContent className="p-4">
             {gradeTrend.length > 0 ? (
-              <ResponsiveContainer
-                width="100%"
-                height="100%"
-                className="min-h-[35vh]"
-              >
+              <ChartContainer config={{ grade: { label: tc("table.grade"), color: "#6366f1" } } satisfies ChartConfig} className="h-[35vh] w-full">
                 <LineChart
                   data={gradeTrend}
                   margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
@@ -415,8 +408,7 @@ function RouteComponent() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="index" />
                   <YAxis domain={gradeRange} />
-                  <Tooltip
-                    contentStyle={TOOLTIP_STYLE}
+                  <ChartTooltip
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         const data = payload[0].payload;
@@ -460,14 +452,14 @@ function RouteComponent() {
                   <Line
                     type="monotone"
                     dataKey="grade"
-                    stroke="#6366f1"
+                    stroke="var(--color-grade)"
                     strokeWidth={2.5}
                     dot={{ fill: "#6366f1", r: 4 }}
                     activeDot={{ r: 6 }}
                     connectNulls
                   />
                 </LineChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             ) : (
               <div className="h-[35vh] flex items-center justify-center text-muted-foreground">
                 {t("detail.noTrendData")}
@@ -1070,11 +1062,7 @@ function SubjectBarChart({
       </div>
       <CardContent className="p-4">
         {data.length > 0 ? (
-          <ResponsiveContainer
-            width="100%"
-            height="100%"
-            className="min-h-[40vh]"
-          >
+          <ChartContainer config={{ average: { label: tc("general.averageGrade") } } satisfies ChartConfig} className="h-[40vh] w-full">
             <BarChart
               data={data}
               margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
@@ -1082,8 +1070,7 @@ function SubjectBarChart({
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
               <YAxis domain={gradeRange} />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
+              <ChartTooltip
                 cursor={{ fill: "var(--accent)" }}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
@@ -1141,7 +1128,7 @@ function SubjectBarChart({
                 }}
               />
             </BarChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         ) : (
           <div className="h-[40vh] flex items-center justify-center text-muted-foreground">
             {t("detail.noGradeData")}
@@ -1172,11 +1159,7 @@ function StudentTimelineSection({
         </h3>
       </div>
       <CardContent className="p-4">
-        <ResponsiveContainer
-          width="100%"
-          height="100%"
-          className="min-h-[35vh]"
-        >
+        <ChartContainer config={{ average_grade: { label: tc("general.averageGrade"), color: "#6366f1" }, attendance_rate: { label: tc("general.attendanceRate"), color: "#10b981" } } satisfies ChartConfig} className="h-[35vh] w-full">
           <LineChart
             data={points}
             margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
@@ -1199,15 +1182,12 @@ function StudentTimelineSection({
             <XAxis dataKey="label" tick={{ fontSize: 12 }} />
             <YAxis yAxisId="left" domain={gradeRange} />
             <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
-            <Legend
+            <ChartLegend
               verticalAlign="top"
               wrapperStyle={{ paddingBottom: 8, fontSize: 13 }}
-              formatter={(value) => (
-                <span style={{ color: "var(--foreground)" }}>{value}</span>
-              )}
+              content={(props) => <ChartLegendContent {...props} />}
             />
-            <Tooltip
-              contentStyle={TOOLTIP_STYLE}
+            <ChartTooltip
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const data = payload[0].payload as StudentTimelinePoint;
@@ -1255,7 +1235,7 @@ function StudentTimelineSection({
               type="monotone"
               dataKey="average_grade"
               name={tc("general.averageGrade")}
-              stroke="#6366f1"
+              stroke="var(--color-average_grade)"
               strokeWidth={2.5}
               dot={{ fill: "#6366f1", r: 4 }}
               activeDot={{ r: 6 }}
@@ -1266,14 +1246,14 @@ function StudentTimelineSection({
               type="monotone"
               dataKey="attendance_rate"
               name={tc("general.attendanceRate")}
-              stroke="#10b981"
+              stroke="var(--color-attendance_rate)"
               strokeWidth={2.5}
               dot={{ fill: "#10b981", r: 4 }}
               activeDot={{ r: 6 }}
               connectNulls
             />
           </LineChart>
-        </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   );
@@ -1394,11 +1374,7 @@ function SubjectGradeTimelineSection({
         </div>
       </div>
       <CardContent className="p-4">
-        <ResponsiveContainer
-          width="100%"
-          height="100%"
-          className="min-h-[35vh]"
-        >
+        <ChartContainer config={Object.fromEntries(normalizedSelectedSubjects.map((subject, i) => [subject, { label: subject, color: BAR_COLORS[i % BAR_COLORS.length] }])) satisfies ChartConfig} className="h-[35vh] w-full">
           <LineChart
             data={subjectTimeline}
             margin={{ top: 20, right: 30, bottom: 20, left: 0 }}
@@ -1406,15 +1382,12 @@ function SubjectGradeTimelineSection({
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={{ fontSize: 12 }} />
             <YAxis domain={gradeRange} />
-            <Legend
+            <ChartLegend
               verticalAlign="top"
               wrapperStyle={{ paddingBottom: 8, fontSize: 13 }}
-              formatter={(value) => (
-                <span style={{ color: "var(--foreground)" }}>{value}</span>
-              )}
+              content={(props) => <ChartLegendContent {...props} />}
             />
-            <Tooltip
-              contentStyle={TOOLTIP_STYLE}
+            <ChartTooltip
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const data = payload[0].payload as {
@@ -1474,7 +1447,7 @@ function SubjectGradeTimelineSection({
               );
             })}
           </LineChart>
-        </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   );

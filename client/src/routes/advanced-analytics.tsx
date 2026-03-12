@@ -23,6 +23,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/advanced-analytics")({
   component: AdvancedAnalyticsPage,
@@ -92,9 +93,7 @@ function AdvancedAnalyticsPage() {
             <div className="flex flex-wrap gap-4 items-end">
               {/* Grade Level Filter */}
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium">
-                  {t("filters.gradeLevel")}
-                </label>
+                <Label>{t("filters.gradeLevel")}</Label>
                 <Select
                   value={filters.gradeLevel || "all"}
                   onValueChange={(v) =>
@@ -119,9 +118,7 @@ function AdvancedAnalyticsPage() {
 
               {/* Class Filter (cascading) */}
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium">
-                  {t("filters.class")}
-                </label>
+                <Label>{t("filters.class")}</Label>
                 <Select
                   value={filters.classId || "all"}
                   onValueChange={(v) => setClassId(v === "all" ? undefined : v)}
@@ -144,9 +141,7 @@ function AdvancedAnalyticsPage() {
 
               {/* Period A */}
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium">
-                  {t("filters.periodA")}
-                </label>
+                <Label>{t("filters.periodA")}</Label>
                 <Select
                   value={filters.periodA || ""}
                   onValueChange={(v) => setPeriodA(v)}
@@ -166,9 +161,7 @@ function AdvancedAnalyticsPage() {
 
               {/* Period B */}
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium">
-                  {t("filters.periodB")}
-                </label>
+                <Label>{t("filters.periodB")}</Label>
                 <Select
                   value={filters.periodB || ""}
                   onValueChange={(v) => setPeriodB(v)}
