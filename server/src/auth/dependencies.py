@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import timezone
 from uuid import UUID
 
 from fastapi import Depends, HTTPException
@@ -8,14 +8,11 @@ from sqlmodel import Session, select
 
 from ..constants import INACTIVITY_TIMEOUT_MINUTES
 from ..database import get_session
+from ..utils.clock import utc_now
 from .models import User, UserRole, UserSession
 from .tokens import decode_token
 
 _bearer = HTTPBearer(auto_error=False)
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 def _get_token_payload(credentials: HTTPAuthorizationCredentials | None) -> dict:
@@ -50,7 +47,7 @@ def get_current_user(
     if not db_session:
         raise HTTPException(status_code=401, detail="Session expired or revoked")
 
-    inactive_minutes = (_utcnow() - db_session.last_activity.replace(tzinfo=timezone.utc)).total_seconds() / 60
+    inactive_minutes = (utc_now() - db_session.last_activity.replace(tzinfo=timezone.utc)).total_seconds() / 60
     if inactive_minutes > INACTIVITY_TIMEOUT_MINUTES:
         db_session.is_revoked = True
         session.add(db_session)
@@ -58,7 +55,7 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="הפגישה פגה עקב חוסר פעילות")
 
     # Refresh last_activity
-    db_session.last_activity = _utcnow()
+    db_session.last_activity = utc_now()
     session.add(db_session)
     session.commit()
 

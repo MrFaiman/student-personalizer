@@ -4,12 +4,14 @@ from uuid import UUID
 
 from sqlmodel import Field, SQLModel
 
+from ..utils.clock import utc_now
+
 
 class AuditLog(SQLModel, table=True):
     """Immutable audit log for all security-relevant events."""
 
     id: int | None = Field(default=None, primary_key=True)
-    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    timestamp: datetime = Field(default_factory=utc_now, index=True)
     user_id: UUID | None = Field(default=None, index=True)  # None = system/anonymous
     user_email: str | None = None
     action: str = Field(index=True)  # e.g. "login", "upload", "delete_import", "train_model"

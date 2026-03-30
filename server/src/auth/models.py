@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from ..utils.clock import utc_now
+
 
 class UserRole(str, Enum):
     admin = "admin"
@@ -24,8 +26,8 @@ class User(SQLModel, table=True):
     must_change_password: bool = Field(default=False)
     failed_login_attempts: int = Field(default=0)
     locked_until: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     sessions: list["UserSession"] = Relationship(back_populates="user")
@@ -39,11 +41,11 @@ class UserSession(SQLModel, table=True):
     user_id: UUID = Field(foreign_key="user.id", index=True)
     token_jti: str = Field(index=True, unique=True)  # JWT ID for revocation
     expires_at: datetime
-    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    last_activity: datetime = Field(default_factory=utc_now)
     ip_address: str | None = None
     user_agent: str | None = None
     is_revoked: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     user: Optional[User] = Relationship(back_populates="sessions")
@@ -55,7 +57,7 @@ class PasswordHistory(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: UUID = Field(foreign_key="user.id", index=True)
     hashed_password: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     user: Optional[User] = Relationship(back_populates="password_history")

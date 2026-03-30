@@ -1,19 +1,16 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 from jose import JWTError, jwt
 
 from ..constants import ACCESS_TOKEN_EXPIRE_MINUTES, JWT_ALGORITHM, JWT_SECRET_KEY, REFRESH_TOKEN_EXPIRE_HOURS
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+from ..utils.clock import utc_now
 
 
 def create_access_token(user_id: UUID, role: str) -> tuple[str, str, datetime]:
     """Return (token, jti, expires_at)."""
     jti = str(uuid4())
-    expires_at = _utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expires_at = utc_now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user_id),
         "role": role,
@@ -27,7 +24,7 @@ def create_access_token(user_id: UUID, role: str) -> tuple[str, str, datetime]:
 
 def create_refresh_token(user_id: UUID, jti: str) -> tuple[str, datetime]:
     """Return (token, expires_at). Shares JTI with the access token session."""
-    expires_at = _utcnow() + timedelta(hours=REFRESH_TOKEN_EXPIRE_HOURS)
+    expires_at = utc_now() + timedelta(hours=REFRESH_TOKEN_EXPIRE_HOURS)
     payload = {
         "sub": str(user_id),
         "jti": jti,

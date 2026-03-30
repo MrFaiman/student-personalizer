@@ -1,12 +1,12 @@
 import json
 import logging
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from sqlmodel import Session
 
 from .models import AuditLog
+from ..utils.clock import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def log_event(
     """Write an immutable audit log entry. Never raises, failures are logged."""
     try:
         entry = AuditLog(
-            timestamp=datetime.utcnow(),
+            timestamp=utc_now(),
             user_id=user_id,
             user_email=user_email,
             action=action,

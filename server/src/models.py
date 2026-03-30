@@ -6,6 +6,7 @@ from sqlalchemy import CheckConstraint, Column, Index
 from sqlmodel import Field, Relationship, SQLModel
 
 from .crypto.encrypted_type import EncryptedString
+from .utils.clock import utc_now
 
 
 class Teacher(SQLModel, table=True):
@@ -136,7 +137,7 @@ class UploadedFile(SQLModel, table=True):
     content_type: str
     file_size: int  # bytes
     checksum: str  # SHA-256 hex digest
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    uploaded_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     import_log: Optional["ImportLog"] = Relationship(back_populates="uploaded_file")
@@ -154,7 +155,7 @@ class OpenDayImport(SQLModel, table=True):
     filename: str
     rows_imported: int = 0
     rows_failed: int = 0
-    import_date: datetime = Field(default_factory=datetime.utcnow)
+    import_date: datetime = Field(default_factory=utc_now)
 
     registrations: list["OpenDayRegistration"] = Relationship(back_populates="import_log")
 
@@ -185,7 +186,7 @@ class OpenDayRegistration(SQLModel, table=True):
     interested_track: str | None = None
     referral_source: str | None = None
     additional_notes: str | None = None
-    import_date: datetime = Field(default_factory=datetime.utcnow)
+    import_date: datetime = Field(default_factory=utc_now)
 
     import_log: OpenDayImport | None = Relationship(back_populates="registrations")
 
@@ -207,7 +208,7 @@ class ImportLog(SQLModel, table=True):
     period: str | None = None
     year: str = Field(default="")
     uploaded_file_id: UUID | None = Field(default=None, foreign_key="uploadedfile.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
     uploaded_file: UploadedFile | None = Relationship(back_populates="import_log")

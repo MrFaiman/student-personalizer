@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import timezone
 from uuid import UUID
 
 from fastapi import HTTPException, Request
@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from ..audit.service import log_event
 from ..constants import INACTIVITY_TIMEOUT_MINUTES
+from ..utils.clock import utc_now
 from .models import PasswordHistory, User, UserRole, UserSession
 from .password import (
     PASSWORD_HISTORY_DEPTH,
@@ -23,10 +24,6 @@ logger = logging.getLogger(__name__)
 
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 class AuthService:
@@ -74,7 +71,7 @@ class AuthService:
         # Check lockout - normalise stored datetime (SQLite stores naive, PostgreSQL stores aware)
         if user.locked_until:
             locked_until = user.locked_until.replace(tzinfo=timezone.utc) if user.locked_until.tzinfo is None else user.locked_until
-            if locked_until > _utcnow():
+            if locked_until > utc_now():
                 logger.warning("login_blocked_lockout", extra={"user_id": str(user.id)})
                 log_event(self.session, action="login", user_id=user.id, user_email=user.email, success=False, ip_address=ip, user_agent=ua, detail={"reason": "account locked"})
                 raise HTTPException(status_code=429, detail="Account is temporarily locked. Please try again later.")
@@ -83,7 +80,7 @@ class AuthService:
             user.failed_login_attempts += 1
             if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
                 from datetime import timedelta
-                user.locked_until = _utcnow().replace(tzinfo=None) + timedelta(minutes=LOCKOUT_MINUTES)
+                user.locked_until = utc_now().replace(tzinfo=None) + timedelta(minutes=LOCKOUT_MINUTES)
                 logger.warning("login_account_locked", extra={"user_id": str(user.id)})
             self.session.add(user)
             self.session.commit()
@@ -93,7 +90,7 @@ class AuthService:
         # Successful login, reset failure counter
         user.failed_login_attempts = 0
         user.locked_until = None
-        user.updated_at = _utcnow()
+        user.updated_at = utc_now()
         self.session.add(user)
 
         access_token, jti, expires_at = create_access_token(user.id, user.role.value)
@@ -130,7 +127,7 @@ class AuthService:
             raise HTTPException(status_code=401, detail="Session expired or revoked")
 
         # Check inactivity timeout
-        inactive_minutes = (_utcnow() - session.last_activity.replace(tzinfo=timezone.utc)).total_seconds() / 60
+        inactive_minutes = (utc_now() - session.last_activity.replace(tzinfo=timezone.utc)).total_seconds() / 60
         if inactive_minutes > INACTIVITY_TIMEOUT_MINUTES:
             session.is_revoked = True
             self.session.add(session)
@@ -192,7 +189,7 @@ class AuthService:
         new_hash = hash_password(req.new_password)
         user.hashed_password = new_hash
         user.must_change_password = False
-        user.updated_at = _utcnow()
+        user.updated_at = utc_now()
         self.session.add(user)
 
         self.session.add(PasswordHistory(user_id=user.id, hashed_password=new_hash))
@@ -206,7 +203,7 @@ class AuthService:
         new_hash = hash_password(new_password)
         target_user.hashed_password = new_hash
         target_user.must_change_password = must_change
-        target_user.updated_at = _utcnow()
+        target_user.updated_at = utc_now()
         self.session.add(target_user)
         self.session.add(PasswordHistory(user_id=target_user.id, hashed_password=new_hash))
         # Revoke all sessions for this user
