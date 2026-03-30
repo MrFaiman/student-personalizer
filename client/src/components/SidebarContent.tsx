@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,9 @@ import {
   BarChart3,
   Book,
   CalendarDays,
+  LogOut,
 } from "lucide-react";
+import { useAuthStore } from "@/lib/auth-store";
 import { useFilterStore } from "@/lib/filter-store";
 import { formatHebrewYear } from "@/lib/hebrew-year";
 import { analyticsApi } from "@/lib/api";
@@ -46,9 +48,17 @@ const navItems = [
 
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {}) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const { year, period, gradeLevel, setFilter } = useFilterStore();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+
+  async function handleLogout() {
+    await logout();
+    navigate({ to: "/login" });
+  }
 
   const form = useAppForm({
     defaultValues: {
@@ -224,6 +234,24 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
             <span>{t("filters.searchStudent")}</span>
           </Button>
         </Link>
+
+        {user && (
+          <div className="pt-3 border-t border-border space-y-2">
+            <div className="px-3 py-1">
+              <p className="text-sm font-medium truncate">{user.display_name}</p>
+              <p className="text-xs text-muted-foreground truncate">{t(`auth.role.${user.role}`)}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+              onClick={handleLogout}
+            >
+              <LogOut className="size-4" />
+              <span>{t("auth.signOut")}</span>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

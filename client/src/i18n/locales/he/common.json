@@ -102,5 +102,29 @@
   },
   "noData": "אין נתונים להצגה",
   "viewStudent": "צפה בתלמיד",
-  "viewDetails": "צפה בפרטים"
+  "viewDetails": "צפה בפרטים",
+  "auth": {
+    "loginSubtitle": "כניסה למערכת הניהול הפדגוגי",
+    "email": "כתובת אימייל",
+    "emailPlaceholder": "your@school.il",
+    "password": "סיסמה",
+    "passwordPlaceholder": "הזן סיסמה",
+    "signIn": "כניסה למערכת",
+    "signingIn": "מתחבר...",
+    "signOut": "יציאה",
+    "loginError": "פרטי הכניסה שגויים",
+    "changePassword": "שינוי סיסמה",
+    "changePasswordRequired": "נדרש לשנות סיסמה לפני הכניסה למערכת",
+    "currentPassword": "סיסמה נוכחית",
+    "newPassword": "סיסמה חדשה",
+    "confirmPassword": "אישור סיסמה חדשה",
+    "passwordMismatch": "הסיסמאות אינן תואמות",
+    "changePasswordError": "שגיאה בשינוי הסיסמה",
+    "saving": "שומר...",
+    "role": {
+      "admin": "מנהל מערכת",
+      "teacher": "מורה",
+      "viewer": "צופה"
+    }
+  }
 }

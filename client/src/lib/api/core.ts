@@ -4,18 +4,70 @@ import { ApiError } from "../api-error";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
+let _refreshPromise: Promise<boolean> | null = null;
+
 export async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit,
   schema?: z.ZodType<T>,
 ): Promise<T> {
+  const { useAuthStore } = await import("../auth-store");
+  const { accessToken, refresh } = useAuthStore.getState();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string>),
+  };
+
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
+
+  // On 401 try a single token refresh
+  if (response.status === 401 && accessToken) {
+    if (!_refreshPromise) {
+      _refreshPromise = refresh().finally(() => {
+        _refreshPromise = null;
+      });
+    }
+    const ok = await _refreshPromise;
+    if (ok) {
+      const newToken = useAuthStore.getState().accessToken;
+      const retryHeaders = { ...headers, Authorization: `Bearer ${newToken}` };
+      const retry = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: retryHeaders,
+      });
+      if (!retry.ok) {
+        const errorData = await retry.json().catch(() => ({}));
+        throw ApiError.fromResponse(retry, errorData);
+      }
+      const retryData = await retry.json();
+      if (schema) {
+        const result = schema.safeParse(retryData);
+        if (!result.success) {
+          console.error(
+            `[API] Validation failed for ${endpoint}:`,
+            result.error.issues,
+          );
+          throw new ApiError(422, `Invalid API response from ${endpoint}`, {
+            detail: result.error.issues.map((i) => i.message).join(", "),
+          });
+        }
+        return result.data;
+      }
+      return retryData as T;
+    }
+    // Refresh failed, redirect to login
+    useAuthStore.getState().logout();
+    window.location.href = "/login";
+    throw new ApiError(401, "Session expired", {});
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -27,12 +79,13 @@ export async function fetchApi<T>(
   if (schema) {
     const result = schema.safeParse(data);
     if (!result.success) {
-      console.error(`[API] Validation failed for ${endpoint}:`, result.error.issues);
-      throw new ApiError(
-        422,
-        `Invalid API response from ${endpoint}`,
-        { detail: result.error.issues.map((i) => i.message).join(", ") },
+      console.error(
+        `[API] Validation failed for ${endpoint}:`,
+        result.error.issues,
       );
+      throw new ApiError(422, `Invalid API response from ${endpoint}`, {
+        detail: result.error.issues.map((i) => i.message).join(", "),
+      });
     }
     return result.data;
   }
