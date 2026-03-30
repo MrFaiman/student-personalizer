@@ -11,3 +11,10 @@
 data/
 !data/events.xlsx
 !data/events.csv
+
+skills-lock.json
+.agent
+.agents
+.claude
+.antigravity
+.cursor

@@ -12,6 +12,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
     restart: always
 
   server:
@@ -22,10 +24,23 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-student_personalizer}
       ORIGIN_URL: ${SERVICE_URL_CLIENT}
       PORT: "3000"
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # Auth (MoE 4.1) - required in production
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      REFRESH_TOKEN_EXPIRE_HOURS: ${REFRESH_TOKEN_EXPIRE_HOURS:-8}
+      INACTIVITY_TIMEOUT_MINUTES: ${INACTIVITY_TIMEOUT_MINUTES:-30}
+      AUTH_REQUIRED: "true"
+      # Encryption (MoE 3.2) - required in production
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
+      FIELD_ENCRYPTION_REQUIRED: "true"
+      HASH_PEPPER: ${HASH_PEPPER}
+      # Database SSL
+      DB_SSL_REQUIRED: ${DB_SSL_REQUIRED:-false}
     depends_on:
       db:
         condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
     restart: always
 
   client:
@@ -36,6 +51,8 @@ services:
         VITE_API_URL: ${SERVICE_URL_SERVER}
     depends_on:
       - server
+    security_opt:
+      - no-new-privileges:true
     restart: always
 
 volumes:

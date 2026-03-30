@@ -2,6 +2,12 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN adduser --system --uid 1000 --no-create-home appuser
+
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
@@ -14,8 +20,14 @@ RUN uv sync --frozen --no-dev
 # Copy source code
 COPY src/ ./src/
 
+# Switch to non-root user
+USER appuser
+
 # Expose port
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
 
 # Run the server
 CMD ["uv", "run", "server"]
