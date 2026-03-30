@@ -8,6 +8,7 @@ import os
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-testing-only-32chars!!")
 os.environ.setdefault("AUTH_REQUIRED", "true")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 import pytest
 from fastapi.testclient import TestClient

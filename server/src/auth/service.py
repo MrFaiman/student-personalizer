@@ -17,8 +17,8 @@ from .password import (
     validate_password_policy,
     verify_password,
 )
-from .schemas import ChangePasswordRequest, CreateUserRequest, LoginRequest, TokenResponse
-from .tokens import create_access_token, create_refresh_token, decode_refresh_token
+from .schemas import ChangePasswordRequest, CreateUserRequest, LoginRequest, MfaChallengeResponse, TokenResponse
+from .tokens import create_access_token, create_mfa_token, create_refresh_token, decode_refresh_token
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class AuthService:
         logger.info("user_created", extra={"user_id": str(user.id), "email": user.email, "role": user.role})
         return user
 
-    def login(self, req: LoginRequest, request: Request | None = None) -> TokenResponse:
+    def login(self, req: LoginRequest, request: Request | None = None) -> TokenResponse | MfaChallengeResponse:
         user = self.session.exec(select(User).where(User.email == req.email.lower().strip())).first()
 
         ip = request.client.host if request and request.client else None
@@ -92,6 +92,15 @@ class AuthService:
         user.locked_until = None
         user.updated_at = utc_now()
         self.session.add(user)
+        self.session.commit()  # persist counter reset before returning
+
+        # MFA gate: if the user has MFA enabled, issue a short-lived pending token
+        # instead of full access/refresh tokens.  The client must complete the
+        # MFA challenge at POST /api/auth/mfa/challenge.
+        if user.mfa_enabled:
+            mfa_token = create_mfa_token(user.id)
+            log_event(self.session, action="login_mfa_required", user_id=user.id, user_email=user.email, success=True, ip_address=ip, user_agent=ua)
+            return MfaChallengeResponse(mfa_token=mfa_token)
 
         access_token, jti, expires_at = create_access_token(user.id, user.role.value)
         refresh_token, _ = create_refresh_token(user.id, jti)

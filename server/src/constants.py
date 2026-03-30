@@ -72,3 +72,14 @@ INACTIVITY_TIMEOUT_MINUTES = int(os.getenv("INACTIVITY_TIMEOUT_MINUTES", "30"))
 
 # Development bypass, set AUTH_REQUIRED=false to skip auth enforcement during development
 AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "true").lower() not in ("0", "false", "no")
+
+# SIEM integration (MoE section 4.4) — set SYSLOG_HOST to enable remote log forwarding
+SYSLOG_HOST = os.getenv("SYSLOG_HOST", "")
+SYSLOG_PORT = int(os.getenv("SYSLOG_PORT", "514"))
+SYSLOG_SOCKTYPE = os.getenv("SYSLOG_SOCKTYPE", "udp")
+
+# SSO / OIDC (MoE section 4.1) — leave blank to disable SSO
+OIDC_CLIENT_ID = os.getenv("OIDC_CLIENT_ID", "")
+OIDC_CLIENT_SECRET = os.getenv("OIDC_CLIENT_SECRET", "")
+OIDC_DISCOVERY_URL = os.getenv("OIDC_DISCOVERY_URL", "")
+OIDC_REDIRECT_URI = os.getenv("OIDC_REDIRECT_URI", "")

@@ -8,7 +8,9 @@ import os
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-testing-only-32chars!!")
 os.environ.setdefault("AUTH_REQUIRED", "true")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
@@ -26,7 +28,14 @@ def _override():
         yield s
 
 
-app.dependency_overrides[get_session] = _override
+@pytest.fixture(scope="module", autouse=True)
+def _set_session_override():
+    """Ensure get_session is overridden for the entire module, even after other modules' teardown."""
+    app.dependency_overrides[get_session] = _override
+    yield
+    app.dependency_overrides.pop(get_session, None)
+
+
 client = TestClient(app, raise_server_exceptions=False)
 
 REQUIRED_HEADERS = {

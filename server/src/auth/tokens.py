@@ -45,3 +45,25 @@ def decode_refresh_token(token: str) -> dict:
     if payload.get("type") != "refresh":
         raise JWTError("Not a refresh token")
     return payload
+
+
+def create_mfa_token(user_id: UUID) -> str:
+    """Short-lived token (5 min) issued after password login when MFA is required.
+
+    The client submits this token alongside the TOTP code to complete login.
+    It carries type='mfa_pending' so it cannot be used as an access token.
+    """
+    expires_at = utc_now() + timedelta(minutes=5)
+    payload = {
+        "sub": str(user_id),
+        "exp": expires_at,
+        "type": "mfa_pending",
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def decode_mfa_token(token: str) -> dict:
+    payload = decode_token(token)
+    if payload.get("type") != "mfa_pending":
+        raise JWTError("Not an MFA pending token")
+    return payload

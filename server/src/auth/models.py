@@ -29,6 +29,11 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
+    # MFA fields (MoE section 4.2)
+    mfa_secret: str | None = Field(default=None)        # TOTP secret (base32); None = MFA not configured
+    mfa_enabled: bool = Field(default=False)            # True once user completes TOTP setup
+    mfa_backup_codes: str | None = Field(default=None)  # JSON array of hashed backup codes
+
     # Relationships
     sessions: list["UserSession"] = Relationship(back_populates="user")
     password_history: list["PasswordHistory"] = Relationship(back_populates="user")

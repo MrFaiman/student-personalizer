@@ -25,6 +25,10 @@ dependencies = [
     "alembic>=1.14.0",
     "cryptography>=44.0.0",
     "pydantic-settings>=2.0",
+    "slowapi>=0.1.9",
+    "pyotp>=2.9.0",
+    "qrcode[pil]>=8.0",
+    "authlib>=1.5.0",
 ]
 
 [project.scripts]
@@ -38,7 +42,7 @@ build-backend = "hatchling.build"
 packages = ["src"]
 
 [dependency-groups]
-dev = ["ruff>=0.9.0", "pytest>=8.0.0"]
+dev = ["ruff>=0.9.0", "pytest>=8.0.0", "bandit>=1.8.0", "pip-audit>=2.7.0"]
 
 [tool.ruff]
 line-length = 140

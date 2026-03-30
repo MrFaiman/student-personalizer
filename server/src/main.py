@@ -3,8 +3,12 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, ENABLE_DEBUG, ORIGIN_URL, PORT
+from .middleware.rate_limit import RATE_LIMIT_ENABLED, limiter
 from .database import get_session, init_db
 from .logging_config import setup_logging
 from .middleware.request_log import RequestLoggingMiddleware
@@ -36,6 +40,12 @@ app = FastAPI(
     redoc_url="/redoc" if ENABLE_DEBUG else None,
     openapi_url="/openapi.json" if ENABLE_DEBUG else None,
 )
+
+# Rate limiting (disabled via RATE_LIMIT_ENABLED=false in test environments)
+if RATE_LIMIT_ENABLED:
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
 
 # Security headers (add first so every response gets them)
 app.add_middleware(SecurityHeadersMiddleware)

@@ -17,6 +17,14 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class MfaChallengeResponse(BaseModel):
+    """Returned by /login when the user has MFA enabled.
+    The client must POST this mfa_token + TOTP code to /mfa/challenge.
+    """
+    mfa_required: bool = True
+    mfa_token: str
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -54,6 +62,7 @@ class UserResponse(BaseModel):
     role: UserRole
     is_active: bool
     must_change_password: bool
+    mfa_enabled: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -61,3 +70,26 @@ class UserResponse(BaseModel):
 class AdminResetPasswordRequest(BaseModel):
     new_password: str
     must_change_password: bool = True
+
+
+# MFA schemas (MoE section 4.2)
+class MfaSetupResponse(BaseModel):
+    """Returned when MFA setup is initiated — contains provisioning URI for QR code."""
+    provisioning_uri: str
+    secret: str  # base32 secret shown to user for manual entry
+
+
+class MfaVerifyRequest(BaseModel):
+    """TOTP code to verify during setup or login."""
+    code: str
+
+
+class MfaBackupCodesResponse(BaseModel):
+    """Plaintext backup codes shown once after MFA activation."""
+    backup_codes: list[str]
+
+
+class MfaLoginRequest(BaseModel):
+    """Second-factor submission during login when MFA is enabled."""
+    mfa_token: str  # JWT from first-factor login, used to identify pending session
+    code: str       # 6-digit TOTP code or backup code
