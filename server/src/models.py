@@ -2,8 +2,10 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, Index
+from sqlalchemy import CheckConstraint, Column, Index
 from sqlmodel import Field, Relationship, SQLModel
+
+from .crypto.encrypted_type import EncryptedString
 
 
 class Teacher(SQLModel, table=True):
@@ -47,10 +49,13 @@ class Student(SQLModel, table=True):
 
     __table_args__ = (
         Index("ix_student_class_id", "class_id"),
+        Index("ix_student_tz_hash", "student_tz_hash"),
     )
 
-    student_tz: str = Field(primary_key=True)  # ID Card / Unique ID (ת.ז)
-    student_name: str
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    student_tz: str = Field(index=True, unique=True)
+    student_tz_hash: str = Field(default="")
+    student_name: str = Field(sa_column=Column("student_name", EncryptedString, nullable=False))
     class_id: UUID | None = Field(default=None, foreign_key="class.id")
 
     # Relationships
@@ -166,12 +171,15 @@ class OpenDayRegistration(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     import_id: int | None = Field(default=None, foreign_key="opendayimport.id", index=True)
     submitted_at: datetime | None = None
-    first_name: str
-    last_name: str
-    student_id: str | None = None
-    parent_name: str | None = None
-    phone: str | None = None
-    email: str | None = None
+
+    # PII fields - encrypted via EncryptedString TypeDecorator
+    first_name: str = Field(sa_column=Column("first_name", EncryptedString, nullable=False))
+    last_name: str = Field(sa_column=Column("last_name", EncryptedString, nullable=False))
+    student_id: str | None = Field(default=None)
+    parent_name: str | None = Field(sa_column=Column("parent_name", EncryptedString, nullable=True))
+    phone: str | None = Field(sa_column=Column("phone", EncryptedString, nullable=True))
+    email: str | None = Field(sa_column=Column("email", EncryptedString, nullable=True))
+
     current_school: str | None = None
     next_grade: str | None = None
     interested_track: str | None = None

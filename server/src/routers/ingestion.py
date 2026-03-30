@@ -5,12 +5,14 @@ from typing import Literal
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, func, select
 
-from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, DEFAULT_YEAR, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, UPLOAD_DIR, VALID_MIME_TYPES
+from ..auth.dependencies import require_admin, require_teacher
+from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, DEFAULT_YEAR, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, UPLOAD_DIR
 from ..database import get_session
 from ..dependencies import require_write_access
 from ..models import AttendanceRecord, Grade, ImportLog, UploadedFile
 from ..schemas.ingestion import ImportLogListResponse, ImportLogResponse, ImportResponse
 from ..services.ingestion import ImportResult, IngestionService
+from ..utils.file_validation import sanitize_filename, validate_upload
 
 router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
 
@@ -18,7 +20,7 @@ _upload_path = Path(UPLOAD_DIR)
 _upload_path.mkdir(parents=True, exist_ok=True)
 
 
-@router.post("/upload", response_model=ImportResponse, dependencies=[Depends(require_write_access)])
+@router.post("/upload", response_model=ImportResponse, dependencies=[Depends(require_write_access), Depends(require_admin)])
 async def upload_file(
     file: UploadFile = File(...),
     file_type: Literal["grades", "events"] | None = Query(
@@ -44,18 +46,10 @@ async def upload_file(
     - **grades**: Files with student grades (avg_grades.xlsx/csv format)
     - **events**: Files with attendance/behavior events (events.xlsx/csv format)
     """
+    content = await validate_upload(file)
+    if file.filename:
+        file.filename = sanitize_filename(file.filename)
     content_type = file.content_type or ""
-    mime_format = VALID_MIME_TYPES.get(content_type)
-    if not mime_format:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type '{content_type}'. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file",
-        )
-
-    content = await file.read()
-
-    if len(content) == 0:
-        raise HTTPException(status_code=400, detail="Empty file uploaded")
 
     # Check for duplicate upload
     checksum = hashlib.sha256(content).hexdigest()
@@ -114,7 +108,7 @@ async def upload_file(
     )
 
 
-@router.get("/logs", response_model=ImportLogListResponse)
+@router.get("/logs", response_model=ImportLogListResponse, dependencies=[Depends(require_teacher)])
 async def get_import_logs(
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
@@ -161,7 +155,7 @@ async def get_import_logs(
     )
 
 
-@router.get("/logs/{batch_id}", response_model=ImportLogResponse)
+@router.get("/logs/{batch_id}", response_model=ImportLogResponse, dependencies=[Depends(require_teacher)])
 async def get_import_log(
     batch_id: str,
     session: Session = Depends(get_session),
@@ -186,7 +180,7 @@ async def get_import_log(
     )
 
 
-@router.delete("/logs/{batch_id}", dependencies=[Depends(require_write_access)])
+@router.delete("/logs/{batch_id}", dependencies=[Depends(require_write_access), Depends(require_admin)])
 async def delete_import_log(
     batch_id: str,
     session: Session = Depends(get_session),

@@ -15,10 +15,11 @@ from ..schemas.analytics import (
     SubjectGradeItem,
     VersusChartData,
 )
+from ..auth.dependencies import require_viewer
 from ..services.analytics import AnalyticsService
 from ..views.analytics import AnalyticsDefaultView
 
-router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+router = APIRouter(prefix="/api/analytics", tags=["analytics"], dependencies=[Depends(require_viewer)])
 
 
 @router.get("/kpis", response_model=LayerKPIsResponse)

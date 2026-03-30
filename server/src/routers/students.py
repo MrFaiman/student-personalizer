@@ -3,6 +3,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
+from ..auth.dependencies import get_current_user, require_teacher
+from ..auth.models import User
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from ..database import get_session
 from ..schemas.student import (
@@ -14,9 +16,10 @@ from ..schemas.student import (
     StudentTimelineResponse,
 )
 from ..services.students import StudentService
+from ..views.masking import apply_student_mask
 from ..views.students import StudentDefaultView
 
-router = APIRouter(prefix="/api/students", tags=["students"])
+router = APIRouter(prefix="/api/students", tags=["students"], dependencies=[Depends(require_teacher)])
 
 
 @router.get("", response_model=StudentListResponse)
@@ -31,6 +34,7 @@ async def list_students(
     sort_by: str | None = Query(default=None, description="Column to sort by: student_name, average_grade, total_absences, class_name"),
     sort_order: str = Query(default="asc", description="Sort direction: asc or desc"),
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     """List students with optional filtering and sorting."""
     service = StudentService(session)
@@ -47,6 +51,7 @@ async def list_students(
         sort_by=sort_by,
         sort_order=sort_order,
     )
+    data["items"] = [apply_student_mask(item, current_user.role) for item in data["items"]]
     return view.render_list(data)
 
 
@@ -71,6 +76,7 @@ async def get_student(
     period: str | None = Query(default=None),
     year: str | None = Query(default=None),
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     """Get a specific student by TZ."""
     service = StudentService(session)
@@ -79,7 +85,7 @@ async def get_student(
     data = service.get_student_detail(student_tz, period, year)
     if not data:
         raise HTTPException(status_code=404, detail="Student not found")
-    return view.render_detail(data)
+    return view.render_detail(apply_student_mask(data, current_user.role))
 
 
 @router.get("/{student_tz}/grades", response_model=list[GradeResponse])
@@ -120,12 +126,12 @@ async def get_student_attendance(
 async def get_student_timeline(
     student_tz: str,
     session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     """Get multi-year timeline data for a student."""
     service = StudentService(session)
     data = service.get_student_timeline(student_tz)
     if not data:
         raise HTTPException(status_code=404, detail="Student not found")
-    
-    return StudentTimelineResponse(**data)
+    return StudentTimelineResponse(**apply_student_mask(data, current_user.role))
 

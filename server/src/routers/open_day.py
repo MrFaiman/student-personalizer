@@ -3,6 +3,7 @@ from collections import Counter
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, func, select
 
+from ..auth.dependencies import require_admin, require_teacher
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, VALID_MIME_TYPES
 from ..database import get_session
 from ..dependencies import require_write_access
@@ -20,7 +21,7 @@ from ..services.open_day import OpenDayService
 router = APIRouter(prefix="/api/open-day", tags=["open-day"])
 
 
-@router.post("/upload", response_model=OpenDayUploadResponse, dependencies=[Depends(require_write_access)])
+@router.post("/upload", response_model=OpenDayUploadResponse, dependencies=[Depends(require_write_access), Depends(require_admin)])
 async def upload_open_day_file(
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
@@ -45,7 +46,7 @@ async def upload_open_day_file(
         raise HTTPException(status_code=400, detail=f"Could not parse file: {exc}")
 
 
-@router.get("/registrations", response_model=OpenDayRegistrationListResponse)
+@router.get("/registrations", response_model=OpenDayRegistrationListResponse, dependencies=[Depends(require_teacher)])
 async def list_registrations(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
@@ -105,7 +106,7 @@ async def list_registrations(
     )
 
 
-@router.get("/stats", response_model=OpenDayStats)
+@router.get("/stats", response_model=OpenDayStats, dependencies=[Depends(require_teacher)])
 async def get_stats(session: Session = Depends(get_session)):
     """Return aggregate stats for open day registrations."""
     from collections import defaultdict
@@ -152,7 +153,7 @@ async def get_stats(session: Session = Depends(get_session)):
     )
 
 
-@router.get("/imports", response_model=OpenDayImportListResponse)
+@router.get("/imports", response_model=OpenDayImportListResponse, dependencies=[Depends(require_teacher)])
 async def list_imports(session: Session = Depends(get_session)):
     """List all open day file imports (upload history)."""
     imports = session.exec(
@@ -175,7 +176,7 @@ async def list_imports(session: Session = Depends(get_session)):
     )
 
 
-@router.delete("/reset", dependencies=[Depends(require_write_access)])
+@router.delete("/reset", dependencies=[Depends(require_write_access), Depends(require_admin)])
 async def reset_all(session: Session = Depends(get_session)):
     """Delete all open day registrations and imports."""
     from sqlmodel import delete
@@ -186,7 +187,7 @@ async def reset_all(session: Session = Depends(get_session)):
     return {"message": "All open day data deleted"}
 
 
-@router.delete("/imports/{import_id}", dependencies=[Depends(require_write_access)])
+@router.delete("/imports/{import_id}", dependencies=[Depends(require_write_access), Depends(require_admin)])
 async def delete_import(import_id: int, session: Session = Depends(get_session)):
     """Delete an import and all its registrations."""
     from sqlmodel import delete

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
+from ..auth.dependencies import require_admin, require_teacher
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from ..database import get_session
 from ..schemas.ml import BatchPredictionResponse, ModelStatusResponse, StudentPrediction, TrainResponse
@@ -11,7 +12,7 @@ from ..services.ml import MLService
 router = APIRouter(prefix="/api/ml", tags=["ml"])
 
 
-@router.post("/train", response_model=TrainResponse)
+@router.post("/train", response_model=TrainResponse, dependencies=[Depends(require_admin)])
 async def train_model(
     period: str | None = Query(default=None, description="Period filter for training data"),
     session: Session = Depends(get_session),
@@ -25,7 +26,7 @@ async def train_model(
     return result
 
 
-@router.get("/predict/{student_tz}", response_model=StudentPrediction)
+@router.get("/predict/{student_tz}", response_model=StudentPrediction, dependencies=[Depends(require_teacher)])
 async def predict_student(
     student_tz: str,
     period: str | None = Query(default=None, description="Period filter"),
@@ -42,7 +43,7 @@ async def predict_student(
     return result
 
 
-@router.get("/predict", response_model=BatchPredictionResponse)
+@router.get("/predict", response_model=BatchPredictionResponse, dependencies=[Depends(require_teacher)])
 async def predict_all(
     period: str | None = Query(default=None, description="Period filter"),
     page: int = Query(default=1, ge=1, description="Page number"),
@@ -60,7 +61,7 @@ async def predict_all(
     return result
 
 
-@router.get("/status", response_model=ModelStatusResponse)
+@router.get("/status", response_model=ModelStatusResponse, dependencies=[Depends(require_teacher)])
 async def model_status(session: Session = Depends(get_session)):
     """Get current model status and metadata."""
     service = MLService(session)

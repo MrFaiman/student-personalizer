@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from ..auth.dependencies import require_admin
+from ..auth.models import User
 from ..constants import (
-    ADMIN_PASSWORD,
     AT_RISK_GRADE_THRESHOLD,
     DEFAULT_PAGE_SIZE,
     ENABLE_DEBUG,
@@ -20,7 +21,6 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 
 
 class PreviewModeToggle(BaseModel):
-    password: str
     enabled: bool
 
 
@@ -45,9 +45,7 @@ async def get_preview_mode_status():
     return {"preview_mode": get_preview_mode()}
 
 
-@router.post("/preview-mode")
-async def toggle_preview_mode(body: PreviewModeToggle):
-    if not ADMIN_PASSWORD or body.password != ADMIN_PASSWORD:
-        raise HTTPException(status_code=401, detail="Invalid admin password.")
+@router.post("/preview-mode", dependencies=[Depends(require_admin)])
+async def toggle_preview_mode(body: PreviewModeToggle, _admin: User = Depends(require_admin)):
     set_preview_mode(body.enabled)
     return {"preview_mode": get_preview_mode()}

@@ -158,7 +158,7 @@ class StudentService:
 
     def get_student_detail(self, student_tz: str, period: str | None = None, year: str | None = None) -> dict | None:
         """Get flattened detailed student data as a dict for the view."""
-        student = self.session.get(Student, student_tz)
+        student = self.session.exec(select(Student).where(Student.student_tz == student_tz)).first()
         if not student:
             return None
 
@@ -297,7 +297,7 @@ class StudentService:
 
     def get_student_grades(self, student_tz: str, period: str | None = None, year: str | None = None) -> list[dict] | None:
         """Get all grades for a student as a list of dicts for the view."""
-        student = self.session.get(Student, student_tz)
+        student = self.session.exec(select(Student).where(Student.student_tz == student_tz)).first()
         if not student:
             return None
 
@@ -323,7 +323,7 @@ class StudentService:
 
     def get_student_attendance(self, student_tz: str, period: str | None = None, year: str | None = None) -> list[dict] | None:
         """Get all attendance records for a student as a list of dicts for the view."""
-        student = self.session.get(Student, student_tz)
+        student = self.session.exec(select(Student).where(Student.student_tz == student_tz)).first()
         if not student:
             return None
 
@@ -428,7 +428,7 @@ class StudentService:
 
     def get_student_timeline(self, student_tz: str) -> dict | None:
         """Query grades/attendance grouped by year+period, return list of timeline points."""
-        student = self.session.get(Student, student_tz)
+        student = self.session.exec(select(Student).where(Student.student_tz == student_tz)).first()
         if not student:
             return None
 

@@ -9,12 +9,13 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from ..auth.dependencies import require_admin
 from ..constants import XLSX_CONTENT_TYPE
 from ..database import get_session
 from ..services.data_generator import generate_school_data
 from ..services.ingestion import IngestionService
 
-router = APIRouter(prefix="/api/debug", tags=["debug"])
+router = APIRouter(prefix="/api/debug", tags=["debug"], dependencies=[Depends(require_admin)])
 
 
 class FileResult(BaseModel):

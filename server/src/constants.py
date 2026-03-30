@@ -61,8 +61,14 @@ XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml
 DEFAULT_PERIOD = "Default"
 DEFAULT_YEAR = ""
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
-# ENABLE_DEBUG = os.getenv("ENABLE_DEBUG", "").lower() in ("1", "true", "yes")
-ENABLE_DEBUG = True
+ENABLE_DEBUG = os.getenv("ENABLE_DEBUG", "").lower() in ("1", "true", "yes")
 
-# Admin
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+# Auth (MoE section 4.1)
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+REFRESH_TOKEN_EXPIRE_HOURS = int(os.getenv("REFRESH_TOKEN_EXPIRE_HOURS", "8"))
+INACTIVITY_TIMEOUT_MINUTES = int(os.getenv("INACTIVITY_TIMEOUT_MINUTES", "30"))
+
+# Development bypass, set AUTH_REQUIRED=false to skip auth enforcement during development
+AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "true").lower() not in ("0", "false", "no")

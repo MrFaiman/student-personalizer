@@ -5,14 +5,24 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, ENABLE_DEBUG, ORIGIN_URL, PORT
-from .database import init_db
+from .database import get_session, init_db
+from .logging_config import setup_logging
+from .middleware.request_log import RequestLoggingMiddleware
+from .middleware.security_headers import SecurityHeadersMiddleware
 from .routers import analytics, classes, config, ingestion, ml, open_day, students, subjects, teachers
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database on startup."""
+    """Initialize database and create default admin on startup."""
+    setup_logging()
     init_db()
+
+    # Ensure at least one admin user exists
+    from .auth.service import AuthService
+    with next(get_session()) as session:
+        AuthService(session).ensure_default_admin()
+
     yield
 
 
@@ -21,18 +31,32 @@ app = FastAPI(
     description=API_DESCRIPTION,
     version=API_VERSION,
     lifespan=lifespan,
+    # Disable auto-generated docs in non-debug mode
+    docs_url="/docs" if ENABLE_DEBUG else None,
+    redoc_url="/redoc" if ENABLE_DEBUG else None,
+    openapi_url="/openapi.json" if ENABLE_DEBUG else None,
 )
+
+# Security headers (add first so every response gets them)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Request logging
+app.add_middleware(RequestLoggingMiddleware)
 
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[ORIGIN_URL],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
-# Include routers
+# Auth router
+from .auth.router import router as auth_router
+app.include_router(auth_router)
+
+# Application routers
 app.include_router(config.router)
 app.include_router(ingestion.router)
 app.include_router(classes.router)
@@ -41,10 +65,8 @@ app.include_router(students.router)
 app.include_router(analytics.router)
 app.include_router(subjects.router)
 app.include_router(open_day.router)
-
 app.include_router(ml.router)
 
-print(ENABLE_DEBUG)
 if ENABLE_DEBUG:
     from .routers import debug
     app.include_router(debug.router)

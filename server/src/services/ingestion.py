@@ -293,10 +293,13 @@ class IngestionService:
             self.session.add(student)
             return student, False
 
+        from ..crypto.field_encryption import hash_for_lookup
+
         student = Student(
             student_tz=student_tz,
             student_name=student_name,
             class_id=class_id,
+            student_tz_hash=hash_for_lookup(student_tz),
         )
         self.session.add(student)
         self.session.flush()
