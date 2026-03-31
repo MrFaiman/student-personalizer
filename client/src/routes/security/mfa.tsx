@@ -6,12 +6,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, LockOpen } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/lib/auth-store";
 import { authApi } from "@/lib/api/auth";
 import { MfaEnrollPanel } from "@/components/MfaEnrollPanel";
+import { MfaCodeInput } from "@/components/mfa/MfaCodeInput";
+import { MfaPageTitle } from "@/components/mfa/MfaPageTitle";
 
 export const Route = createFileRoute("/security/mfa")({
   beforeLoad: () => {
@@ -58,18 +59,13 @@ function MfaSettingsPage() {
         <title>{`${t("security.mfa.title")} | ${t("appName")}`}</title>
       </Helmet>
 
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ShieldCheck className="size-6 text-muted-foreground" />
-          {t("security.mfa.title")}
-        </h1>
-        <div className="flex items-center gap-2 mt-2">
-          {statusBadge}
-          <span className="text-sm text-muted-foreground">
-            {t("security.mfa.subtitle")}
-          </span>
-        </div>
-      </div>
+      <MfaPageTitle
+        variant="inline"
+        icon={<ShieldCheck className="size-6 text-muted-foreground" />}
+        title={t("security.mfa.title")}
+        subtitle={t("security.mfa.subtitle")}
+        badge={statusBadge}
+      />
 
       {!enabled && <MfaEnrollPanel />}
 
@@ -79,12 +75,9 @@ function MfaSettingsPage() {
             <h3 className="text-lg font-bold">{t("security.mfa.disableTitle")}</h3>
             <p className="text-sm text-muted-foreground">{t("security.mfa.disableDescription")}</p>
             <div className="flex gap-2">
-              <Input
+              <MfaCodeInput
                 value={disableCode}
-                onChange={(e) => setDisableCode(e.target.value)}
-                placeholder="000000"
-                dir="ltr"
-                inputMode="numeric"
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisableCode(e.target.value)}
               />
               <Button
                 variant="destructive"

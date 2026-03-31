@@ -7,6 +7,7 @@ import { ShieldCheck } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { useConfigStore } from "@/lib/config-store";
 import { MfaEnrollPanel } from "@/components/MfaEnrollPanel";
+import { MfaPageTitle } from "@/components/mfa/MfaPageTitle";
 
 export const Route = createFileRoute("/enroll/mfa")({
   beforeLoad: () => {
@@ -42,15 +43,12 @@ function EnrollMfaPage() {
         <title>{`${t("security.mfa.title")} | ${t("appName")}`}</title>
       </Helmet>
       <div className="w-full max-w-md space-y-6">
-        <div className="flex flex-col items-center gap-3">
-          <div className="bg-primary/10 rounded-full p-4">
-            <ShieldCheck className="size-10 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold">{t("security.mfa.enrollTitle")}</h1>
-          <p className="text-muted-foreground text-sm text-center">
-            {t("security.mfa.enrollSubtitle")}
-          </p>
-        </div>
+        <MfaPageTitle
+          variant="centered"
+          icon={<ShieldCheck className="size-10 text-primary" />}
+          title={t("security.mfa.enrollTitle")}
+          subtitle={t("security.mfa.enrollSubtitle")}
+        />
 
         <MfaEnrollPanel
           onEnrolled={() => {

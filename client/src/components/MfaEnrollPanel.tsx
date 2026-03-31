@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, KeyRound } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import * as QRCode from "qrcode";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { authApi } from "@/lib/api/auth";
 import { useAuthStore } from "@/lib/auth-store";
+import { CopyToClipboardButton } from "@/components/mfa/CopyToClipboardButton";
+import { MfaCodeInput } from "@/components/mfa/MfaCodeInput";
 
 export function MfaEnrollPanel({ onEnrolled }: { onEnrolled?: () => void }) {
   const { t } = useTranslation();
@@ -62,10 +63,6 @@ export function MfaEnrollPanel({ onEnrolled }: { onEnrolled?: () => void }) {
     staleTime: Infinity,
   });
 
-  async function copy(text: string) {
-    await navigator.clipboard.writeText(text);
-  }
-
   return (
     <div className="space-y-4">
       <Card>
@@ -100,15 +97,7 @@ export function MfaEnrollPanel({ onEnrolled }: { onEnrolled?: () => void }) {
               <div className="rounded-md border p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-medium">{t("security.mfa.qrCode")}</div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => copy(setupData.provisioningUri)}
-                  >
-                    <Copy className="size-4" />
-                    {t("security.mfa.copy")}
-                  </Button>
+                  <CopyToClipboardButton text={setupData.provisioningUri} />
                 </div>
 
                 <div className="flex items-center justify-center">
@@ -137,15 +126,7 @@ export function MfaEnrollPanel({ onEnrolled }: { onEnrolled?: () => void }) {
               <div className="rounded-md border p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-medium">{t("security.mfa.secret")}</div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => copy(setupData.secret)}
-                  >
-                    <Copy className="size-4" />
-                    {t("security.mfa.copy")}
-                  </Button>
+                  <CopyToClipboardButton text={setupData.secret} />
                 </div>
                 <div className="font-mono text-sm break-all" dir="ltr">
                   {setupData.secret}
@@ -157,12 +138,9 @@ export function MfaEnrollPanel({ onEnrolled }: { onEnrolled?: () => void }) {
                   {t("security.mfa.verifyCode")}
                 </label>
                 <div className="flex gap-2">
-                  <Input
+                  <MfaCodeInput
                     value={verifyCode}
                     onChange={(e) => setVerifyCode(e.target.value)}
-                    placeholder="000000"
-                    dir="ltr"
-                    inputMode="numeric"
                   />
                   <Button
                     onClick={() => verifyMutation.mutate()}

@@ -43,11 +43,20 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : t("auth.changePasswordError");
-      // Try to parse array of errors from server
+      // Try to parse password errors from server
       try {
         const parsed = JSON.parse(msg);
-        if (parsed?.password_errors) {
-          setErrors(parsed.password_errors);
+        const raw = (parsed as { password_errors?: unknown } | null)?.password_errors;
+        if (typeof raw === "string") {
+          setErrors([raw]);
+          return;
+        }
+        if (Array.isArray(raw)) {
+          const normalized = raw.filter((v): v is string => typeof v === "string");
+          if (normalized.length > 0) {
+            setErrors(normalized);
+            return;
+          }
           return;
         }
       } catch {
