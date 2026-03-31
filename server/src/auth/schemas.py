@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, field_validator
 
 from .models import UserRole
 from .password import PASSWORD_MIN_LENGTH
@@ -47,6 +47,8 @@ class CreateUserRequest(BaseModel):
     password: str
     role: UserRole = UserRole.viewer
     must_change_password: bool = True
+    school_id: int | None = None
+    school_name: str | None = None
 
 
 class UpdateUserRequest(BaseModel):
@@ -63,6 +65,10 @@ class UserResponse(BaseModel):
     is_active: bool
     must_change_password: bool
     mfa_enabled: bool = False
+    mfa_verified: bool = False          # was MFA completed in this session?
+    identity_provider: str = "local"    # "local" | "oidc" | ...
+    school_id: int | None = None
+    school_name: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -74,7 +80,7 @@ class AdminResetPasswordRequest(BaseModel):
 
 # MFA schemas (MoE section 4.2)
 class MfaSetupResponse(BaseModel):
-    """Returned when MFA setup is initiated — contains provisioning URI for QR code."""
+    """Returned when MFA setup is initiated - contains provisioning URI for QR code."""
     provisioning_uri: str
     secret: str  # base32 secret shown to user for manual entry
 
@@ -93,3 +99,8 @@ class MfaLoginRequest(BaseModel):
     """Second-factor submission during login when MFA is enabled."""
     mfa_token: str  # JWT from first-factor login, used to identify pending session
     code: str       # 6-digit TOTP code or backup code
+
+
+class SchoolOptionResponse(BaseModel):
+    school_id: int
+    school_name: str

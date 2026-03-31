@@ -125,6 +125,16 @@
       "admin": "מנהל מערכת",
       "teacher": "מורה",
       "viewer": "צופה"
-    }
+    },
+    "mfaRequired": "נדרש אימות דו-שלבי",
+    "mfaSubtitle": "הזן את הקוד מאפליקציית האימות",
+    "mfaCode": "קוד אימות",
+    "mfaCodePlaceholder": "000000",
+    "mfaVerify": "אימות",
+    "mfaVerifying": "מאמת...",
+    "mfaError": "קוד אימות שגוי",
+    "mfaBackToLogin": "חזרה לכניסה",
+    "ssoSignIn": "כניסה עם SSO",
+    "orDivider": "או"
   }
 }

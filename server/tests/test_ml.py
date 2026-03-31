@@ -1,14 +1,39 @@
 """Tests for the ML prediction service and API endpoints."""
 
 import json
+import os
+import uuid
+
+os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-testing-only-32chars!!")
+os.environ.setdefault("DATABASE_URL", "sqlite://")
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 
+from src.auth.current_user import CurrentUser
+from src.auth.dependencies import get_current_user
+from src.auth.models import UserRole
 from src.database import get_session
 from src.main import app
 from src.services.ml import FEATURE_COLUMNS, MLService
+
+_ADMIN_USER = CurrentUser(
+    user_id=uuid.uuid4(),
+    email="admin@test.local",
+    display_name="Test Admin",
+    role=UserRole.admin,
+    is_active=True,
+    must_change_password=False,
+    mfa_enabled=False,
+    mfa_verified=False,
+    identity_provider="local",
+    external_id=None,
+    school_id=None,
+    school_name=None,
+    session_jti="test-jti",
+)
 
 
 class TestBuildFeatures:
@@ -175,12 +200,13 @@ class TestMLEndpoints:
 
     @pytest.fixture()
     def client(self, seeded_engine):
-        """TestClient with dependency override pointing to the seeded DB."""
+        """TestClient with dependency overrides: seeded DB + admin auth bypass."""
         def override_session():
             with Session(seeded_engine) as s:
                 yield s
 
         app.dependency_overrides[get_session] = override_session
+        app.dependency_overrides[get_current_user] = lambda: _ADMIN_USER
         with TestClient(app) as c:
             yield c
         app.dependency_overrides.clear()
@@ -254,6 +280,7 @@ class TestMLEndpoints:
                 yield s
 
         app.dependency_overrides[get_session] = override_empty
+        app.dependency_overrides[get_current_user] = lambda: _ADMIN_USER
         with TestClient(app) as c:
             resp = c.post("/api/ml/train", params={"period": "Q1"})
         app.dependency_overrides.clear()

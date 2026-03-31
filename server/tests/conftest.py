@@ -56,10 +56,10 @@ def _seed_db(engine):
                 # Distribute subjects like "Math", "English", "History" etc.
                 subject_name = f"Subject-{j+1}" 
                 s.add(Grade(
-                    student_tz=tz, 
-                    subject=subject_name,
+                    student_tz=tz,
+                    subject_name=subject_name,
                     teacher_name=f"Teacher-{j+1}",
-                    grade=float(g), 
+                    grade=float(g),
                     period="Q1"
                 ))
 

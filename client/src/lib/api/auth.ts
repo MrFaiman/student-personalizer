@@ -1,7 +1,22 @@
-import { TokenResponseSchema, UserSchema, type TokenResponse, type User } from "../types/auth";
+import {
+  LoginResponseSchema,
+  SchoolOptionsSchema,
+  SsoStatusSchema,
+  TokenResponseSchema,
+  UserSchema,
+  type LoginResponse,
+  type SchoolOption,
+  type SsoStatus,
+  type TokenResponse,
+  type User,
+} from "../types/auth";
 import { API_BASE_URL } from "./core";
 
-async function post<T>(endpoint: string, body: unknown, schema: { parse: (v: unknown) => T }): Promise<T> {
+async function post<T>(
+  endpoint: string,
+  body: unknown,
+  schema: { parse: (v: unknown) => T },
+): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -14,7 +29,11 @@ async function post<T>(endpoint: string, body: unknown, schema: { parse: (v: unk
   return schema.parse(await res.json());
 }
 
-async function get<T>(endpoint: string, token: string, schema: { parse: (v: unknown) => T }): Promise<T> {
+async function get<T>(
+  endpoint: string,
+  token: string,
+  schema: { parse: (v: unknown) => T },
+): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -23,8 +42,11 @@ async function get<T>(endpoint: string, token: string, schema: { parse: (v: unkn
 }
 
 export const authApi = {
-  login: (email: string, password: string): Promise<TokenResponse> =>
-    post("/api/auth/login", { email, password }, TokenResponseSchema),
+  login: (email: string, password: string): Promise<LoginResponse> =>
+    post("/api/auth/login", { email, password }, LoginResponseSchema),
+
+  mfaChallenge: (mfa_token: string, code: string): Promise<TokenResponse> =>
+    post("/api/auth/mfa/challenge", { mfa_token, code }, TokenResponseSchema),
 
   refresh: (refresh_token: string): Promise<TokenResponse> =>
     post("/api/auth/refresh", { refresh_token }, TokenResponseSchema),
@@ -36,13 +58,34 @@ export const authApi = {
     });
   },
 
-  me: (token: string): Promise<User> =>
-    get("/api/auth/me", token, UserSchema),
+  me: (token: string): Promise<User> => get("/api/auth/me", token, UserSchema),
 
-  changePassword: async (token: string, current_password: string, new_password: string): Promise<void> => {
+  schools: async (): Promise<SchoolOption[]> => {
+    const res = await fetch(`${API_BASE_URL}/api/auth/schools`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail ?? `HTTP ${res.status}`);
+    }
+    return SchoolOptionsSchema.parse(await res.json());
+  },
+
+  ssoStatus: async (): Promise<SsoStatus> => {
+    const res = await fetch(`${API_BASE_URL}/api/auth/sso/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return SsoStatusSchema.parse(await res.json());
+  },
+
+  changePassword: async (
+    token: string,
+    current_password: string,
+    new_password: string,
+  ): Promise<void> => {
     const res = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ current_password, new_password }),
     });
     if (!res.ok) {

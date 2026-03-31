@@ -7,17 +7,35 @@ from ..constants import ACCESS_TOKEN_EXPIRE_MINUTES, JWT_ALGORITHM, JWT_SECRET_K
 from ..utils.clock import utc_now
 
 
-def create_access_token(user_id: UUID, role: str) -> tuple[str, str, datetime]:
-    """Return (token, jti, expires_at)."""
+def create_access_token(
+    user_id: UUID,
+    role: str,
+    *,
+    mfa_verified: bool = False,
+    school_id: int | None = None,
+) -> tuple[str, str, datetime]:
+    """Return (token, jti, expires_at).
+
+    Claims embedded in the JWT:
+      sub           - user UUID
+      role          - coarse-grained role string
+      jti           - session identifier (used for revocation)
+      mfa_verified  - True if MFA was completed in this session
+    school_id     - Mashov semel (omitted when None)
+      type          - "access"
+    """
     jti = str(uuid4())
     expires_at = utc_now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {
+    payload: dict = {
         "sub": str(user_id),
         "role": role,
         "jti": jti,
         "exp": expires_at,
         "type": "access",
+        "mfa_verified": mfa_verified,
     }
+    if school_id is not None:
+        payload["school_id"] = school_id
     token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return token, jti, expires_at
 

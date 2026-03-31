@@ -45,6 +45,8 @@ class AuthService:
             hashed_password=hash_password(req.password),
             role=req.role,
             must_change_password=req.must_change_password,
+            school_id=req.school_id,
+            school_name=req.school_name,
         )
         self.session.add(user)
         self.session.flush()
@@ -102,7 +104,9 @@ class AuthService:
             log_event(self.session, action="login_mfa_required", user_id=user.id, user_email=user.email, success=True, ip_address=ip, user_agent=ua)
             return MfaChallengeResponse(mfa_token=mfa_token)
 
-        access_token, jti, expires_at = create_access_token(user.id, user.role.value)
+        access_token, jti, expires_at = create_access_token(
+            user.id, user.role.value, mfa_verified=False, school_id=user.school_id
+        )
         refresh_token, _ = create_refresh_token(user.id, jti)
 
         session = UserSession(
@@ -111,6 +115,7 @@ class AuthService:
             expires_at=expires_at,
             ip_address=ip,
             user_agent=ua,
+            mfa_verified=False,
         )
         self.session.add(session)
         self.session.commit()
@@ -151,13 +156,19 @@ class AuthService:
         session.is_revoked = True
         self.session.add(session)
 
-        new_access, new_jti, expires_at = create_access_token(user.id, user.role.value)
+        # Preserve mfa_verified state across token refresh
+        new_access, new_jti, expires_at = create_access_token(
+            user.id, user.role.value,
+            mfa_verified=session.mfa_verified,
+            school_id=user.school_id,
+        )
         new_refresh, _ = create_refresh_token(user.id, new_jti)
 
         new_session = UserSession(
             user_id=user.id,
             token_jti=new_jti,
             expires_at=expires_at,
+            mfa_verified=session.mfa_verified,
             ip_address=session.ip_address,
             user_agent=session.user_agent,
         )

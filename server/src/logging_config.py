@@ -42,7 +42,7 @@ def setup_logging() -> None:
     root.addHandler(console)
     root.addHandler(file_handler)
 
-    # SIEM / syslog handler (RFC 5424) — enabled when SYSLOG_HOST is set
+    # SIEM / syslog handler (RFC 5424) - enabled when SYSLOG_HOST is set
     syslog_host = os.getenv("SYSLOG_HOST", "")
     if syslog_host:
         syslog_port = int(os.getenv("SYSLOG_PORT", "514"))

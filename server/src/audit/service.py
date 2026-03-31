@@ -5,8 +5,8 @@ from uuid import UUID
 
 from sqlmodel import Session
 
-from .models import AuditLog
 from ..utils.clock import utc_now
+from .models import AuditLog
 
 logger = logging.getLogger(__name__)
 

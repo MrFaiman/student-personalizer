@@ -3,8 +3,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
+from ..auth.current_user import CurrentUser
 from ..auth.dependencies import get_current_user, require_teacher
-from ..auth.models import User
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from ..database import get_session
 from ..schemas.student import (
@@ -34,7 +34,7 @@ async def list_students(
     sort_by: str | None = Query(default=None, description="Column to sort by: student_name, average_grade, total_absences, class_name"),
     sort_order: str = Query(default="asc", description="Sort direction: asc or desc"),
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """List students with optional filtering and sorting."""
     service = StudentService(session)
@@ -76,7 +76,7 @@ async def get_student(
     period: str | None = Query(default=None),
     year: str | None = Query(default=None),
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get a specific student by TZ."""
     service = StudentService(session)
@@ -126,7 +126,7 @@ async def get_student_attendance(
 async def get_student_timeline(
     student_tz: str,
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get multi-year timeline data for a student."""
     service = StudentService(session)

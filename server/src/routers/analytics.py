@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
+from ..auth.dependencies import require_viewer
 from ..database import get_session
 from ..schemas.analytics import (
     CascadingFilterOptions,
@@ -15,7 +16,6 @@ from ..schemas.analytics import (
     SubjectGradeItem,
     VersusChartData,
 )
-from ..auth.dependencies import require_viewer
 from ..services.analytics import AnalyticsService
 from ..views.analytics import AnalyticsDefaultView
 

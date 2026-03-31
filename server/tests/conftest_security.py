@@ -17,14 +17,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
-# Import app and overrideable dependencies after env vars are set
-from src.database import get_session
-from src.main import app
 from src.auth.models import User, UserRole
 from src.auth.schemas import CreateUserRequest
 from src.auth.service import AuthService
-from src.auth.schemas import LoginRequest
 
+# Import app and overrideable dependencies after env vars are set
+from src.database import get_session
+from src.main import app
 
 TEST_USERS = {
     "admin":   ("admin@test.com",   "Admin@Test1234!", "Test Admin",   UserRole.admin),

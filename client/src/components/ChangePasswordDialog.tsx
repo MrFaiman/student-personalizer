@@ -36,7 +36,8 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
       await authApi.changePassword(accessToken!, current, next);
       onSuccess();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t("auth.changePasswordError");
+      const msg =
+        err instanceof Error ? err.message : t("auth.changePasswordError");
       // Try to parse array of errors from server
       try {
         const parsed = JSON.parse(msg);
@@ -44,7 +45,9 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
           setErrors(parsed.password_errors);
           return;
         }
-      } catch {}
+      } catch {
+        console.warn("Failed to parse error message as JSON:", msg);
+      }
       setErrors([msg]);
     } finally {
       setLoading(false);
@@ -52,16 +55,23 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" dir="rtl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      dir="rtl"
+    >
       <div className="bg-background rounded-xl shadow-xl w-full max-w-sm p-6 space-y-5">
         <div>
           <h2 className="text-lg font-bold">{t("auth.changePassword")}</h2>
-          <p className="text-sm text-muted-foreground mt-1">{t("auth.changePasswordRequired")}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t("auth.changePasswordRequired")}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">{t("auth.currentPassword")}</label>
+            <label className="text-sm font-medium">
+              {t("auth.currentPassword")}
+            </label>
             <Input
               type="password"
               value={current}
@@ -71,7 +81,9 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">{t("auth.newPassword")}</label>
+            <label className="text-sm font-medium">
+              {t("auth.newPassword")}
+            </label>
             <Input
               type="password"
               value={next}
@@ -81,7 +93,9 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">{t("auth.confirmPassword")}</label>
+            <label className="text-sm font-medium">
+              {t("auth.confirmPassword")}
+            </label>
             <Input
               type="password"
               value={confirm}
@@ -93,7 +107,9 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
 
           {errors.length > 0 && (
             <ul className="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2 space-y-1">
-              {errors.map((e, i) => <li key={i}>{e}</li>)}
+              {errors.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
             </ul>
           )}
 

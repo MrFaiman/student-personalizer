@@ -5,7 +5,7 @@ enters the model training or prediction pipeline.  Also provides
 audit helpers so every prediction request is logged.
 """
 
-# Ordered list of allowed feature columns — order is preserved for model consistency.
+# Ordered list of allowed feature columns - order is preserved for model consistency.
 # This is the authoritative source; services/ml.py imports FEATURE_COLUMNS from here.
 # All entries are non-PII aggregates derived from grades and attendance.
 FEATURE_COLUMNS: list[str] = [

@@ -17,6 +17,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from src.auth.models import UserRole
 from src.auth.schemas import CreateUserRequest
+from src.auth.schools import SchoolOption
 from src.auth.service import AuthService
 from src.database import get_session
 from src.main import app
@@ -213,3 +214,76 @@ def test_me_returns_current_user(seeded_client):
 def test_me_rejects_missing_token(seeded_client):
     resp = seeded_client.get("/api/auth/me")
     assert resp.status_code == 401
+
+
+def test_schools_returns_options(seeded_client, monkeypatch):
+    async def fake_fetch_schools(*_, **__):
+        return [
+            SchoolOption(school_id=111111, school_name="Alpha School"),
+            SchoolOption(school_id=222222, school_name="Beta School"),
+        ]
+
+    monkeypatch.setattr("src.auth.router.fetch_schools", fake_fetch_schools)
+
+    resp = seeded_client.get("/api/auth/schools")
+    assert resp.status_code == 200
+    assert resp.json() == [
+        {"school_id": 111111, "school_name": "Alpha School"},
+        {"school_id": 222222, "school_name": "Beta School"},
+    ]
+
+
+def test_create_user_rejects_invalid_school_id(seeded_client, monkeypatch):
+    async def fake_fetch_schools(*_, **__):
+        return [SchoolOption(school_id=111111, school_name="Alpha School")]
+
+    monkeypatch.setattr("src.auth.router.fetch_schools", fake_fetch_schools)
+
+    login = seeded_client.post("/api/auth/login", json={
+        "email": "auth_admin@test.com",
+        "password": "Admin@Test1234!",
+    })
+    token = login.json()["access_token"]
+
+    resp = seeded_client.post(
+        "/api/auth/users",
+        json={
+            "email": "invalid-school@test.com",
+            "password": "ValidPass@Test1234!",
+            "display_name": "Invalid School",
+            "role": "viewer",
+            "school_id": 999999,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 422
+    assert resp.json()["detail"] == "Invalid school_id"
+
+
+def test_create_user_sets_school_name_from_school_id(seeded_client, monkeypatch):
+    async def fake_fetch_schools(*_, **__):
+        return [SchoolOption(school_id=333333, school_name="Gamma School")]
+
+    monkeypatch.setattr("src.auth.router.fetch_schools", fake_fetch_schools)
+
+    login = seeded_client.post("/api/auth/login", json={
+        "email": "auth_admin@test.com",
+        "password": "Admin@Test1234!",
+    })
+    token = login.json()["access_token"]
+
+    resp = seeded_client.post(
+        "/api/auth/users",
+        json={
+            "email": "valid-school@test.com",
+            "password": "ValidPass@Test1234!",
+            "display_name": "Valid School",
+            "role": "viewer",
+            "school_id": 333333,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["school_id"] == 333333
+    assert data["school_name"] == "Gamma School"

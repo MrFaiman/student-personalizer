@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
 from ..audit.service import log_event
+from ..auth.current_user import CurrentUser
 from ..auth.dependencies import require_admin, require_teacher
-from ..auth.models import User
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from ..database import get_session
 from ..schemas.ml import BatchPredictionResponse, ModelStatusResponse, StudentPrediction, TrainResponse
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/ml", tags=["ml"])
 @router.post("/train", response_model=TrainResponse)
 async def train_model(
     period: str | None = Query(default=None, description="Period filter for training data"),
-    current_user: User = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
     """Train the ML models on current student data."""
@@ -26,7 +26,7 @@ async def train_model(
         result = service.train(period=period)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    log_event(session, action="ml_train", user_id=current_user.id, user_email=current_user.email, success=True, detail={"period": period})
+    log_event(session, action="ml_train", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"period": period})
     return result
 
 
@@ -34,7 +34,7 @@ async def train_model(
 async def predict_student(
     student_tz: str,
     period: str | None = Query(default=None, description="Period filter"),
-    current_user: User = Depends(require_teacher),
+    current_user: CurrentUser = Depends(require_teacher),
     session: Session = Depends(get_session),
 ):
     """Get grade prediction and dropout risk for a single student."""
@@ -45,7 +45,7 @@ async def predict_student(
         raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-    log_event(session, action="ml_predict", user_id=current_user.id, user_email=current_user.email, success=True, detail={"student_tz": student_tz, "period": period})
+    log_event(session, action="ml_predict", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"student_tz": student_tz, "period": period})
     return result
 
 
@@ -56,7 +56,7 @@ async def predict_all(
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
     sort_by: str | None = Query(default=None, description="Column to sort by: student_name, predicted_grade, dropout_risk, risk_level"),
     sort_order: str = Query(default="asc", description="Sort direction: asc or desc"),
-    current_user: User = Depends(require_teacher),
+    current_user: CurrentUser = Depends(require_teacher),
     session: Session = Depends(get_session),
 ):
     """Get predictions for all students."""
@@ -65,7 +65,7 @@ async def predict_all(
         result = service.predict_all(period=period, page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order)
     except FileNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    log_event(session, action="ml_predict_batch", user_id=current_user.id, user_email=current_user.email, success=True, detail={"period": period, "page": page})
+    log_event(session, action="ml_predict_batch", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"period": period, "page": page})
     return result
 
 

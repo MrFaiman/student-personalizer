@@ -4,11 +4,11 @@ Supports any standard OIDC provider (Microsoft Entra ID, Google Workspace,
 or the Israeli MoE identity provider).
 
 Configuration (env vars):
-  OIDC_CLIENT_ID        — OAuth2 client ID (required to enable SSO)
-  OIDC_CLIENT_SECRET    — OAuth2 client secret
-  OIDC_DISCOVERY_URL    — Provider discovery URL ending in /.well-known/openid-configuration
+  OIDC_CLIENT_ID        - OAuth2 client ID (required to enable SSO)
+  OIDC_CLIENT_SECRET    - OAuth2 client secret
+  OIDC_DISCOVERY_URL    - Provider discovery URL ending in /.well-known/openid-configuration
                           e.g. https://login.microsoftonline.com/<tenant>/v2.0
-  OIDC_REDIRECT_URI     — Must match the redirect URI registered with the provider
+  OIDC_REDIRECT_URI     - Must match the redirect URI registered with the provider
                           e.g. https://students.school.il/api/auth/sso/callback
 
 Flow:
@@ -24,10 +24,9 @@ import httpx
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from ..auth.models import User, UserRole
+from ..auth.models import User, UserRole, UserSession
 from ..auth.password import hash_password
 from ..auth.tokens import create_access_token, create_refresh_token
-from ..auth.models import UserSession
 from ..utils.clock import utc_now
 
 logger = logging.getLogger(__name__)
@@ -107,19 +106,56 @@ def provision_sso_user(session: Session, userinfo: dict) -> User:
     """Find or create a local user from OIDC userinfo claims.
 
     New SSO users are created as 'viewer' role by default.  An admin must
-    upgrade the role manually.  Users are identified by their email address.
+    upgrade the role manually.
+
+    Account-linking rules (prevent takeover via unverified email assertions):
+    1. Provider MUST assert ``email_verified=true``.
+    2. If a local account already exists:
+       a. If it was provisioned via OIDC (``identity_provider != "local"``),
+          allow login and keep ``external_subject_id`` in sync.
+       b. If it is a local-password account, refuse automatic linking.
+          An admin must explicitly convert the account to OIDC first.
+    3. Otherwise, provision a new OIDC-only account.
     """
+    # --- Require verified email from the provider ---
+    if not userinfo.get("email_verified", False):
+        raise HTTPException(
+            status_code=403,
+            detail="OIDC provider did not verify the user's email address",
+        )
+
     email = (userinfo.get("email") or "").lower().strip()
     if not email:
         raise HTTPException(status_code=400, detail="OIDC provider did not return an email claim")
 
     user = session.exec(select(User).where(User.email == email)).first()
+    external_subject = userinfo.get("sub", "")
+
     if user:
         if not user.is_active:
             raise HTTPException(status_code=403, detail="Account is disabled")
+
+        # Block auto-linking to a local-only account - prevents account takeover
+        if user.identity_provider == "local" and user.external_subject_id is None:
+            logger.warning(
+                "sso_link_blocked_local_account",
+                extra={"email": email, "reason": "local account exists without prior OIDC binding"},
+            )
+            raise HTTPException(
+                status_code=409,
+                detail="A local account with this email already exists. "
+                       "Ask an administrator to link the account to SSO.",
+            )
+
+        # Keep external_subject_id in sync on subsequent OIDC logins
+        if external_subject and user.external_subject_id != external_subject:
+            user.external_subject_id = external_subject
+            session.add(user)
+            session.commit()
+            session.refresh(user)
         return user
 
-    # Provision new user — no password (SSO-only account)
+    # Provision new user - no password (SSO-only account)
     display_name = userinfo.get("name") or userinfo.get("given_name") or email.split("@")[0]
     user = User(
         email=email,
@@ -127,6 +163,8 @@ def provision_sso_user(session: Session, userinfo: dict) -> User:
         hashed_password=hash_password(f"sso-{email}-no-password-{utc_now().isoformat()}"),
         role=UserRole.viewer,
         must_change_password=False,
+        identity_provider="oidc",
+        external_subject_id=external_subject or None,
     )
     session.add(user)
     session.commit()
@@ -137,7 +175,9 @@ def provision_sso_user(session: Session, userinfo: dict) -> User:
 
 def issue_tokens_for_user(session: Session, user: User, ip: str | None, ua: str | None) -> dict:
     """Create session and return access + refresh tokens for an SSO-authenticated user."""
-    access_token, jti, expires_at = create_access_token(user.id, user.role.value)
+    access_token, jti, expires_at = create_access_token(
+        user.id, user.role.value, mfa_verified=False, school_id=user.school_id
+    )
     refresh_token, _ = create_refresh_token(user.id, jti)
     new_session = UserSession(
         user_id=user.id,

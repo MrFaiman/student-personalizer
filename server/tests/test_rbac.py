@@ -22,7 +22,6 @@ from src.auth.service import AuthService
 from src.database import get_session
 from src.main import app
 
-
 RBAC_USERS = {
     "admin":   ("rbac_admin@test.com",   "Admin@Rbac1234!", "RBAC Admin",   UserRole.admin),
     "teacher": ("rbac_teacher@test.com", "Teacher@Rbac1!",  "RBAC Teacher", UserRole.teacher),

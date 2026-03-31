@@ -22,7 +22,6 @@ from src.auth.service import AuthService
 from src.database import get_session
 from src.main import app
 
-
 AUDIT_USERS = {
     "admin": ("audit_admin@test.com", "AuditAdmin@1234!", "Audit Admin", UserRole.admin),
     "bad":   ("audit_bad@test.com",   "AuditBad@1234!",  "Audit Bad",   UserRole.viewer),

@@ -7,10 +7,11 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from .auth.router import router as auth_router
 from .constants import API_DESCRIPTION, API_TITLE, API_VERSION, ENABLE_DEBUG, ORIGIN_URL, PORT
-from .middleware.rate_limit import RATE_LIMIT_ENABLED, limiter
 from .database import get_session, init_db
 from .logging_config import setup_logging
+from .middleware.rate_limit import RATE_LIMIT_ENABLED, limiter
 from .middleware.request_log import RequestLoggingMiddleware
 from .middleware.security_headers import SecurityHeadersMiddleware
 from .routers import analytics, classes, config, ingestion, ml, open_day, students, subjects, teachers
@@ -62,8 +63,6 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# Auth router
-from .auth.router import router as auth_router
 app.include_router(auth_router)
 
 # Application routers

@@ -10,6 +10,11 @@ export const UserSchema = z.object({
   role: UserRoleSchema,
   is_active: z.boolean(),
   must_change_password: z.boolean(),
+  mfa_enabled: z.boolean().default(false),
+  mfa_verified: z.boolean().default(false),
+  identity_provider: z.string().default("local"),
+  school_id: z.number().int().nullable().default(null),
+  school_name: z.string().nullable().default(null),
 });
 export type User = z.infer<typeof UserSchema>;
 
@@ -19,3 +24,27 @@ export const TokenResponseSchema = z.object({
   token_type: z.string().default("bearer"),
 });
 export type TokenResponse = z.infer<typeof TokenResponseSchema>;
+
+export const MfaChallengeResponseSchema = z.object({
+  mfa_required: z.literal(true),
+  mfa_token: z.string(),
+});
+export type MfaChallengeResponse = z.infer<typeof MfaChallengeResponseSchema>;
+
+export const LoginResponseSchema = z.union([
+  MfaChallengeResponseSchema,
+  TokenResponseSchema,
+]);
+export type LoginResponse = z.infer<typeof LoginResponseSchema>;
+
+export const SsoStatusSchema = z.object({
+  sso_enabled: z.boolean(),
+});
+export type SsoStatus = z.infer<typeof SsoStatusSchema>;
+
+export const SchoolOptionSchema = z.object({
+  school_id: z.number().int(),
+  school_name: z.string(),
+});
+export const SchoolOptionsSchema = z.array(SchoolOptionSchema);
+export type SchoolOption = z.infer<typeof SchoolOptionSchema>;

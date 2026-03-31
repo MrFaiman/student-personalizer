@@ -34,6 +34,14 @@ class User(SQLModel, table=True):
     mfa_enabled: bool = Field(default=False)            # True once user completes TOTP setup
     mfa_backup_codes: str | None = Field(default=None)  # JSON array of hashed backup codes
 
+    # Identity provider fields - supports future external IdP integration
+    identity_provider: str = Field(default="local")     # "local" | "oidc" | future providers
+    external_subject_id: str | None = Field(default=None)  # OIDC `sub` or other external identifier
+
+    # School selection from Mashov schools API
+    school_id: int | None = Field(default=None, index=True)  # Mashov semel
+    school_name: str | None = Field(default=None)
+
     # Relationships
     sessions: list["UserSession"] = Relationship(back_populates="user")
     password_history: list["PasswordHistory"] = Relationship(back_populates="user")
@@ -50,6 +58,7 @@ class UserSession(SQLModel, table=True):
     ip_address: str | None = None
     user_agent: str | None = None
     is_revoked: bool = Field(default=False)
+    mfa_verified: bool = Field(default=False)  # True if MFA was completed in this session
     created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships

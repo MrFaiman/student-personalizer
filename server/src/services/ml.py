@@ -29,7 +29,7 @@ META_PATH = MODELS_DIR / "model_meta.json"
 _prediction_cache: dict[tuple[str | None, str | None], list[dict]] = {}
 
 
-# FEATURE_COLUMNS is imported from ml_privacy — do not redefine here
+# FEATURE_COLUMNS is imported from ml_privacy - do not redefine here
 
 
 class MLService:
@@ -149,7 +149,7 @@ class MLService:
         if len(df) < MIN_TRAINING_SAMPLES:
             raise ValueError(f"Not enough data to train: only {len(df)} students with grades found. Need at least {MIN_TRAINING_SAMPLES}.")
 
-        assert_no_pii(list(df.columns))
+        assert_no_pii(FEATURE_COLUMNS)
         X = df[FEATURE_COLUMNS].values
         y_grade = df["average_grade"].values
 

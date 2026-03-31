@@ -4,19 +4,20 @@ import os
 import sys
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
+
+from alembic import context
 
 # Make src importable when running alembic from server/
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Import all models so their tables are registered in SQLModel.metadata
-import src.models  # noqa: F401  - registers Student, Grade, AttendanceRecord, etc.
-import src.auth.models  # noqa: F401  - registers User, UserSession, PasswordHistory
-import src.audit.models  # noqa: F401  - registers AuditLog
-
 from dotenv import load_dotenv
+
+import src.audit.models  # noqa: F401  - registers AuditLog
+import src.auth.models  # noqa: F401  - registers User, UserSession, PasswordHistory
+import src.models  # noqa: F401  - registers Student, Grade, AttendanceRecord, etc.
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
