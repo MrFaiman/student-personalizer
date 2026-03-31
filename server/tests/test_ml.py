@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 
+import src.services.ml as ml_mod
 from src.auth.current_user import CurrentUser
 from src.auth.dependencies import get_current_user
 from src.auth.models import UserRole
@@ -34,6 +35,19 @@ _ADMIN_USER = CurrentUser(
     school_name=None,
     session_jti="test-jti",
 )
+
+
+@pytest.fixture(autouse=True)
+def isolate_ml_artifacts(tmp_path, monkeypatch):
+    """Use per-test artifact paths so checked-in model files do not leak into tests."""
+    models_dir = tmp_path / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(ml_mod, "MODELS_DIR", models_dir)
+    monkeypatch.setattr(ml_mod, "GRADE_MODEL_PATH", models_dir / "grade_predictor.joblib")
+    monkeypatch.setattr(ml_mod, "DROPOUT_MODEL_PATH", models_dir / "dropout_classifier.joblib")
+    monkeypatch.setattr(ml_mod, "META_PATH", models_dir / "model_meta.json")
+    ml_mod._prediction_cache.clear()
 
 
 class TestBuildFeatures:

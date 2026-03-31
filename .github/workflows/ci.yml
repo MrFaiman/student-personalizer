@@ -104,7 +104,7 @@ jobs:
           cache-dependency-path: client/pnpm-lock.yaml
       - name: Python dependency audit
         working-directory: server
-        run: uv run pip-audit
+        run: uv run pip-audit --skip-editable
       - name: Node dependency audit
         working-directory: client
         run: |

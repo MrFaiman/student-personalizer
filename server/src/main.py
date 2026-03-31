@@ -92,7 +92,8 @@ async def health():
 
 
 def main():
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    # bind all interfaces for containerized runtime.
+    uvicorn.run(app, host="0.0.0.0", port=PORT)  # nosec B104
 
 
 if __name__ == "__main__":

@@ -182,8 +182,16 @@ class MLService:
             n_jobs=-1,
         )
         dropout_model.fit(X, y_dropout)
-        dropout_cv = cross_val_score(dropout_model, X, y_dropout, cv=min(CROSS_VALIDATION_FOLDS, len(df)), scoring="accuracy")
-        dropout_accuracy = round(float(dropout_cv.mean()), 4)
+        class_counts = np.bincount(y_dropout.astype(int))
+        non_zero_class_counts = class_counts[class_counts > 0]
+        min_class_count = int(non_zero_class_counts.min()) if len(non_zero_class_counts) else 1
+        cv_folds = min(CROSS_VALIDATION_FOLDS, len(df), min_class_count)
+        if cv_folds >= 2:
+            dropout_cv = cross_val_score(dropout_model, X, y_dropout, cv=cv_folds, scoring="accuracy")
+            dropout_accuracy = round(float(dropout_cv.mean()), 4)
+        else:
+            # Fallback when labels are too imbalanced for cross-validation splitting.
+            dropout_accuracy = round(float(dropout_model.score(X, y_dropout)), 4)
 
         MODELS_DIR.mkdir(parents=True, exist_ok=True)
         joblib.dump(grade_model, GRADE_MODEL_PATH)

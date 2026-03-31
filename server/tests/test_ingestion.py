@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import httpx
+import pytest
 
 BASE_URL = "http://localhost:3000"
 DATA_DIR = Path(__file__).parent.parent / "data"
@@ -22,6 +23,13 @@ def check_server():
         return response.status_code == 200
     except httpx.ConnectError:
         return False
+
+
+@pytest.fixture(scope="module", autouse=True)
+def require_running_server():
+    """Skip integration-style tests when no local API server is running."""
+    if not check_server():
+        pytest.skip("Server not running at http://localhost:3000")
 
 
 def test_upload_grades():

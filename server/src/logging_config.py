@@ -16,8 +16,8 @@ def setup_logging() -> None:
     os.makedirs(log_dir, exist_ok=True)
 
     try:
-        from pythonjsonlogger import jsonlogger  # type: ignore[import-untyped]
-        formatter = jsonlogger.JsonFormatter(
+        from pythonjsonlogger.json import JsonFormatter  # type: ignore[import-untyped]
+        formatter = JsonFormatter(
             fmt="%(asctime)s %(name)s %(levelname)s %(message)s",
             datefmt="%Y-%m-%dT%H:%M:%S",
         )
