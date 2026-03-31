@@ -10,5 +10,6 @@ export const AppConfigSchema = z.object({
   default_page_size: z.number(),
   grade_range: z.tuple([z.number(), z.number()]),
   enable_debug: z.boolean(),
+  mfa_enforced_roles: z.array(z.string()).default([]),
 });
 export type AppConfig = z.infer<typeof AppConfigSchema>;

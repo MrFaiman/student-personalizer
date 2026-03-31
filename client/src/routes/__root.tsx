@@ -1,22 +1,10 @@
 import { useEffect } from "react";
 import { createRootRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { FilterProvider } from "@/components/FilterContext";
 import { Layout } from "@/components/Layout";
-import { QUERY_STALE_TIME_MS } from "@/lib/constants";
 import { useConfigStore } from "@/lib/config-store";
 import { useAuthStore } from "@/lib/auth-store";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: QUERY_STALE_TIME_MS,
-    },
-  },
-});
 
 function RootComponent() {
   const navigate = useNavigate();
@@ -57,11 +45,27 @@ function RootComponent() {
     }
   }, [isAuthenticated, currentPath, navigate]);
 
+  // Enforce MFA enrollment for admin accounts
+  useEffect(() => {
+    const { user } = useAuthStore.getState();
+    const enforcedRoles = useConfigStore.getState().mfaEnforcedRoles;
+    const isEnforced = user?.role ? enforcedRoles.includes(user.role) : false;
+    if (
+      isAuthenticated &&
+      isEnforced &&
+      !user?.mfa_enabled &&
+      currentPath !== "/enroll/mfa" &&
+      currentPath !== "/login"
+    ) {
+      navigate({ to: "/enroll/mfa" });
+    }
+  }, [isAuthenticated, currentPath, navigate]);
+
   if (!isAuthenticated && currentPath !== "/login") {
     return null; // Prevent flash of authenticated content
   }
 
-  if (currentPath === "/login") {
+  if (currentPath === "/login" || currentPath === "/enroll/mfa") {
     return (
       <HelmetProvider>
         <Outlet />
@@ -71,13 +75,11 @@ function RootComponent() {
 
   return (
     <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
-        <FilterProvider>
-          <Layout>
-            <Outlet />
-          </Layout>
-        </FilterProvider>
-      </QueryClientProvider>
+      <FilterProvider>
+        <Layout>
+          <Outlet />
+        </Layout>
+      </FilterProvider>
     </HelmetProvider>
   );
 }

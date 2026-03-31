@@ -45,7 +45,12 @@ function LoginPage() {
       if (state.user?.must_change_password) {
         setShowChangePassword(true);
       } else {
-        navigate({ to: "/" });
+        const enforcedRoles = (await import("@/lib/config-store")).useConfigStore.getState().mfaEnforcedRoles;
+        if (state.user?.role && enforcedRoles.includes(state.user.role) && !state.user.mfa_enabled) {
+          navigate({ to: "/enroll/mfa" });
+        } else {
+          navigate({ to: "/" });
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t("auth.loginError"));
@@ -64,7 +69,12 @@ function LoginPage() {
       if (currentUser?.must_change_password) {
         setShowChangePassword(true);
       } else {
-        navigate({ to: "/" });
+        const enforcedRoles = (await import("@/lib/config-store")).useConfigStore.getState().mfaEnforcedRoles;
+        if (currentUser?.role && enforcedRoles.includes(currentUser.role) && !currentUser.mfa_enabled) {
+          navigate({ to: "/enroll/mfa" });
+        } else {
+          navigate({ to: "/" });
+        }
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t("auth.mfaError"));
@@ -225,8 +235,14 @@ function LoginPage() {
       {showChangePassword && (
         <ChangePasswordDialog
           open={showChangePassword}
-          onSuccess={() => {
+          onSuccess={async () => {
             setShowChangePassword(false);
+            const u = useAuthStore.getState().user;
+            const enforcedRoles = (await import("@/lib/config-store")).useConfigStore.getState().mfaEnforcedRoles;
+            if (u?.role && enforcedRoles.includes(u.role) && !u.mfa_enabled) {
+              navigate({ to: "/enroll/mfa" });
+              return;
+            }
             navigate({ to: "/" });
           }}
         />

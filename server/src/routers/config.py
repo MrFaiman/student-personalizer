@@ -12,6 +12,7 @@ from ..constants import (
     GRADE_RANGE_MAX,
     GRADE_RANGE_MIN,
     MEDIUM_GRADE_THRESHOLD,
+    MFA_ENFORCED_ROLES,
     PERFORMANCE_GOOD_THRESHOLD,
     PERFORMANCE_MEDIUM_THRESHOLD,
 )
@@ -36,6 +37,7 @@ async def get_config():
         "default_page_size": DEFAULT_PAGE_SIZE,
         "grade_range": [GRADE_RANGE_MIN, GRADE_RANGE_MAX],
         "enable_debug": ENABLE_DEBUG,
+        "mfa_enforced_roles": sorted(MFA_ENFORCED_ROLES),
         "preview_mode": get_preview_mode(),
     }
 

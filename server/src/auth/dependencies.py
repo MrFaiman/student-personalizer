@@ -15,12 +15,12 @@ use get_db_user instead.
 from datetime import timezone
 from uuid import UUID
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlmodel import Session, select
 
-from ..constants import INACTIVITY_TIMEOUT_MINUTES
+from ..constants import INACTIVITY_TIMEOUT_MINUTES, MFA_ENFORCED_ROLES
 from ..database import get_session
 from ..utils.clock import utc_now
 from .current_user import CurrentUser
@@ -40,6 +40,7 @@ def _get_token_payload(credentials: HTTPAuthorizationCredentials | None) -> dict
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     session: Session = Depends(get_session),
 ) -> CurrentUser:
@@ -88,6 +89,23 @@ def get_current_user(
     user = session.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    # -- Enforce MFA enrollment for admins ------------------------------
+    # Admins must enable MFA (mfa_enabled=True) before accessing most endpoints.
+    # Allow only the minimal auth endpoints needed to complete enrollment.
+    if user.role.value in MFA_ENFORCED_ROLES and not user.mfa_enabled:
+        path = request.url.path
+        allowed_paths = {
+            "/api/auth/me",
+            "/api/auth/logout",
+            "/api/auth/refresh",
+            "/api/auth/change-password",
+            "/api/auth/mfa/setup",
+            "/api/auth/mfa/verify",
+            "/api/auth/mfa/disable",
+        }
+        if path not in allowed_paths:
+            raise HTTPException(status_code=403, detail="MFA setup required for admin accounts")
 
     # -- Build CurrentUser from JWT claims + DB fields ------------------
     school_id_claim = payload.get("school_id")

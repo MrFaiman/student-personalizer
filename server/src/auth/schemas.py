@@ -55,6 +55,7 @@ class UpdateUserRequest(BaseModel):
     display_name: str | None = None
     role: UserRole | None = None
     is_active: bool | None = None
+    school_id: int | None = None
 
 
 class UserResponse(BaseModel):

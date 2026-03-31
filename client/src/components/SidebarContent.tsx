@@ -13,6 +13,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   Users,
+  Shield,
   School,
   Upload,
   Brain,
@@ -22,6 +23,7 @@ import {
   Book,
   CalendarDays,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth-store";
 import { useFilterStore } from "@/lib/filter-store";
@@ -53,6 +55,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
   const currentPath = routerState.location.pathname;
   const { year, period, gradeLevel, setFilter } = useFilterStore();
   const user = useAuthStore((s) => s.user);
+  const isAdmin = useAuthStore((s) => s.hasRole("admin"));
   const logout = useAuthStore((s) => s.logout);
 
   async function handleLogout() {
@@ -123,6 +126,27 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
               </Link>
             );
           })}
+
+          {isAdmin && (
+            <Link
+              to="/admin/users"
+              onClick={onNavigate}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                currentPath.startsWith("/admin")
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              <Shield className="size-5" aria-hidden="true" />
+              <span
+                className={`text-sm ${
+                  currentPath.startsWith("/admin") ? "font-semibold" : "font-medium"
+                }`}
+              >
+                {t("nav.userManagement")}
+              </span>
+            </Link>
+          )}
         </nav>
 
         {/* Filters */}
@@ -241,6 +265,16 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
               <p className="text-sm font-medium truncate">{user.display_name}</p>
               <p className="text-xs text-muted-foreground truncate">{t(`auth.role.${user.role}`)}</p>
             </div>
+            <Link to="/security/mfa" onClick={onNavigate}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <ShieldCheck className="size-4" />
+                <span>{t("security.mfa.title")}</span>
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="sm"

@@ -12,6 +12,7 @@ interface ConfigState {
   defaultPageSize: number;
   gradeRange: [number, number];
   enableDebug: boolean;
+  mfaEnforcedRoles: string[];
 
   // Meta
   isReady: boolean;
@@ -29,6 +30,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
   defaultPageSize: 20,
   gradeRange: [0, 100],
   enableDebug: false,
+  mfaEnforcedRoles: ["admin"],
 
   isReady: false,
 
@@ -45,6 +47,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
         defaultPageSize: config.default_page_size,
         gradeRange: config.grade_range,
         enableDebug: config.enable_debug,
+        mfaEnforcedRoles: config.mfa_enforced_roles,
         isReady: true,
       });
     } catch {

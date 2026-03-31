@@ -70,6 +70,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15")
 REFRESH_TOKEN_EXPIRE_HOURS = int(os.getenv("REFRESH_TOKEN_EXPIRE_HOURS", "8"))
 INACTIVITY_TIMEOUT_MINUTES = int(os.getenv("INACTIVITY_TIMEOUT_MINUTES", "30"))
 
+# MFA enrollment enforcement by role (comma-separated roles: admin,teacher,viewer)
+_mfa_roles_raw = os.getenv("MFA_ENFORCED_ROLES", "admin")
+MFA_ENFORCED_ROLES = {
+    r.strip().lower()
+    for r in _mfa_roles_raw.split(",")
+    if r.strip()
+}
+
 # Development bypass, set AUTH_REQUIRED=false to skip auth enforcement during development
 AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "true").lower() not in ("0", "false", "no")
 

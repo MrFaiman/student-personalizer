@@ -10,7 +10,9 @@
     "subjects": "מקצועות",
     "upload": "טעינת נתונים",
     "predictions": "תחזיות ML",
-    "openDay": "יום פתוח"
+    "openDay": "יום פתוח",
+    "admin": "ניהול",
+    "userManagement": "ניהול משתמשים"
   },
   "filters": {
     "title": "סינונים",
@@ -136,5 +138,61 @@
     "mfaBackToLogin": "חזרה לכניסה",
     "ssoSignIn": "כניסה עם SSO",
     "orDivider": "או"
+  },
+  "adminUsers": {
+    "subtitle": "ניהול משתמשי מערכת והרשאות",
+    "searchPlaceholder": "חיפוש לפי שם או אימייל…",
+    "create": "יצירת משתמש",
+    "createTitle": "יצירת משתמש חדש",
+    "createDescription": "צור משתמש מקומי והגדר הרשאות וגישה לבית ספר.",
+    "editTitle": "עריכת משתמש",
+    "editDescription": "עריכת הרשאות וסטטוס עבור {{email}}",
+    "noUsers": "לא נמצאו משתמשים",
+    "email": "אימייל",
+    "displayName": "שם תצוגה",
+    "role": "תפקיד",
+    "school": "בית ספר",
+    "noSchool": "ללא בית ספר",
+    "mfa": "MFA",
+    "mfaEnabled": "פעיל",
+    "mfaDisabled": "לא פעיל",
+    "identityProvider": "ספק זהות",
+    "active": "פעיל",
+    "inactive": "לא פעיל",
+    "initialPassword": "סיסמה ראשונית",
+    "mustChangePassword": "חובה לשנות סיסמה בכניסה הבאה",
+    "resetPassword": "איפוס סיסמה",
+    "resetPasswordTitle": "איפוס סיסמה למשתמש",
+    "resetPasswordDescription": "הגדר סיסמה חדשה עבור {{email}}",
+    "newPassword": "סיסמה חדשה",
+    "resetMfa": "איפוס MFA",
+    "resetMfaTitle": "איפוס MFA",
+    "resetMfaDescription": "פעולה זו תבטל MFA ותנתק את {{email}} מכל הסשנים. להמשיך?"
+  },
+  "security": {
+    "mfa": {
+      "title": "אימות דו-שלבי (MFA)",
+      "subtitle": "הגנה נוספת באמצעות קוד חד-פעמי",
+      "enrollTitle": "הפעלת MFA נדרשת",
+      "enrollSubtitle": "כדי להמשיך, יש להפעיל אימות דו-שלבי באמצעות אפליקציית אימות.",
+      "enabled": "פעיל",
+      "disabled": "לא פעיל",
+      "enableTitle": "הפעלת MFA",
+      "enableDescription": "צור סוד והוסף אותו לאפליקציית אימות (TOTP), ואז אמת קוד כדי להפעיל.",
+      "generateSecret": "יצירת סוד",
+      "qrCode": "ברקוד (QR)",
+      "qrCodeAlt": "ברקוד QR להגדרת MFA",
+      "qrCodeHint": "סרוק את הברקוד באפליקציית אימות. אם לא ניתן לסרוק, השתמש ב-Secret ידנית.",
+      "secret": "סוד (Secret)",
+      "provisioningUri": "קישור הגדרה (otpauth)",
+      "copy": "העתק",
+      "verifyCode": "קוד אימות",
+      "verify": "אימות",
+      "backupCodesTitle": "קודי גיבוי",
+      "backupCodesDescription": "שמור את הקודים במקום בטוח. כל קוד לשימוש חד-פעמי.",
+      "disableTitle": "כיבוי MFA",
+      "disableDescription": "הזן קוד TOTP או קוד גיבוי כדי לכבות MFA.",
+      "disable": "כיבוי MFA"
+    }
   }
 }

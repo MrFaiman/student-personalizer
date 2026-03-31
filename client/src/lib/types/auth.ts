@@ -31,6 +31,17 @@ export const MfaChallengeResponseSchema = z.object({
 });
 export type MfaChallengeResponse = z.infer<typeof MfaChallengeResponseSchema>;
 
+export const MfaSetupResponseSchema = z.object({
+  provisioning_uri: z.string(),
+  secret: z.string(),
+});
+export type MfaSetupResponse = z.infer<typeof MfaSetupResponseSchema>;
+
+export const MfaBackupCodesResponseSchema = z.object({
+  backup_codes: z.array(z.string()),
+});
+export type MfaBackupCodesResponse = z.infer<typeof MfaBackupCodesResponseSchema>;
+
 export const LoginResponseSchema = z.union([
   MfaChallengeResponseSchema,
   TokenResponseSchema,
@@ -48,3 +59,6 @@ export const SchoolOptionSchema = z.object({
 });
 export const SchoolOptionsSchema = z.array(SchoolOptionSchema);
 export type SchoolOption = z.infer<typeof SchoolOptionSchema>;
+
+export const UsersSchema = z.array(UserSchema);
+export type Users = z.infer<typeof UsersSchema>;

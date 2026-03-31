@@ -143,6 +143,19 @@ async def update_user(
         user.role = body.role
     if body.is_active is not None:
         user.is_active = body.is_active
+    # school_id: when provided, validate against Mashov schools list and persist derived name.
+    # Note: Pydantic distinguishes between omitted vs explicit null via model_fields_set.
+    if "school_id" in body.model_fields_set:
+        if body.school_id is None:
+            user.school_id = None
+            user.school_name = None
+        else:
+            schools = await fetch_schools()
+            school_name = find_school_name(schools, body.school_id)
+            if school_name is None:
+                raise HTTPException(status_code=422, detail="Invalid school_id")
+            user.school_id = body.school_id
+            user.school_name = school_name
     session.add(user)
     session.commit()
     session.refresh(user)
@@ -161,6 +174,41 @@ async def admin_reset_password(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     AuthService(session).admin_reset_password(user, body.new_password, body.must_change_password)
+    return {"ok": True}
+
+
+@router.post("/users/{user_id}/reset-mfa")
+async def admin_reset_mfa(
+    user_id: str,
+    _admin: CurrentUser = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    from uuid import UUID
+
+    user = session.get(User, UUID(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Clear MFA secrets + backup codes
+    user.mfa_secret = None
+    user.mfa_enabled = False
+    user.mfa_backup_codes = None
+    session.add(user)
+
+    # Revoke all active sessions to force re-login
+    from .models import UserSession
+
+    sessions = session.exec(
+        select(UserSession).where(
+            UserSession.user_id == user.id,
+            UserSession.is_revoked == False,  # noqa: E712
+        )
+    ).all()
+    for s in sessions:
+        s.is_revoked = True
+        session.add(s)
+
+    session.commit()
     return {"ok": True}
 
 

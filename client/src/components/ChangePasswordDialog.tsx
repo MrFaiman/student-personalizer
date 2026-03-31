@@ -31,9 +31,14 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
       return;
     }
 
+    if (!accessToken) {
+      setErrors([t("auth.sessionExpired", "פג תוקף החיבור. התחבר מחדש.")]);
+      return;
+    }
+
     setLoading(true);
     try {
-      await authApi.changePassword(accessToken!, current, next);
+      await authApi.changePassword(accessToken, current, next);
       onSuccess();
     } catch (err: unknown) {
       const msg =
@@ -113,7 +118,7 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
             </ul>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || !accessToken}>
             {loading ? t("auth.saving") : t("auth.changePassword")}
           </Button>
         </form>
