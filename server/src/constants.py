@@ -71,7 +71,8 @@ REFRESH_TOKEN_EXPIRE_HOURS = int(os.getenv("REFRESH_TOKEN_EXPIRE_HOURS", "8"))
 INACTIVITY_TIMEOUT_MINUTES = int(os.getenv("INACTIVITY_TIMEOUT_MINUTES", "30"))
 
 # MFA enrollment enforcement by role (comma-separated roles: admin,teacher,viewer)
-_mfa_roles_raw = os.getenv("MFA_ENFORCED_ROLES", "admin")
+# Default is disabled; enable explicitly via env var in hardened deployments.
+_mfa_roles_raw = os.getenv("MFA_ENFORCED_ROLES", "")
 MFA_ENFORCED_ROLES = {
     r.strip().lower()
     for r in _mfa_roles_raw.split(",")
