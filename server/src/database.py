@@ -22,10 +22,27 @@ else:
 
 
 def init_db():
-    """Initialize database tables."""
-    # Import all models so SQLModel metadata is populated
+    """Initialize database.
+
+    Database schema is managed via Alembic migrations (see server/alembic).
+    """
+    if not _is_sqlite:
+        return
+
+    # SQLite is used for tests / local scratch DBs; keep automatic table creation
+    # to avoid needing to run Alembic inside every test.
     from .audit.models import AuditLog  # noqa: F401
-    from .auth.models import PasswordHistory, User, UserSession  # noqa: F401
+    from .auth.models import PasswordHistory, User, UserSchoolMembership, UserSession  # noqa: F401
+    from .models import (  # noqa: F401
+        AttendanceRecord,
+        Class,
+        Grade,
+        ImportLog,
+        OpenDayRegistration,
+        Student,
+        Subject,
+        Teacher,
+    )
 
     SQLModel.metadata.create_all(engine)
 

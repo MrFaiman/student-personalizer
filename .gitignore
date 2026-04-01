@@ -12,9 +12,14 @@ data/
 !data/events.xlsx
 !data/events.csv
 
+# AI tools
 skills-lock.json
 .agent
 .agents
 .claude
 .antigravity
 .cursor
+
+# Docs
+docs/*.pdf
+docs/*.docx
