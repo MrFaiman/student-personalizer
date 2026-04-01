@@ -40,8 +40,12 @@ def create_access_token(
     return token, jti, expires_at
 
 
-def create_refresh_token(user_id: UUID, jti: str) -> tuple[str, datetime]:
-    """Return (token, expires_at). Shares JTI with the access token session."""
+def create_refresh_token(user_id: UUID, jti: str, *, school_id: int | None = None) -> tuple[str, datetime]:
+    """Return (token, expires_at). Shares JTI with the access token session.
+
+    Includes school_id so token refresh can preserve the selected school scope
+    without requiring DB schema migrations on the sessions table.
+    """
     expires_at = utc_now() + timedelta(hours=REFRESH_TOKEN_EXPIRE_HOURS)
     payload = {
         "sub": str(user_id),
@@ -49,6 +53,8 @@ def create_refresh_token(user_id: UUID, jti: str) -> tuple[str, datetime]:
         "exp": expires_at,
         "type": "refresh",
     }
+    if school_id is not None:
+        payload["school_id"] = school_id
     token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return token, expires_at
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..auth.current_user import CurrentUser
-from ..auth.dependencies import require_admin
+from ..auth.dependencies import require_system_admin
 from ..constants import (
     AT_RISK_GRADE_THRESHOLD,
     DEFAULT_PAGE_SIZE,
@@ -47,7 +47,7 @@ async def get_preview_mode_status():
     return {"preview_mode": get_preview_mode()}
 
 
-@router.post("/preview-mode", dependencies=[Depends(require_admin)])
-async def toggle_preview_mode(body: PreviewModeToggle, _admin: CurrentUser = Depends(require_admin)):
+@router.post("/preview-mode", dependencies=[Depends(require_system_admin)])
+async def toggle_preview_mode(body: PreviewModeToggle, _admin: CurrentUser = Depends(require_system_admin)):
     set_preview_mode(body.enabled)
     return {"preview_mode": get_preview_mode()}

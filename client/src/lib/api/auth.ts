@@ -100,6 +100,12 @@ export const authApi = {
     return SchoolOptionsSchema.parse(await res.json());
   },
 
+  mySchools: (token: string): Promise<SchoolOption[]> =>
+    get("/api/auth/my-schools", token, SchoolOptionsSchema),
+
+  selectSchool: (token: string, school_id: number): Promise<TokenResponse> =>
+    authPost("/api/auth/select-school", token, { school_id }, TokenResponseSchema),
+
   ssoStatus: async (): Promise<SsoStatus> => {
     const res = await fetch(`${API_BASE_URL}/api/auth/sso/status`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

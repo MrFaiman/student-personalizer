@@ -50,7 +50,7 @@ import {
 
 export const Route = createFileRoute("/admin/users")({
   beforeLoad: () => {
-    const isAdmin = useAuthStore.getState().hasRole("admin");
+    const isAdmin = useAuthStore.getState().hasRole("super_admin", "system_admin");
     if (!isAdmin) {
       throw redirect({ to: "/" });
     }
@@ -189,9 +189,11 @@ function AdminUsersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("general.all")}</SelectItem>
-            <SelectItem value="admin">{t("auth.role.admin")}</SelectItem>
+            <SelectItem value="super_admin">{t("auth.role.super_admin")}</SelectItem>
+            <SelectItem value="system_admin">{t("auth.role.system_admin")}</SelectItem>
+            <SelectItem value="school_admin">{t("auth.role.school_admin")}</SelectItem>
             <SelectItem value="teacher">{t("auth.role.teacher")}</SelectItem>
-            <SelectItem value="viewer">{t("auth.role.viewer")}</SelectItem>
+            <SelectItem value="read_only">{t("auth.role.read_only")}</SelectItem>
           </SelectContent>
         </Select>
 
@@ -430,7 +432,7 @@ function CreateUserDialog({
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("viewer");
+  const [role, setRole] = useState<UserRole>("teacher");
   const [mustChange, setMustChange] = useState(true);
   const [schoolId, setSchoolId] = useState<string>("__none__");
 
@@ -440,7 +442,7 @@ function CreateUserDialog({
     setEmail("");
     setDisplayName("");
     setPassword("");
-    setRole("viewer");
+    setRole("teacher");
     setMustChange(true);
     setSchoolId("__none__");
   }
@@ -486,9 +488,11 @@ function CreateUserDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">{t("auth.role.admin")}</SelectItem>
+                  <SelectItem value="super_admin">{t("auth.role.super_admin")}</SelectItem>
+                  <SelectItem value="system_admin">{t("auth.role.system_admin")}</SelectItem>
+                  <SelectItem value="school_admin">{t("auth.role.school_admin")}</SelectItem>
                   <SelectItem value="teacher">{t("auth.role.teacher")}</SelectItem>
-                  <SelectItem value="viewer">{t("auth.role.viewer")}</SelectItem>
+                <SelectItem value="read_only">{t("auth.role.read_only")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -572,7 +576,7 @@ function EditUserDialog({
   const open = !!user;
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
-  const [role, setRole] = useState<UserRole>(user?.role ?? "viewer");
+  const [role, setRole] = useState<UserRole>(user?.role ?? "teacher");
   const [active, setActive] = useState<boolean>(user?.is_active ?? true);
   const [schoolId, setSchoolId] = useState<string>(
     user?.school_id != null ? String(user.school_id) : "__none__",
@@ -610,9 +614,11 @@ function EditUserDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">{t("auth.role.admin")}</SelectItem>
+                    <SelectItem value="super_admin">{t("auth.role.super_admin")}</SelectItem>
+                    <SelectItem value="system_admin">{t("auth.role.system_admin")}</SelectItem>
+                    <SelectItem value="school_admin">{t("auth.role.school_admin")}</SelectItem>
                     <SelectItem value="teacher">{t("auth.role.teacher")}</SelectItem>
-                    <SelectItem value="viewer">{t("auth.role.viewer")}</SelectItem>
+                    <SelectItem value="read_only">{t("auth.role.read_only")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

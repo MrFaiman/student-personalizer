@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from ..audit.service import log_event
 from ..constants import INACTIVITY_TIMEOUT_MINUTES
 from ..utils.clock import utc_now
-from .models import PasswordHistory, User, UserRole, UserSession
+from .models import PasswordHistory, User, UserRole, UserSchoolMembership, UserSession
 from .password import (
     PASSWORD_HISTORY_DEPTH,
     hash_password,
@@ -50,6 +50,16 @@ class AuthService:
         )
         self.session.add(user)
         self.session.flush()
+
+        # If a school was provided, seed membership for multi-school support.
+        if user.school_id is not None:
+            self.session.add(
+                UserSchoolMembership(
+                    user_id=user.id,
+                    school_id=user.school_id,
+                    school_name=user.school_name,
+                )
+            )
 
         # Seed password history
         history = PasswordHistory(user_id=user.id, hashed_password=user.hashed_password)
@@ -107,7 +117,7 @@ class AuthService:
         access_token, jti, expires_at = create_access_token(
             user.id, user.role.value, mfa_verified=False, school_id=user.school_id
         )
-        refresh_token, _ = create_refresh_token(user.id, jti)
+        refresh_token, _ = create_refresh_token(user.id, jti, school_id=user.school_id)
 
         session = UserSession(
             user_id=user.id,
@@ -132,6 +142,7 @@ class AuthService:
 
         user_id = UUID(payload["sub"])
         jti = payload["jti"]
+        school_id = payload.get("school_id")
 
         session = self.session.exec(
             select(UserSession).where(UserSession.token_jti == jti, UserSession.is_revoked == False)  # noqa: E712
@@ -160,9 +171,13 @@ class AuthService:
         new_access, new_jti, expires_at = create_access_token(
             user.id, user.role.value,
             mfa_verified=session.mfa_verified,
-            school_id=user.school_id,
+            school_id=school_id if isinstance(school_id, int) else user.school_id,
         )
-        new_refresh, _ = create_refresh_token(user.id, new_jti)
+        new_refresh, _ = create_refresh_token(
+            user.id,
+            new_jti,
+            school_id=school_id if isinstance(school_id, int) else user.school_id,
+        )
 
         new_session = UserSession(
             user_id=user.id,
@@ -236,7 +251,7 @@ class AuthService:
         self.session.commit()
 
     def ensure_default_admin(self) -> None:
-        """Create a default admin if no users exist."""
+        """Ensure at least one privileged user exists."""
         count = self.session.exec(select(User)).first()
         if count is None:
             import os
@@ -245,7 +260,7 @@ class AuthService:
                 email="admin@school.local",
                 display_name="מנהל מערכת",
                 hashed_password=hash_password(default_pass),
-                role=UserRole.admin,
+                role=UserRole.system_admin,
                 must_change_password=True,
             )
             self.session.add(admin)

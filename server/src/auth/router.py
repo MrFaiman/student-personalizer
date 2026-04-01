@@ -6,6 +6,7 @@ from jose import JWTError
 from sqlmodel import Session, select
 
 from ..database import get_session
+from ..dependencies import require_write_access
 from ..middleware.rate_limit import rate_limit
 from .current_user import CurrentUser
 from .dependencies import get_current_user, get_db_user, require_admin
@@ -23,13 +24,14 @@ from .schemas import (
     MfaVerifyRequest,
     RefreshRequest,
     SchoolOptionResponse,
+  SelectSchoolRequest,
     TokenResponse,
     UpdateUserRequest,
     UserResponse,
 )
 from .schools import fetch_schools, find_school_name
 from .service import AuthService
-from .tokens import decode_mfa_token, decode_token
+from .tokens import create_access_token, create_refresh_token, decode_mfa_token, decode_token
 
 logger = logging.getLogger(__name__)
 
@@ -91,11 +93,112 @@ async def list_schools():
         raise HTTPException(status_code=502, detail="Failed to fetch schools list") from exc
 
 
+@router.get("/my-schools", response_model=list[SchoolOptionResponse])
+async def my_schools(
+    current_user: CurrentUser = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Return the schools this user can operate in.
+
+    For global admins, this returns an empty list (school selection is optional).
+    """
+    from .models import UserSchoolMembership
+
+    if current_user.is_global_admin:
+        return []
+
+    memberships = session.exec(
+        select(UserSchoolMembership).where(UserSchoolMembership.user_id == current_user.user_id)
+    ).all()
+    memberships.sort(key=lambda m: (m.school_name or "", m.school_id))
+    return [
+        SchoolOptionResponse(school_id=m.school_id, school_name=m.school_name or str(m.school_id))
+        for m in memberships
+    ]
+
+
+@router.post("/select-school", response_model=TokenResponse)
+async def select_school(
+    body: SelectSchoolRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Switch the active school scope for the current session by issuing new tokens."""
+    from .models import UserSchoolMembership, UserSession
+
+    # Validate requested school_id.
+    school_id = body.school_id
+
+    if current_user.is_global_admin:
+        # Global admins may optionally "view as" any Mashov school.
+        schools = await fetch_schools()
+        school_name = find_school_name(schools, school_id)
+        if school_name is None:
+            raise HTTPException(status_code=422, detail="Invalid school_id")
+    else:
+        # School-scoped roles must be members of the requested school.
+        allowed = session.exec(
+            select(UserSchoolMembership).where(
+                UserSchoolMembership.user_id == current_user.user_id,
+                UserSchoolMembership.school_id == school_id,
+            )
+        ).first()
+        if not allowed:
+            raise HTTPException(status_code=403, detail="Not allowed for this school")
+        school_name = allowed.school_name
+
+    # Revoke old session (by JTI) and mint a new session+tokens.
+    old = session.exec(
+        select(UserSession).where(
+            UserSession.token_jti == current_user.session_jti,
+            UserSession.is_revoked == False,  # noqa: E712
+        )
+    ).first()
+    if old:
+        old.is_revoked = True
+        session.add(old)
+        session.commit()
+
+    user = session.get(User, current_user.user_id)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    access_token, jti, expires_at = create_access_token(
+        user.id,
+        user.role.value,
+        mfa_verified=current_user.mfa_verified,
+        school_id=school_id,
+    )
+    refresh_token, _ = create_refresh_token(user.id, jti, school_id=school_id)
+
+    new_session = UserSession(
+        user_id=user.id,
+        token_jti=jti,
+        expires_at=expires_at,
+        ip_address=old.ip_address if old else None,
+        user_agent=old.user_agent if old else None,
+        mfa_verified=current_user.mfa_verified,
+    )
+    session.add(new_session)
+    session.commit()
+    logger.info(
+        "school_selected",
+        extra={
+            "user_id": str(user.id),
+            "role": user.role.value,
+            "school_id": school_id,
+            "school_name": school_name,
+        },
+    )
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
 @router.put("/change-password")
 async def change_password(
     body: ChangePasswordRequest,
     db_user: User = Depends(get_db_user),
     session: Session = Depends(get_session),
+    _write: None = Depends(require_write_access),
 ):
     AuthService(session).change_password(db_user, body)
     return {"ok": True}
@@ -106,6 +209,9 @@ async def list_users(
     _admin: CurrentUser = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
+    # School admins only see users for their selected school.
+    if _admin.role.value == "school_admin" and _admin.school_id is not None:
+        return session.exec(select(User).where(User.school_id == _admin.school_id)).all()
     return session.exec(select(User)).all()
 
 
@@ -114,7 +220,17 @@ async def create_user(
     body: CreateUserRequest,
     _admin: CurrentUser = Depends(require_admin),
     session: Session = Depends(get_session),
+    _write: None = Depends(require_write_access),
 ):
+    # School admins may only create users within their selected school.
+    if _admin.role.value == "school_admin":
+        if _admin.school_id is None:
+            raise HTTPException(status_code=403, detail="School scope required")
+        if body.school_id is None:
+            body.school_id = _admin.school_id
+        if body.school_id != _admin.school_id:
+            raise HTTPException(status_code=403, detail="Not allowed for this school")
+
     if body.school_id is not None:
         schools = await fetch_schools()
         school_name = find_school_name(schools, body.school_id)
@@ -132,20 +248,33 @@ async def update_user(
     body: UpdateUserRequest,
     _admin: CurrentUser = Depends(require_admin),
     session: Session = Depends(get_session),
+    _write: None = Depends(require_write_access),
 ):
     from uuid import UUID
     user = session.get(User, UUID(user_id))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if _admin.role.value == "school_admin":
+        if _admin.school_id is None:
+            raise HTTPException(status_code=403, detail="School scope required")
+        if user.school_id != _admin.school_id:
+            raise HTTPException(status_code=403, detail="Not allowed for this school")
     if body.display_name is not None:
         user.display_name = body.display_name
     if body.role is not None:
+        # School admins cannot grant system/super admin.
+        if _admin.role.value == "school_admin" and body.role.value in ("super_admin", "system_admin"):
+            raise HTTPException(status_code=403, detail="Not allowed to assign this role")
         user.role = body.role
     if body.is_active is not None:
         user.is_active = body.is_active
     # school_id: when provided, validate against Mashov schools list and persist derived name.
     # Note: Pydantic distinguishes between omitted vs explicit null via model_fields_set.
     if "school_id" in body.model_fields_set:
+        if _admin.role.value == "school_admin":
+            # School admins cannot change a user's school.
+            if body.school_id is None or body.school_id != _admin.school_id:
+                raise HTTPException(status_code=403, detail="Not allowed to change school")
         if body.school_id is None:
             user.school_id = None
             user.school_name = None
@@ -168,11 +297,15 @@ async def admin_reset_password(
     body: AdminResetPasswordRequest,
     _admin: CurrentUser = Depends(require_admin),
     session: Session = Depends(get_session),
+    _write: None = Depends(require_write_access),
 ):
     from uuid import UUID
     user = session.get(User, UUID(user_id))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if _admin.role.value == "school_admin":
+        if _admin.school_id is None or user.school_id != _admin.school_id:
+            raise HTTPException(status_code=403, detail="Not allowed for this school")
     AuthService(session).admin_reset_password(user, body.new_password, body.must_change_password)
     return {"ok": True}
 
@@ -182,12 +315,16 @@ async def admin_reset_mfa(
     user_id: str,
     _admin: CurrentUser = Depends(require_admin),
     session: Session = Depends(get_session),
+    _write: None = Depends(require_write_access),
 ):
     from uuid import UUID
 
     user = session.get(User, UUID(user_id))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if _admin.role.value == "school_admin":
+        if _admin.school_id is None or user.school_id != _admin.school_id:
+            raise HTTPException(status_code=403, detail="Not allowed for this school")
 
     # Clear MFA secrets + backup codes
     user.mfa_secret = None
@@ -212,14 +349,13 @@ async def admin_reset_mfa(
     return {"ok": True}
 
 
-# ---------------------------------------------------------------------------
 # MFA endpoints (MoE section 4.2)
-# ---------------------------------------------------------------------------
 
 @router.post("/mfa/setup", response_model=MfaSetupResponse)
 async def mfa_setup(
     db_user: User = Depends(get_db_user),
     session: Session = Depends(get_session),
+    _write: None = Depends(require_write_access),
 ):
     """Initiate TOTP setup. Returns secret + provisioning URI for QR code.
     MFA is NOT active until /mfa/verify is called successfully.
@@ -235,6 +371,7 @@ async def mfa_verify(
     body: MfaVerifyRequest,
     db_user: User = Depends(get_db_user),
     session: Session = Depends(get_session),
+    _write: None = Depends(require_write_access),
 ):
     """Confirm TOTP setup with the first code from the authenticator app.
     Activates MFA and returns one-time backup codes.
@@ -280,7 +417,7 @@ async def mfa_challenge(
     access_token, jti, expires_at = create_access_token(
         user.id, user.role.value, mfa_verified=True, school_id=user.school_id
     )
-    refresh_token, _ = create_refresh_token(user.id, jti)
+    refresh_token, _ = create_refresh_token(user.id, jti, school_id=user.school_id)
     new_session = UserSession(
         user_id=user.id, token_jti=jti, expires_at=expires_at, mfa_verified=True
     )
@@ -296,6 +433,7 @@ async def mfa_disable(
     body: MfaVerifyRequest,
     db_user: User = Depends(get_db_user),
     session: Session = Depends(get_session),
+    _write: None = Depends(require_write_access),
 ):
     """Disable MFA. Requires the current TOTP code (or a backup code) to confirm."""
     disable_mfa(db_user, body.code)

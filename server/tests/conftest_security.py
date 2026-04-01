@@ -2,7 +2,7 @@
 Shared fixtures for security tests (auth, RBAC, headers, audit).
 
 Import pattern in test files:
-    from tests.conftest_security import auth_client, admin_token, teacher_token, viewer_token
+    from tests.conftest_security import auth_client, admin_token, teacher_token
 """
 
 import os
@@ -26,10 +26,11 @@ from src.database import get_session
 from src.main import app
 
 TEST_USERS = {
-    "admin":   ("admin@test.com",   "Admin@Test1234!", "Test Admin",   UserRole.admin),
+    "admin":   ("admin@test.com",   "Admin@Test1234!", "Test Admin",   UserRole.system_admin),
     "teacher": ("teacher@test.com", "Teacher@Test1!", "Test Teacher", UserRole.teacher),
-    "viewer":  ("viewer@test.com",  "Viewer@Test1!",  "Test Viewer",  UserRole.viewer),
 }
+
+TEST_SCHOOL_ID = 100
 
 
 def _make_engine():
@@ -51,6 +52,8 @@ def _seed_users(engine) -> dict[str, User]:
                 password=password,
                 display_name=display_name,
                 role=role,
+                school_id=TEST_SCHOOL_ID,
+                school_name="Test School",
             )
             user = svc.create_user(req)
             users[key] = user
@@ -93,8 +96,3 @@ def admin_token(auth_client):
 @pytest.fixture(scope="module")
 def teacher_token(auth_client):
     return _get_token(auth_client, "teacher")
-
-
-@pytest.fixture(scope="module")
-def viewer_token(auth_client):
-    return _get_token(auth_client, "viewer")

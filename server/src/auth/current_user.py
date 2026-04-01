@@ -50,20 +50,28 @@ class CurrentUser:
     session_jti: str
 
     @property
-    def is_admin(self) -> bool:
-        return self.role == UserRole.admin
+    def is_super_admin(self) -> bool:
+        return self.role == UserRole.super_admin
 
     @property
-    def is_at_least_teacher(self) -> bool:
-        return self.role in (UserRole.admin, UserRole.teacher)
+    def is_system_admin(self) -> bool:
+        return self.role == UserRole.system_admin
 
     @property
-    def is_viewer(self) -> bool:
-        """True for *all* authenticated users (viewer is the minimum role)."""
-        return True
+    def is_school_admin(self) -> bool:
+        return self.role == UserRole.school_admin
+
+    @property
+    def is_teacher(self) -> bool:
+        return self.role == UserRole.teacher
+
+    @property
+    def is_global_admin(self) -> bool:
+        """Global admin roles that are not tied to a specific school."""
+        return self.role in (UserRole.super_admin, UserRole.system_admin)
 
     def belongs_to_school(self, school_id: int) -> bool:
-        """Return True if this user belongs to the given school, or has no school set."""
-        if self.school_id is None:
+        """Return True if this user is operating within the given school scope."""
+        if self.is_global_admin:
             return True
         return self.school_id == school_id

@@ -124,7 +124,9 @@
     "changePasswordError": "שגיאה בשינוי הסיסמה",
     "saving": "שומר...",
     "role": {
-      "admin": "מנהל מערכת",
+      "super_admin": "סופר מנהל (Root)",
+      "system_admin": "מנהל מערכת",
+      "school_admin": "מנהל בית ספר",
       "teacher": "מורה",
       "viewer": "צופה"
     },
@@ -168,6 +170,10 @@
     "resetMfa": "איפוס MFA",
     "resetMfaTitle": "איפוס MFA",
     "resetMfaDescription": "פעולה זו תבטל MFA ותנתק את {{email}} מכל הסשנים. להמשיך?"
+  },
+  "schools": {
+    "selectSchool": "בחר בית ספר",
+    "selectSchoolPrompt": "הדבק/הקלד מספר סמל מוסד (או העתק מהשורה) לבחירת בית ספר:"
   },
   "security": {
     "mfa": {

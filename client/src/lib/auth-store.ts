@@ -16,6 +16,7 @@ interface AuthState {
 
   login: (email: string, password: string) => Promise<void>;
   completeMfa: (code: string) => Promise<void>;
+  selectSchool: (schoolId: number) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<boolean>;
   setTokens: (accessToken: string, refreshToken: string) => void;
@@ -60,6 +61,19 @@ export const useAuthStore = create<AuthState>()(
           user,
           isAuthenticated: true,
           mfaPending: null,
+        });
+      },
+
+      selectSchool: async (schoolId) => {
+        const { accessToken } = get();
+        if (!accessToken) throw new Error("Not authenticated");
+        const tokens = await authApi.selectSchool(accessToken, schoolId);
+        const user = await authApi.me(tokens.access_token);
+        set({
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          user,
+          isAuthenticated: true,
         });
       },
 

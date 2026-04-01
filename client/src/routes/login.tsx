@@ -45,6 +45,25 @@ function LoginPage() {
       if (state.user?.must_change_password) {
         setShowChangePassword(true);
       } else {
+        // School selection for multi-school teacher/school admins
+        if (state.user?.role === "teacher" || state.user?.role === "school_admin") {
+          const accessToken = state.accessToken;
+          if (accessToken) {
+            try {
+              const mySchools = await authApi.mySchools(accessToken);
+              if (mySchools.length === 1) {
+                await useAuthStore.getState().selectSchool(mySchools[0].school_id);
+              } else if (mySchools.length > 1) {
+                navigate({ to: "/select-school" });
+                return;
+              }
+            } catch (err) {
+              console.warn("Failed to auto-select school on login", err);
+              // Ignore and continue (fallback to any existing school_id)
+            }
+          }
+        }
+
         const enforcedRoles = (await import("@/lib/config-store")).useConfigStore.getState().mfaEnforcedRoles;
         if (state.user?.role && enforcedRoles.includes(state.user.role) && !state.user.mfa_enabled) {
           navigate({ to: "/enroll/mfa" });
@@ -69,6 +88,25 @@ function LoginPage() {
       if (currentUser?.must_change_password) {
         setShowChangePassword(true);
       } else {
+        // School selection for multi-school teacher/school admins
+        if (currentUser?.role === "teacher" || currentUser?.role === "school_admin") {
+          const accessToken = useAuthStore.getState().accessToken;
+          if (accessToken) {
+            try {
+              const mySchools = await authApi.mySchools(accessToken);
+              if (mySchools.length === 1) {
+                await useAuthStore.getState().selectSchool(mySchools[0].school_id);
+              } else if (mySchools.length > 1) {
+                navigate({ to: "/select-school" });
+                return;
+              }
+            } catch (err) {
+              console.warn("Failed to auto-select school after MFA", err);
+              // Ignore and continue
+            }
+          }
+        }
+
         const enforcedRoles = (await import("@/lib/config-store")).useConfigStore.getState().mfaEnforcedRoles;
         if (currentUser?.role && enforcedRoles.includes(currentUser.role) && !currentUser.mfa_enabled) {
           navigate({ to: "/enroll/mfa" });
@@ -89,7 +127,7 @@ function LoginPage() {
     setError(null);
   }
 
-  // --- MFA step ---
+  // MFA step
   if (mfaPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4" dir="rtl">
@@ -142,7 +180,7 @@ function LoginPage() {
     );
   }
 
-  // --- Login step ---
+  // Login step
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4" dir="rtl">
       <div className="w-full max-w-sm space-y-8">

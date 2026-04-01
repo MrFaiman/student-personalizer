@@ -55,7 +55,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
   const currentPath = routerState.location.pathname;
   const { year, period, gradeLevel, setFilter } = useFilterStore();
   const user = useAuthStore((s) => s.user);
-  const isAdmin = useAuthStore((s) => s.hasRole("admin"));
+  const isAdmin = useAuthStore((s) => s.hasRole("super_admin", "system_admin"));
   const logout = useAuthStore((s) => s.logout);
 
   async function handleLogout() {

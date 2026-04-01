@@ -20,11 +20,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlmodel import Session, select
 
+from ..audit.service import log_event
 from ..constants import INACTIVITY_TIMEOUT_MINUTES, MFA_ENFORCED_ROLES
 from ..database import get_session
 from ..utils.clock import utc_now
 from .current_user import CurrentUser
-from .models import User, UserRole, UserSession
+from .models import User, UserRole, UserSchoolMembership, UserSession
 from .tokens import decode_token
 
 _bearer = HTTPBearer(auto_error=False)
@@ -63,7 +64,7 @@ def get_current_user(
     jti = payload.get("jti", "")
     user_id = UUID(payload["sub"])
 
-    # -- Session check --------------------------------------------------
+    # Session check
     db_session = session.exec(
         select(UserSession).where(
             UserSession.token_jti == jti,
@@ -72,6 +73,12 @@ def get_current_user(
     ).first()
 
     if not db_session:
+        log_event(
+            session,
+            action="access_denied",
+            success=False,
+            detail={"reason": "session expired or revoked", "path": request.url.path},
+        )
         raise HTTPException(status_code=401, detail="Session expired or revoked")
 
     inactive_minutes = (utc_now() - db_session.last_activity.replace(tzinfo=timezone.utc)).total_seconds() / 60
@@ -79,18 +86,32 @@ def get_current_user(
         db_session.is_revoked = True
         session.add(db_session)
         session.commit()
+        log_event(
+            session,
+            action="access_denied",
+            user_id=db_session.user_id,
+            success=False,
+            detail={"reason": "session inactive timeout", "path": request.url.path},
+        )
         raise HTTPException(status_code=401, detail="Session expired due to inactivity")
 
     db_session.last_activity = utc_now()
     session.add(db_session)
     session.commit()
 
-    # -- User check -----------------------------------------------------
+    # User check
     user = session.get(User, user_id)
     if not user or not user.is_active:
+        log_event(
+            session,
+            action="access_denied",
+            user_id=user_id,
+            success=False,
+            detail={"reason": "user not found or inactive", "path": request.url.path},
+        )
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
-    # -- Enforce MFA enrollment for admins ------------------------------
+    # Enforce MFA enrollment for admins
     # Admins must enable MFA (mfa_enabled=True) before accessing most endpoints.
     # Allow only the minimal auth endpoints needed to complete enrollment.
     if user.role.value in MFA_ENFORCED_ROLES and not user.mfa_enabled:
@@ -105,9 +126,17 @@ def get_current_user(
             "/api/auth/mfa/disable",
         }
         if path not in allowed_paths:
+            log_event(
+                session,
+                action="access_denied",
+                user_id=user.id,
+                user_email=user.email,
+                success=False,
+                detail={"reason": "mfa enrollment required", "path": path},
+            )
             raise HTTPException(status_code=403, detail="MFA setup required for admin accounts")
 
-    # -- Build CurrentUser from JWT claims + DB fields ------------------
+    # Build CurrentUser from JWT claims + DB fields
     school_id_claim = payload.get("school_id")
     if school_id_claim is None:
         school_id = user.school_id
@@ -115,6 +144,16 @@ def get_current_user(
         school_id = school_id_claim
     else:
         raise HTTPException(status_code=401, detail="Invalid school_id claim in token")
+
+    school_name = user.school_name
+    if school_id is not None and school_id != user.school_id:
+        membership = session.exec(
+            select(UserSchoolMembership).where(
+                UserSchoolMembership.user_id == user.id,
+                UserSchoolMembership.school_id == school_id,
+            )
+        ).first()
+        school_name = membership.school_name if membership else None
 
     return CurrentUser(
         user_id=user.id,
@@ -128,7 +167,7 @@ def get_current_user(
         identity_provider=user.identity_provider,
         external_id=user.external_subject_id,
         school_id=school_id,
-        school_name=user.school_name,
+        school_name=school_name,
         session_jti=jti,
     )
 
@@ -158,7 +197,19 @@ def require_role(*roles: UserRole):
     return _check
 
 
+def require_school_scope(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    """Require an explicit school context for domain-data access.
+
+    Prevents accidental cross-school access by forcing callers to operate within
+    a selected school scope (embedded in the JWT claim `school_id`).
+    """
+    if current_user.school_id is None:
+        raise HTTPException(status_code=403, detail="School scope required")
+    return current_user
+
+
 # Convenience shortcuts
-require_admin = require_role(UserRole.admin)
-require_teacher = require_role(UserRole.admin, UserRole.teacher)
-require_viewer = require_role(UserRole.admin, UserRole.teacher, UserRole.viewer)
+require_admin = require_role(UserRole.super_admin, UserRole.system_admin, UserRole.school_admin)
+require_system_admin = require_role(UserRole.super_admin, UserRole.system_admin)
+require_teacher = require_role(UserRole.super_admin, UserRole.system_admin, UserRole.school_admin, UserRole.teacher)
+require_viewer = require_role(UserRole.super_admin, UserRole.system_admin, UserRole.school_admin, UserRole.teacher, UserRole.read_only)

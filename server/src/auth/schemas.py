@@ -45,7 +45,7 @@ class CreateUserRequest(BaseModel):
     email: str
     display_name: str
     password: str
-    role: UserRole = UserRole.viewer
+    role: UserRole = UserRole.teacher
     must_change_password: bool = True
     school_id: int | None = None
     school_name: str | None = None
@@ -105,3 +105,7 @@ class MfaLoginRequest(BaseModel):
 class SchoolOptionResponse(BaseModel):
     school_id: int
     school_name: str
+
+
+class SelectSchoolRequest(BaseModel):
+    school_id: int

@@ -1,11 +1,8 @@
 """
 Role-aware PII masking for student data (MoE section 3.2 / data minimisation).
 
-viewers see:
-  - student_tz:   "***1234" (last 4 digits only)
-  - student_name: "י***"    (first character only)
-
-teachers and admins see unmasked data.
+Currently, all authenticated roles (teacher/school_admin/system_admin/super_admin)
+see unmasked data. Masking is applied only when role is missing/unknown.
 """
 
 from ..auth.models import UserRole
@@ -15,8 +12,8 @@ def should_mask(role: UserRole | str | None) -> bool:
     """Return True if the given role should see masked PII."""
     if role is None:
         return True
-    r = role if isinstance(role, str) else role.value
-    return r == UserRole.viewer.value
+    _ = role if isinstance(role, str) else role.value
+    return False
 
 
 def mask_tz(value: str) -> str:

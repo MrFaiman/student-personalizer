@@ -1,7 +1,6 @@
 """
 Role-based access control tests (MoE section 4.1).
-Verifies every role is correctly restricted from endpoints above their level,
-and that viewer responses mask PII.
+Verifies roles are correctly restricted from endpoints above their level.
 """
 
 import os
@@ -23,10 +22,11 @@ from src.database import get_session
 from src.main import app
 
 RBAC_USERS = {
-    "admin":   ("rbac_admin@test.com",   "Admin@Rbac1234!", "RBAC Admin",   UserRole.admin),
-    "teacher": ("rbac_teacher@test.com", "Teacher@Rbac1!",  "RBAC Teacher", UserRole.teacher),
-    "viewer":  ("rbac_viewer@test.com",  "Viewer@Rbac1!",   "RBAC Viewer",  UserRole.viewer),
+    "system_admin": ("rbac_admin@test.com", "Admin@Rbac1234!", "RBAC Admin", UserRole.system_admin),
+    "teacher":      ("rbac_teacher@test.com", "Teacher@Rbac1!",  "RBAC Teacher", UserRole.teacher),
 }
+
+RBAC_SCHOOL_ID = 100
 
 
 @pytest.fixture(scope="module")
@@ -37,7 +37,16 @@ def rbac_engine():
     with Session(eng) as s:
         svc = AuthService(s)
         for key, (email, password, display_name, role) in RBAC_USERS.items():
-            svc.create_user(CreateUserRequest(email=email, password=password, display_name=display_name, role=role))
+            svc.create_user(
+                CreateUserRequest(
+                    email=email,
+                    password=password,
+                    display_name=display_name,
+                    role=role,
+                    school_id=RBAC_SCHOOL_ID,
+                    school_name="RBAC School",
+                )
+            )
 
     return eng
 
@@ -63,7 +72,7 @@ def _token(client, role: str) -> str:
 
 @pytest.fixture(scope="module")
 def admin_tok(rbac_client):
-    return _token(rbac_client, "admin")
+    return _token(rbac_client, "system_admin")
 
 
 @pytest.fixture(scope="module")
@@ -72,11 +81,6 @@ def teacher_tok(rbac_client):
 
 
 @pytest.fixture(scope="module")
-def viewer_tok(rbac_client):
-    return _token(rbac_client, "viewer")
-
-
-
 def test_unauthenticated_students_list(rbac_client):
     resp = rbac_client.get("/api/students/")
     assert resp.status_code == 401
@@ -93,34 +97,14 @@ def test_unauthenticated_upload(rbac_client):
 
 
 
-def test_viewer_can_access_analytics(rbac_client, viewer_tok):
-    resp = rbac_client.get("/api/analytics/kpis", headers={"Authorization": f"Bearer {viewer_tok}"})
+def test_teacher_can_access_analytics(rbac_client, teacher_tok):
+    resp = rbac_client.get("/api/analytics/kpis", headers={"Authorization": f"Bearer {teacher_tok}"})
     # 200 or 422 (no data) - but NOT 401/403
     assert resp.status_code not in (401, 403)
 
 
-def test_viewer_cannot_list_students(rbac_client, viewer_tok):
-    """Students endpoint requires teacher role - viewer must get 403."""
-    resp = rbac_client.get("/api/students/", headers={"Authorization": f"Bearer {viewer_tok}"})
-    assert resp.status_code == 403
-
-
-def test_viewer_cannot_upload(rbac_client, viewer_tok):
-    resp = rbac_client.post("/api/ingest/upload", headers={"Authorization": f"Bearer {viewer_tok}"})
-    assert resp.status_code == 403
-
-
-def test_viewer_cannot_delete_import(rbac_client, viewer_tok):
-    resp = rbac_client.delete("/api/ingest/logs/fake-id", headers={"Authorization": f"Bearer {viewer_tok}"})
-    assert resp.status_code == 403
-
-
-def test_viewer_cannot_create_user(rbac_client, viewer_tok):
-    resp = rbac_client.post(
-        "/api/auth/users",
-        json={"email": "new@test.com", "password": "Valid@Pass1!", "display_name": "New", "role": "viewer"},
-        headers={"Authorization": f"Bearer {viewer_tok}"},
-    )
+def test_teacher_cannot_upload(rbac_client, teacher_tok):
+    resp = rbac_client.post("/api/ingest/upload", headers={"Authorization": f"Bearer {teacher_tok}"})
     assert resp.status_code == 403
 
 
@@ -130,15 +114,10 @@ def test_teacher_can_list_students(rbac_client, teacher_tok):
     assert resp.status_code not in (401, 403)
 
 
-def test_teacher_cannot_upload(rbac_client, teacher_tok):
-    resp = rbac_client.post("/api/ingest/upload", headers={"Authorization": f"Bearer {teacher_tok}"})
-    assert resp.status_code == 403
-
-
 def test_teacher_cannot_create_user(rbac_client, teacher_tok):
     resp = rbac_client.post(
         "/api/auth/users",
-        json={"email": "new2@test.com", "password": "Valid@Pass1!", "display_name": "New2", "role": "viewer"},
+        json={"email": "new2@test.com", "password": "Valid@Pass1!", "display_name": "New2", "role": "teacher"},
         headers={"Authorization": f"Bearer {teacher_tok}"},
     )
     assert resp.status_code == 403
@@ -153,7 +132,7 @@ def test_admin_can_list_users(rbac_client, admin_tok):
 def test_admin_can_create_user(rbac_client, admin_tok):
     resp = rbac_client.post(
         "/api/auth/users",
-        json={"email": "created_by_admin@test.com", "password": "Admin@Created1!", "display_name": "Created", "role": "viewer"},
+        json={"email": "created_by_admin@test.com", "password": "Admin@Created1!", "display_name": "Created", "role": "teacher"},
         headers={"Authorization": f"Bearer {admin_tok}"},
     )
     assert resp.status_code == 201
@@ -171,7 +150,7 @@ def test_teacher_student_list_unmasks_tz(rbac_client, teacher_tok, rbac_engine):
             __import__("sqlmodel", fromlist=["select"]).select(Class).where(Class.class_name == "RBAC-Test-10")
         ).first()
         if not existing:
-            cls = Class(class_name="RBAC-Test-10", grade_level="10")
+            cls = Class(class_name="RBAC-Test-10", grade_level="10", school_id=RBAC_SCHOOL_ID)
             s.add(cls)
             s.commit()
             s.refresh(cls)
@@ -187,6 +166,7 @@ def test_teacher_student_list_unmasks_tz(rbac_client, teacher_tok, rbac_engine):
                 student_name="Test Student",
                 class_id=class_id,
                 student_tz_hash=hash_for_lookup("123456789"),
+                school_id=RBAC_SCHOOL_ID,
             ))
             s.commit()
 

@@ -52,7 +52,7 @@ def seeded_client(engine):
                 email="auth_admin@test.com",
                 password="Admin@Test1234!",
                 display_name="Auth Test Admin",
-                role=UserRole.admin,
+                role=UserRole.system_admin,
             ))
         except Exception:
             pass  # already exists from previous test run in same session
@@ -114,7 +114,7 @@ def test_account_lockout_after_five_failures(seeded_client, engine):
                 email="lockout@test.com",
                 password="Lockout@Test1!",
                 display_name="Lockout Test",
-                role=UserRole.viewer,
+                role=UserRole.teacher,
             ))
         except Exception:
             pass  # already exists
@@ -176,7 +176,7 @@ def test_create_user_rejects_weak_password(seeded_client):
 
     resp = seeded_client.post(
         "/api/auth/users",
-        json={"email": "weak@test.com", "password": "short", "display_name": "Weak", "role": "viewer"},
+        json={"email": "weak@test.com", "password": "short", "display_name": "Weak", "role": "teacher"},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 422
@@ -191,7 +191,7 @@ def test_create_user_rejects_no_uppercase(seeded_client):
 
     resp = seeded_client.post(
         "/api/auth/users",
-        json={"email": "lower@test.com", "password": "alllowercase1!", "display_name": "Lower", "role": "viewer"},
+        json={"email": "lower@test.com", "password": "alllowercase1!", "display_name": "Lower", "role": "teacher"},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 422
@@ -208,7 +208,7 @@ def test_me_returns_current_user(seeded_client):
     resp = seeded_client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
     assert resp.json()["email"] == "auth_admin@test.com"
-    assert resp.json()["role"] == "admin"
+    assert resp.json()["role"] == "system_admin"
 
 
 def test_me_rejects_missing_token(seeded_client):
@@ -251,7 +251,7 @@ def test_create_user_rejects_invalid_school_id(seeded_client, monkeypatch):
             "email": "invalid-school@test.com",
             "password": "ValidPass@Test1234!",
             "display_name": "Invalid School",
-            "role": "viewer",
+            "role": "teacher",
             "school_id": 999999,
         },
         headers={"Authorization": f"Bearer {token}"},
@@ -278,7 +278,7 @@ def test_create_user_sets_school_name_from_school_id(seeded_client, monkeypatch)
             "email": "valid-school@test.com",
             "password": "ValidPass@Test1234!",
             "display_name": "Valid School",
-            "role": "viewer",
+            "role": "teacher",
             "school_id": 333333,
         },
         headers={"Authorization": f"Bearer {token}"},

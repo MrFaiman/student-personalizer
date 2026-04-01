@@ -30,7 +30,7 @@ export const useConfigStore = create<ConfigState>((set) => ({
   defaultPageSize: 20,
   gradeRange: [0, 100],
   enableDebug: false,
-  mfaEnforcedRoles: ["admin"],
+  mfaEnforcedRoles: ["super_admin", "system_admin", "school_admin"],
 
   isReady: false,
 

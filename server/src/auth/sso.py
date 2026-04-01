@@ -105,7 +105,7 @@ async def exchange_code_for_user_info(code: str) -> dict:
 def provision_sso_user(session: Session, userinfo: dict) -> User:
     """Find or create a local user from OIDC userinfo claims.
 
-    New SSO users are created as 'viewer' role by default.  An admin must
+    New SSO users are created as 'teacher' role by default. An admin can
     upgrade the role manually.
 
     Account-linking rules (prevent takeover via unverified email assertions):
@@ -117,7 +117,7 @@ def provision_sso_user(session: Session, userinfo: dict) -> User:
           An admin must explicitly convert the account to OIDC first.
     3. Otherwise, provision a new OIDC-only account.
     """
-    # --- Require verified email from the provider ---
+    # Require verified email from the provider
     if not userinfo.get("email_verified", False):
         raise HTTPException(
             status_code=403,
@@ -161,7 +161,7 @@ def provision_sso_user(session: Session, userinfo: dict) -> User:
         email=email,
         display_name=display_name,
         hashed_password=hash_password(f"sso-{email}-no-password-{utc_now().isoformat()}"),
-        role=UserRole.viewer,
+        role=UserRole.teacher,
         must_change_password=False,
         identity_provider="oidc",
         external_subject_id=external_subject or None,
@@ -178,7 +178,7 @@ def issue_tokens_for_user(session: Session, user: User, ip: str | None, ua: str 
     access_token, jti, expires_at = create_access_token(
         user.id, user.role.value, mfa_verified=False, school_id=user.school_id
     )
-    refresh_token, _ = create_refresh_token(user.id, jti)
+    refresh_token, _ = create_refresh_token(user.id, jti, school_id=user.school_id)
     new_session = UserSession(
         user_id=user.id,
         token_jti=jti,
