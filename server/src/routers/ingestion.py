@@ -5,7 +5,9 @@ from typing import Literal
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, func, select
 
-from ..auth.dependencies import require_admin, require_teacher
+from ..audit.service import log_event
+from ..auth.current_user import CurrentUser
+from ..auth.dependencies import get_current_user, require_admin, require_teacher
 from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, DEFAULT_YEAR, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, UPLOAD_DIR
 from ..database import get_session
 from ..dependencies import require_write_access
@@ -27,6 +29,10 @@ async def upload_file(
         default=None,
         description="File type (grades or events). Auto-detected if not specified.",
     ),
+    school_id: int | None = Query(
+        default=None,
+        description="Mashov semel (school scope) to associate the ingested data with. Required for school-scoped admins.",
+    ),
     period: str = Query(
         default=DEFAULT_PERIOD,
         description="Period name to associate with this import (e.g., 'Quarter 1', 'סמסטר א').",
@@ -36,6 +42,7 @@ async def upload_file(
         description="Academic year to associate with this import (e.g., '2024-2025').",
     ),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Upload and ingest an Excel or CSV file.
@@ -69,6 +76,7 @@ async def upload_file(
         content_type=content_type,
         file_size=len(content),
         checksum=checksum,
+        school_id=None,
     )
     suffix = Path(uploaded.original_filename).suffix
     stored_name = f"{uploaded.id}{suffix}"
@@ -80,7 +88,23 @@ async def upload_file(
     session.add(uploaded)
     session.flush()
 
+    # Persist school scope on the uploaded file record as well (helps scoping logs later).
+    resolved_school_id = school_id if school_id is not None else current_user.school_id
+    uploaded.school_id = resolved_school_id
+    session.add(uploaded)
+    session.flush()
+
     ingestion_service = IngestionService(session)
+
+    # Resolve school scope for import.
+    resolved_school_id = school_id if school_id is not None else current_user.school_id
+    if current_user.role.value == "school_admin":
+        # School admins must operate within their selected school scope.
+        if resolved_school_id is None:
+            raise HTTPException(status_code=403, detail="School scope required")
+        if current_user.school_id is None or resolved_school_id != current_user.school_id:
+            raise HTTPException(status_code=403, detail="Not allowed for this school")
+
     result: ImportResult = ingestion_service.ingest_file(
         file_content=content,
         filename=file.filename or "upload",
@@ -88,15 +112,32 @@ async def upload_file(
         file_type=file_type,
         period=period,
         year=year,
+        school_id=resolved_school_id,
         uploaded_file_id=uploaded.id,
     )
 
     if result.file_type == "unknown":
+        log_event(
+            session,
+            action="upload",
+            user_id=current_user.user_id,
+            user_email=current_user.email,
+            success=False,
+            detail={"school_id": resolved_school_id, "filename": file.filename, "reason": "unknown file type"},
+        )
         raise HTTPException(
             status_code=400,
             detail=result.errors[0] if result.errors else "Could not process file",
         )
 
+    log_event(
+        session,
+        action="upload",
+        user_id=current_user.user_id,
+        user_email=current_user.email,
+        success=True,
+        detail={"school_id": resolved_school_id, "filename": file.filename, "file_type": result.file_type, "batch_id": result.batch_id},
+    )
     return ImportResponse(
         batch_id=result.batch_id,
         file_type=result.file_type,

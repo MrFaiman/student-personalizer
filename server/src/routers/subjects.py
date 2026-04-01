@@ -3,13 +3,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
-from ..auth.dependencies import require_teacher
+from ..auth.dependencies import require_school_scope, require_viewer
 from ..database import get_session
 from ..schemas.subject import SubjectDetailResponse, SubjectListItem, SubjectStatsResponse
 from ..services.subjects import SubjectService
 from ..views.subjects import SubjectDefaultView
 
-router = APIRouter(prefix="/api/subjects", tags=["subjects"], dependencies=[Depends(require_teacher)])
+router = APIRouter(prefix="/api/subjects", tags=["subjects"], dependencies=[Depends(require_viewer), Depends(require_school_scope)])
 
 
 @router.get("", response_model=list[str])

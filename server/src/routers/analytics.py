@@ -3,7 +3,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
-from ..auth.dependencies import require_viewer
+from ..auth.current_user import CurrentUser
+from ..auth.dependencies import get_current_user, require_school_scope, require_viewer
 from ..database import get_session
 from ..schemas.analytics import (
     CascadingFilterOptions,
@@ -28,12 +29,14 @@ async def get_layer_kpis(
     grade_level: str | None = Query(default=None, description="Grade level filter (e.g., 'י')"),
     year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get Dashboard KPIs."""
+    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
-    data = service.get_layer_kpis(period, grade_level, year)
+    data = service.get_layer_kpis(current_user=current_user, period=period, grade_level=grade_level, year=year)
     return view.render_kpis(data)
 
 
@@ -43,12 +46,14 @@ async def get_class_comparison(
     grade_level: str | None = Query(default=None, description="Grade level filter"),
     year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get class comparison data."""
+    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
-    data = service.get_class_comparison(period, grade_level, year)
+    data = service.get_class_comparison(current_user=current_user, period=period, grade_level=grade_level, year=year)
     return view.render_class_comparison(data)
 
 
@@ -58,12 +63,14 @@ async def get_student_radar(
     period: str | None = Query(default=None, description="Period filter"),
     year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get radar chart data for a student."""
+    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
-    data = service.get_student_radar(student_tz, period, year)
+    data = service.get_student_radar(current_user=current_user, student_tz=student_tz, period=period, year=year)
     if not data:
         raise HTTPException(status_code=404, detail=f"Student '{student_tz}' not found or has no grades")
         
@@ -73,12 +80,14 @@ async def get_student_radar(
 @router.get("/metadata", response_model=MetadataResponse)
 async def get_metadata(
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get available filter options."""
+    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
-    data = service.get_metadata_options()
+    data = service.get_metadata_options(current_user=current_user)
     return view.render_metadata(data)
 
 
@@ -94,12 +103,15 @@ async def get_period_comparison(
     class_id: str | None = Query(default=None, description="Class ID filter"),
     year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Compare average grades between two periods."""
+    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
     data = service.get_period_comparison(
+        current_user=current_user,
         period_a=period_a,
         period_b=period_b,
         comparison_type=comparison_type,
@@ -116,12 +128,15 @@ async def get_red_student_segmentation(
     grade_level: str | None = Query(default=None, description="Grade level filter"),
     year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get at-risk student segmentation."""
+    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
     data = service.get_red_student_segmentation(
+        current_user=current_user,
         period=period,
         grade_level=grade_level,
         year=year,
@@ -140,12 +155,15 @@ async def get_red_student_list(
     page_size: int = Query(default=20, ge=1, le=100, description="Items per page"),
     year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get paginated list of at-risk students."""
+    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
     data = service.get_red_student_list(
+        current_user=current_user,
         period=period,
         grade_level=grade_level,
         class_id=class_id,
@@ -166,14 +184,17 @@ async def get_versus_comparison(
     metric: str = Query(default="average_grade", description="Metric to compare: average_grade or at_risk_count"),
     year: str | None = Query(default=None, description="Year filter"),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get versus comparison data."""
+    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
     ids = [id.strip() for id in entity_ids.split(",")]
     
     data = service.get_versus_comparison(
+        current_user=current_user,
         comparison_type=comparison_type,
         entity_ids=ids,
         period=period,
@@ -190,12 +211,15 @@ async def get_cascading_filter_options(
     period: str | None = Query(default=None, description="Selected period"),
     year: str | None = Query(default=None, description="Selected year"),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get available filter options."""
+    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
     data = service.get_cascading_filter_options(
+        current_user=current_user,
         grade_level=grade_level,
         class_id=class_id,
         period=period,

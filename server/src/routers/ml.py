@@ -5,7 +5,7 @@ from sqlmodel import Session
 
 from ..audit.service import log_event
 from ..auth.current_user import CurrentUser
-from ..auth.dependencies import require_admin, require_teacher
+from ..auth.dependencies import require_admin, require_school_scope, require_teacher
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from ..database import get_session
 from ..schemas.ml import BatchPredictionResponse, ModelStatusResponse, StudentPrediction, TrainResponse
@@ -23,7 +23,7 @@ async def train_model(
     """Train the ML models on current student data."""
     service = MLService(session)
     try:
-        result = service.train(period=period)
+        result = service.train(current_user=current_user, period=period)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     log_event(session, action="ml_train", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"period": period})
@@ -38,9 +38,10 @@ async def predict_student(
     session: Session = Depends(get_session),
 ):
     """Get grade prediction and dropout risk for a single student."""
+    require_school_scope(current_user)
     service = MLService(session)
     try:
-        result = service.predict_student(student_tz=student_tz, period=period)
+        result = service.predict_student(current_user=current_user, student_tz=student_tz, period=period)
     except FileNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
@@ -60,9 +61,17 @@ async def predict_all(
     session: Session = Depends(get_session),
 ):
     """Get predictions for all students."""
+    require_school_scope(current_user)
     service = MLService(session)
     try:
-        result = service.predict_all(period=period, page=page, page_size=page_size, sort_by=sort_by, sort_order=sort_order)
+        result = service.predict_all(
+            current_user=current_user,
+            period=period,
+            page=page,
+            page_size=page_size,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
     except FileNotFoundError as e:
         raise HTTPException(status_code=400, detail=str(e))
     log_event(session, action="ml_predict_batch", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"period": period, "page": page})

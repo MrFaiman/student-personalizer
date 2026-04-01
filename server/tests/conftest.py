@@ -5,6 +5,9 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from src.models import AttendanceRecord, Class, Grade, Student
 
+# Shared school scope for seeded data
+TEST_SCHOOL_ID = 100
+
 # Student profiles used for seeding: (tz, name, grades, absence, late, dist, neg, pos)
 PROFILES = [
     # Class Test-10A
@@ -32,8 +35,8 @@ def _seed_db(engine):
     """Populate the DB with test students, grades, and attendance."""
     with Session(engine) as s:
         # Create Classes
-        class_a = Class(class_name="Test-10A", grade_level="10")
-        class_b = Class(class_name="Test-10B", grade_level="10")
+        class_a = Class(class_name="Test-10A", grade_level="10", school_id=TEST_SCHOOL_ID)
+        class_b = Class(class_name="Test-10B", grade_level="10", school_id=TEST_SCHOOL_ID)
         s.add(class_a)
         s.add(class_b)
         s.commit()
@@ -48,7 +51,7 @@ def _seed_db(engine):
                 student_tz=tz, 
                 student_name=name, 
                 class_id=cls.id, # Link by ID
-                class_name=cls.class_name # Denormalized field if used
+                school_id=TEST_SCHOOL_ID,
             ))
             s.flush()
 
@@ -57,6 +60,7 @@ def _seed_db(engine):
                 subject_name = f"Subject-{j+1}" 
                 s.add(Grade(
                     student_tz=tz,
+                    school_id=TEST_SCHOOL_ID,
                     subject_name=subject_name,
                     teacher_name=f"Teacher-{j+1}",
                     grade=float(g),
@@ -65,6 +69,7 @@ def _seed_db(engine):
 
             s.add(AttendanceRecord(
                 student_tz=tz,
+                school_id=TEST_SCHOOL_ID,
                 absence=absence,
                 absence_justified=1,
                 late=late,

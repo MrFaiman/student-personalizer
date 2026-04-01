@@ -3,8 +3,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
+from ..audit.service import log_event
 from ..auth.current_user import CurrentUser
-from ..auth.dependencies import get_current_user, require_teacher
+from ..auth.dependencies import get_current_user, require_school_scope, require_viewer
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from ..database import get_session
 from ..schemas.student import (
@@ -19,7 +20,7 @@ from ..services.students import StudentService
 from ..views.masking import apply_student_mask
 from ..views.students import StudentDefaultView
 
-router = APIRouter(prefix="/api/students", tags=["students"], dependencies=[Depends(require_teacher)])
+router = APIRouter(prefix="/api/students", tags=["students"], dependencies=[Depends(require_viewer), Depends(require_school_scope)])
 
 
 @router.get("", response_model=StudentListResponse)
@@ -41,6 +42,7 @@ async def list_students(
     view = StudentDefaultView()
 
     data = service.list_students(
+        current_user=current_user,
         page=page,
         page_size=page_size,
         class_id=class_id,
@@ -52,6 +54,7 @@ async def list_students(
         sort_order=sort_order,
     )
     data["items"] = [apply_student_mask(item, current_user.role) for item in data["items"]]
+    log_event(session, action="students_list", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"school_id": current_user.school_id, "page": page})
     return view.render_list(data)
 
 
@@ -61,6 +64,7 @@ async def get_dashboard_stats(
     period: str | None = Query(default=None),
     year: str | None = Query(default=None),
     session: Session = Depends(get_session),
+    _current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get dashboard statistics."""
     service = StudentService(session)
@@ -82,9 +86,10 @@ async def get_student(
     service = StudentService(session)
     view = StudentDefaultView()
 
-    data = service.get_student_detail(student_tz, period, year)
+    data = service.get_student_detail(current_user=current_user, student_tz=student_tz, period=period, year=year)
     if not data:
         raise HTTPException(status_code=404, detail="Student not found")
+    log_event(session, action="student_access", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"school_id": current_user.school_id, "student_tz": student_tz})
     return view.render_detail(apply_student_mask(data, current_user.role))
 
 
@@ -94,12 +99,13 @@ async def get_student_grades(
     period: str | None = Query(default=None),
     year: str | None = Query(default=None),
     session: Session = Depends(get_session),
+    _current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get all grades for a student."""
     service = StudentService(session)
     view = StudentDefaultView()
 
-    data = service.get_student_grades(student_tz, period, year)
+    data = service.get_student_grades(current_user=_current_user, student_tz=student_tz, period=period, year=year)
     if data is None:
         raise HTTPException(status_code=404, detail="Student not found")
     return view.render_grades(data)
@@ -111,12 +117,13 @@ async def get_student_attendance(
     period: str | None = Query(default=None),
     year: str | None = Query(default=None),
     session: Session = Depends(get_session),
+    _current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get all attendance records for a student."""
     service = StudentService(session)
     view = StudentDefaultView()
 
-    data = service.get_student_attendance(student_tz, period, year)
+    data = service.get_student_attendance(current_user=_current_user, student_tz=student_tz, period=period, year=year)
     if data is None:
         raise HTTPException(status_code=404, detail="Student not found")
     return view.render_attendance(data)
@@ -130,7 +137,7 @@ async def get_student_timeline(
 ):
     """Get multi-year timeline data for a student."""
     service = StudentService(session)
-    data = service.get_student_timeline(student_tz)
+    data = service.get_student_timeline(current_user=current_user, student_tz=student_tz)
     if not data:
         raise HTTPException(status_code=404, detail="Student not found")
     return StudentTimelineResponse(**apply_student_mask(data, current_user.role))

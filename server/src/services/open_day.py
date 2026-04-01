@@ -72,7 +72,7 @@ class OpenDayService:
         s = str(val).strip()
         return None if s.lower() in ("nan", "none", "") else s
 
-    def process_upload(self, mime_format: str, content: bytes, filename: str) -> OpenDayUploadResponse:
+    def process_upload(self, mime_format: str, content: bytes, filename: str, *, school_id: int | None) -> OpenDayUploadResponse:
         """Process an uploaded Excel or CSV file containing open day registrations."""
         if mime_format == "csv":
             df = pd.read_csv(BytesIO(content), encoding="utf-8")
@@ -86,7 +86,7 @@ class OpenDayService:
         rows_failed = 0
         errors: list[str] = []
 
-        import_log = OpenDayImport(batch_id=batch_id, filename=filename)
+        import_log = OpenDayImport(batch_id=batch_id, filename=filename, school_id=school_id)
         self.session.add(import_log)
         self.session.flush()
 
@@ -123,6 +123,7 @@ class OpenDayService:
                 self.session.add(
                     OpenDayRegistration(
                         import_id=import_log.id,
+                        school_id=school_id,
                         submitted_at=submitted_at,
                         first_name=first_name,
                         last_name=last_name,

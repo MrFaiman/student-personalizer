@@ -24,14 +24,14 @@ _ADMIN_USER = CurrentUser(
     user_id=uuid.uuid4(),
     email="admin@test.local",
     display_name="Test Admin",
-    role=UserRole.admin,
+    role=UserRole.system_admin,
     is_active=True,
     must_change_password=False,
     mfa_enabled=False,
     mfa_verified=False,
     identity_provider="local",
     external_id=None,
-    school_id=None,
+    school_id=100,
     school_name=None,
     session_jti="test-jti",
 )
@@ -55,7 +55,7 @@ class TestBuildFeatures:
 
     def test_returns_dataframe_with_all_feature_columns(self, seeded_session):
         service = MLService(seeded_session)
-        df = service._build_feature_dataframe(period="Q1")
+        df = service._build_feature_dataframe(current_user=_ADMIN_USER, period="Q1")
 
         assert len(df) == 8
         for col in FEATURE_COLUMNS:
@@ -64,34 +64,34 @@ class TestBuildFeatures:
     def test_trend_slope_declining_student(self, seeded_session):
         """Alice [90,85,80,60,50] should have a negative slope."""
         service = MLService(seeded_session)
-        df = service._build_feature_dataframe(period="Q1")
+        df = service._build_feature_dataframe(current_user=_ADMIN_USER, period="Q1")
         alice = df[df["student_tz"] == "S001"].iloc[0]
         assert alice["grade_trend_slope"] < 0
 
     def test_trend_slope_improving_student(self, seeded_session):
         """Bob [60,65,70,72,73] should have a positive slope."""
         service = MLService(seeded_session)
-        df = service._build_feature_dataframe(period="Q1")
+        df = service._build_feature_dataframe(current_user=_ADMIN_USER, period="Q1")
         bob = df[df["student_tz"] == "S002"].iloc[0]
         assert bob["grade_trend_slope"] > 0
 
     def test_trend_slope_distinguishes_same_average(self, seeded_session):
         """Declining Alice vs improving Bob: slopes have opposite signs despite similar averages."""
         service = MLService(seeded_session)
-        df = service._build_feature_dataframe(period="Q1")
+        df = service._build_feature_dataframe(current_user=_ADMIN_USER, period="Q1")
         alice_slope = df[df["student_tz"] == "S001"].iloc[0]["grade_trend_slope"]
         bob_slope = df[df["student_tz"] == "S002"].iloc[0]["grade_trend_slope"]
         assert alice_slope < 0 < bob_slope
 
     def test_empty_for_missing_period(self, seeded_session):
         service = MLService(seeded_session)
-        df = service._build_feature_dataframe(period="NonExistent")
+        df = service._build_feature_dataframe(current_user=_ADMIN_USER, period="NonExistent")
         assert df.empty
 
     def test_grade_stats_correct(self, seeded_session):
         """Verify average, min, max, failing count for Carol [40,42,38,45,41]."""
         service = MLService(seeded_session)
-        df = service._build_feature_dataframe(period="Q1")
+        df = service._build_feature_dataframe(current_user=_ADMIN_USER, period="Q1")
         carol = df[df["student_tz"] == "S003"].iloc[0]
 
         assert carol["average_grade"] == pytest.approx(41.2, abs=0.1)
@@ -106,7 +106,7 @@ class TestTrain:
 
     def test_train_returns_metrics(self, seeded_session):
         service = MLService(seeded_session)
-        result = service.train(period="Q1")
+        result = service.train(current_user=_ADMIN_USER, period="Q1")
 
         assert result["status"] == "trained"
         assert result["samples"] == 8
@@ -119,7 +119,7 @@ class TestTrain:
         import src.services.ml as ml_mod
 
         service = MLService(seeded_session)
-        service.train(period="Q1")
+        service.train(current_user=_ADMIN_USER, period="Q1")
 
         assert ml_mod.GRADE_MODEL_PATH.exists()
         assert ml_mod.DROPOUT_MODEL_PATH.exists()
@@ -134,7 +134,7 @@ class TestTrain:
         """Training with 0 students should raise ValueError."""
         service = MLService(empty_session)
         with pytest.raises(ValueError, match="Not enough data"):
-            service.train(period="Q1")
+            service.train(current_user=_ADMIN_USER, period="Q1")
 
 
 class TestPredict:
@@ -143,11 +143,11 @@ class TestPredict:
     @pytest.fixture(autouse=True)
     def _train_first(self, seeded_session):
         """Train models before each prediction test."""
-        MLService(seeded_session).train(period="Q1")
+        MLService(seeded_session).train(current_user=_ADMIN_USER, period="Q1")
 
     def test_predict_student_returns_expected_shape(self, seeded_session):
         service = MLService(seeded_session)
-        result = service.predict_student(student_tz="S001", period="Q1")
+        result = service.predict_student(current_user=_ADMIN_USER, student_tz="S001", period="Q1")
 
         assert result["student_tz"] == "S001"
         assert result["student_name"] == "Alice"
@@ -159,11 +159,11 @@ class TestPredict:
     def test_predict_unknown_student_raises(self, seeded_session):
         service = MLService(seeded_session)
         with pytest.raises(ValueError, match="not found"):
-            service.predict_student(student_tz="UNKNOWN", period="Q1")
+            service.predict_student(current_user=_ADMIN_USER, student_tz="UNKNOWN", period="Q1")
 
     def test_predict_all_returns_all_students(self, seeded_session):
         service = MLService(seeded_session)
-        result = service.predict_all(period="Q1")
+        result = service.predict_all(current_user=_ADMIN_USER, period="Q1")
 
         assert result["model_trained"] is True
         assert result["total_students"] == 8
@@ -174,7 +174,7 @@ class TestPredict:
 
     def test_predict_all_empty_period(self, seeded_session):
         service = MLService(seeded_session)
-        result = service.predict_all(period="NonExistent")
+        result = service.predict_all(current_user=_ADMIN_USER, period="NonExistent")
         assert result["total_students"] == 0
         assert result["predictions"] == []
 
@@ -186,7 +186,7 @@ class TestPredict:
 
         service = MLService(seeded_session)
         with pytest.raises(FileNotFoundError, match="not trained"):
-            service.predict_student(student_tz="S001", period="Q1")
+            service.predict_student(current_user=_ADMIN_USER, student_tz="S001", period="Q1")
 
 
 class TestGetStatus:
@@ -199,7 +199,7 @@ class TestGetStatus:
 
     def test_status_after_training(self, seeded_session):
         service = MLService(seeded_session)
-        service.train(period="Q1")
+        service.train(current_user=_ADMIN_USER, period="Q1")
         status = service.get_status()
 
         assert status["trained"] is True

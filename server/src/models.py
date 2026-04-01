@@ -12,8 +12,15 @@ from .utils.clock import utc_now
 class Teacher(SQLModel, table=True):
     """Teacher record."""
 
+    __tablename__ = "teacher"
+
+    __table_args__ = (
+        Index("ux_teacher_school_id_name", "school_id", "name", unique=True),
+    )
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    name: str = Field(index=True, unique=True)
+    school_id: int | None = Field(default=None, index=True)
+    name: str = Field(index=True)
 
     # Relationships
     grades: list["Grade"] = Relationship(back_populates="teacher")
@@ -22,8 +29,15 @@ class Teacher(SQLModel, table=True):
 class Subject(SQLModel, table=True):
     """Subject record."""
 
+    __tablename__ = "subject"
+
+    __table_args__ = (
+        Index("ux_subject_school_id_name", "school_id", "name", unique=True),
+    )
+
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    name: str = Field(index=True, unique=True)
+    school_id: int | None = Field(default=None, index=True)
+    name: str = Field(index=True)
 
     # Relationships
     grades: list["Grade"] = Relationship(back_populates="subject")
@@ -32,12 +46,16 @@ class Subject(SQLModel, table=True):
 class Class(SQLModel, table=True):
     """Class/homeroom."""
 
+    __tablename__ = "class"
+
     __table_args__ = (
         Index("ix_class_grade_level", "grade_level"),
+        Index("ux_class_school_id_class_name", "school_id", "class_name", unique=True),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    class_name: str = Field(index=True, unique=True)  # e.g. "י-1"
+    school_id: int | None = Field(default=None, index=True)
+    class_name: str = Field(index=True)  # e.g. "י-1"
     grade_level: str  # e.g. "10", "י"
     class_num: int | None = None  # extracted from "י-1" -> 1
 
@@ -47,6 +65,8 @@ class Class(SQLModel, table=True):
 
 class Student(SQLModel, table=True):
     """Student master record."""
+
+    __tablename__ = "student"
 
     __table_args__ = (
         Index("ix_student_class_id", "class_id"),
@@ -58,6 +78,7 @@ class Student(SQLModel, table=True):
     student_tz_hash: str = Field(default="")
     student_name: str = Field(sa_column=Column("student_name", EncryptedString, nullable=False))
     class_id: UUID | None = Field(default=None, foreign_key="class.id")
+    school_id: int | None = Field(default=None, index=True)
 
     # Relationships
     class_: Class = Relationship(back_populates="students")
@@ -68,8 +89,11 @@ class Student(SQLModel, table=True):
 class Grade(SQLModel, table=True):
     """Individual grade record."""
 
+    __tablename__ = "grade"
+
     __table_args__ = (
         Index("ix_grade_student_period_year", "student_tz", "period", "year"),
+        Index("ix_grade_school_student_period_year", "school_id", "student_tz", "period", "year"),
         Index("ix_grade_teacher_id_period_year", "teacher_id", "period", "year"),
         Index("ix_grade_teacher_name_period_year", "teacher_name", "period", "year"),
         Index("ix_grade_subject_name_period_year", "subject_name", "period", "year"),
@@ -80,6 +104,7 @@ class Grade(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     student_tz: str = Field(foreign_key="student.student_tz", index=True)
+    school_id: int | None = Field(default=None, index=True)
     subject_name: str
     subject_id: UUID | None = Field(default=None, foreign_key="subject.id", index=True)
     teacher_name: str | None = None
@@ -97,8 +122,11 @@ class Grade(SQLModel, table=True):
 class AttendanceRecord(SQLModel, table=True):
     """Attendance and behavior record."""
 
+    __tablename__ = "attendance_record"
+
     __table_args__ = (
         Index("ix_attendance_student_period_year", "student_tz", "period", "year"),
+        Index("ix_attendance_school_student_period_year", "school_id", "student_tz", "period", "year"),
         Index("ix_attendance_year", "year"),
         CheckConstraint("lessons_reported >= 0", name="ck_attendance_lessons_reported"),
         CheckConstraint("absence >= 0", name="ck_attendance_absence"),
@@ -107,6 +135,7 @@ class AttendanceRecord(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     student_tz: str = Field(foreign_key="student.student_tz", index=True)
+    school_id: int | None = Field(default=None, index=True)
     lessons_reported: int = 0
     absence: int = 0
     absence_justified: int = 0
@@ -126,12 +155,15 @@ class AttendanceRecord(SQLModel, table=True):
 class UploadedFile(SQLModel, table=True):
     """Track uploaded files saved to disk."""
 
+    __tablename__ = "uploaded_file"
+
     __table_args__ = (
         Index("ix_uploadedfile_uploaded_at", "uploaded_at"),
         Index("ix_uploadedfile_checksum", "checksum", unique=True),
     )
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
+    school_id: int | None = Field(default=None, index=True)
     original_filename: str
     stored_path: str  # relative path inside UPLOAD_DIR
     content_type: str
@@ -146,11 +178,14 @@ class UploadedFile(SQLModel, table=True):
 class OpenDayImport(SQLModel, table=True):
     """Track open day file imports."""
 
+    __tablename__ = "open_day_import"
+
     __table_args__ = (
         Index("ix_opendayimport_import_date", "import_date"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
+    school_id: int | None = Field(default=None, index=True)
     batch_id: str = Field(index=True, unique=True)
     filename: str
     rows_imported: int = 0
@@ -163,6 +198,8 @@ class OpenDayImport(SQLModel, table=True):
 class OpenDayRegistration(SQLModel, table=True):
     """Registration submitted during an open day event."""
 
+    __tablename__ = "open_day_registration"
+
     __table_args__ = (
         Index("ix_opendayreg_import_id", "import_id"),
         Index("ix_opendayreg_next_grade", "next_grade"),
@@ -170,7 +207,8 @@ class OpenDayRegistration(SQLModel, table=True):
     )
 
     id: int | None = Field(default=None, primary_key=True)
-    import_id: int | None = Field(default=None, foreign_key="opendayimport.id", index=True)
+    import_id: int | None = Field(default=None, foreign_key="open_day_import.id", index=True)
+    school_id: int | None = Field(default=None, index=True)
     submitted_at: datetime | None = None
 
     # PII fields - encrypted via EncryptedString TypeDecorator
@@ -194,6 +232,8 @@ class OpenDayRegistration(SQLModel, table=True):
 class ImportLog(SQLModel, table=True):
     """Track file imports."""
 
+    __tablename__ = "import_log"
+
     __table_args__ = (
         Index("ix_importlog_created_at", "created_at"),
     )
@@ -202,12 +242,13 @@ class ImportLog(SQLModel, table=True):
     batch_id: str = Field(index=True)
     filename: str
     file_type: str  # "grades" or "events"
+    school_id: int | None = Field(default=None, index=True)
     rows_imported: int = 0
     rows_failed: int = 0
     errors: str | None = None  # JSON string of errors
     period: str | None = None
     year: str = Field(default="")
-    uploaded_file_id: UUID | None = Field(default=None, foreign_key="uploadedfile.id")
+    uploaded_file_id: UUID | None = Field(default=None, foreign_key="uploaded_file.id")
     created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships

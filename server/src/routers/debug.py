@@ -12,10 +12,11 @@ from sqlmodel import Session
 from ..auth.dependencies import require_admin
 from ..constants import XLSX_CONTENT_TYPE
 from ..database import get_session
+from ..dependencies import require_write_access
 from ..services.data_generator import generate_school_data
 from ..services.ingestion import IngestionService
 
-router = APIRouter(prefix="/api/debug", tags=["debug"], dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/api/debug", tags=["debug"], dependencies=[Depends(require_admin), Depends(require_write_access)])
 
 
 class FileResult(BaseModel):
@@ -43,6 +44,7 @@ def generate_debug_data(
     years: Annotated[list[int], Query()] = [2024, 2025],
     quarters: Annotated[int, Query(ge=1, le=4)] = 4,
     students: Annotated[int, Query(ge=1, le=500)] = 120,
+    school_id: Annotated[int, Query(description="Mashov semel (school scope) to seed data under.")] = 100,
     db: Session = Depends(get_session),
 ) -> GenerateResponse:
     """
@@ -62,6 +64,7 @@ def generate_debug_data(
             file_type=file_type,
             period=period,
             year=year,
+            school_id=school_id,
         )
         results.append(FileResult(
             filename=filename,

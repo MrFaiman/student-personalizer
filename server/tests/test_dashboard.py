@@ -1,14 +1,35 @@
 import pytest
 
+import uuid
+
+from src.auth.current_user import CurrentUser
+from src.auth.models import UserRole
 from src.services.analytics import AnalyticsService
 from src.services.teachers import TeacherService
+
+
+_USER = CurrentUser(
+    user_id=uuid.uuid4(),
+    email="teacher@test.local",
+    display_name="Test Teacher",
+    role=UserRole.teacher,
+    is_active=True,
+    must_change_password=False,
+    mfa_enabled=False,
+    mfa_verified=False,
+    identity_provider="local",
+    external_id=None,
+    school_id=100,
+    school_name="Test School",
+    session_jti="test-jti",
+)
 
 
 class TestDashboardAnalytics:
 
     def test_layer_kpis(self, seeded_session):
         service = AnalyticsService(seeded_session)
-        kpis = service.get_layer_kpis(period="Q1")
+        kpis = service.get_layer_kpis(current_user=_USER, period="Q1")
         
         assert "layer_average" in kpis
         assert "avg_absences" in kpis
@@ -17,7 +38,7 @@ class TestDashboardAnalytics:
 
     def test_class_comparison(self, seeded_session):
         service = AnalyticsService(seeded_session)
-        results = service.get_class_comparison(period="Q1")
+        results = service.get_class_comparison(current_user=_USER, period="Q1")
         
         assert len(results) == 2 # Test-10A, Test-10B
         assert results[0]["student_count"] == 4
@@ -39,7 +60,7 @@ class TestDashboardAnalytics:
     def test_student_radar(self, seeded_session):
         service = AnalyticsService(seeded_session)
         # S001 has subjects Subj0..Subj4
-        radar = service.get_student_radar("S001", period="Q1")
+        radar = service.get_student_radar(current_user=_USER, student_tz="S001", period="Q1")
         assert len(radar) == 5
         assert radar["Subject-1"] == pytest.approx(90.0)
 
@@ -47,6 +68,7 @@ class TestDashboardAnalytics:
         # We only seeded Q1, so comparing Q1 vs Q1 should have identical grade lists
         service = AnalyticsService(seeded_session)
         comp = service.get_period_comparison(
+            current_user=_USER,
             period_a="Q1",
             period_b="Q1",
             comparison_type="class"
@@ -58,7 +80,7 @@ class TestDashboardAnalytics:
 
     def test_red_student_segmentation(self, seeded_session):
         service = AnalyticsService(seeded_session)
-        seg = service.get_red_student_segmentation(period="Q1")
+        seg = service.get_red_student_segmentation(current_user=_USER, period="Q1")
         
         assert seg["total_red_students"] > 0
         assert "by_class" in seg
@@ -66,7 +88,7 @@ class TestDashboardAnalytics:
 
     def test_get_red_student_list(self, seeded_session):
         service = AnalyticsService(seeded_session)
-        red_list = service.get_red_student_list(period="Q1")
+        red_list = service.get_red_student_list(current_user=_USER, period="Q1")
         
         assert red_list["total"] > 0
         assert len(red_list["students"]) > 0

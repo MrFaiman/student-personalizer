@@ -10,6 +10,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import cross_val_score
 from sqlmodel import Session, select
 
+from ..auth.current_user import CurrentUser
 from ..constants import (
     AT_RISK_GRADE_THRESHOLD,
     CROSS_VALIDATION_FOLDS,
@@ -38,20 +39,26 @@ class MLService:
     def __init__(self, session: Session):
         self.session = session
 
-    def _build_feature_dataframe(self, period: str | None = None) -> pd.DataFrame:
+    def _require_school_id(self, current_user: CurrentUser) -> int:
+        if current_user.school_id is None:
+            raise ValueError("School scope required")
+        return current_user.school_id
+
+    def _build_feature_dataframe(self, *, current_user: CurrentUser, period: str | None = None) -> pd.DataFrame:
         """Extract feature vectors for all students from the database."""
-        students = self.session.exec(select(Student)).all()
+        school_id = self._require_school_id(current_user)
+        students = self.session.exec(select(Student).where(Student.school_id == school_id)).all()
         student_map = {s.student_tz: s.student_name for s in students}
 
         if not students:
              return pd.DataFrame(columns=FEATURE_COLUMNS + ["student_tz", "student_name"])
 
-        grade_query = select(Grade).order_by(Grade.id)
+        grade_query = select(Grade).where(Grade.school_id == school_id).order_by(Grade.id)
         if period:
             grade_query = grade_query.where(Grade.period == period)
         grades = self.session.exec(grade_query).all()
 
-        att_query = select(AttendanceRecord)
+        att_query = select(AttendanceRecord).where(AttendanceRecord.school_id == school_id)
         if period:
             att_query = att_query.where(AttendanceRecord.period == period)
         attendance = self.session.exec(att_query).all()
@@ -138,13 +145,13 @@ class MLService:
 
         return feature_df
 
-    def train(self, period: str | None = None) -> dict:
+    def train(self, *, current_user: CurrentUser, period: str | None = None) -> dict:
         """Train both models and save to disk. Returns training metrics."""
         import joblib
 
         _prediction_cache.clear()
 
-        df = self._build_feature_dataframe(period=period)
+        df = self._build_feature_dataframe(current_user=current_user, period=period)
 
         if len(df) < MIN_TRAINING_SAMPLES:
             raise ValueError(f"Not enough data to train: only {len(df)} students with grades found. Need at least {MIN_TRAINING_SAMPLES}.")
@@ -231,11 +238,11 @@ class MLService:
         dropout_model = joblib.load(DROPOUT_MODEL_PATH)
         return grade_model, dropout_model
 
-    def predict_student(self, student_tz: str, period: str | None = None) -> dict:
+    def predict_student(self, *, current_user: CurrentUser, student_tz: str, period: str | None = None) -> dict:
         """Predict grade and dropout risk for a single student."""
         grade_model, dropout_model = self._load_models()
 
-        df = self._build_feature_dataframe(period=period)
+        df = self._build_feature_dataframe(current_user=current_user, period=period)
         student_row = df[df["student_tz"] == student_tz]
 
         if student_row.empty:
@@ -278,16 +285,17 @@ class MLService:
             meta = json.load(f)
         return meta.get("trained_at")
 
-    def _compute_all_predictions(self, period: str | None = None) -> list[dict]:
+    def _compute_all_predictions(self, *, current_user: CurrentUser, period: str | None = None) -> list[dict]:
         """Compute predictions for all students (cached by period + model version)."""
         trained_at = self._get_model_trained_at()
-        cache_key = (period, trained_at)
+        school_id = self._require_school_id(current_user)
+        cache_key = (period, trained_at, str(school_id))
 
         if cache_key in _prediction_cache:
             return _prediction_cache[cache_key]
 
         grade_model, dropout_model = self._load_models()
-        df = self._build_feature_dataframe(period=period)
+        df = self._build_feature_dataframe(current_user=current_user, period=period)
         if df.empty:
             _prediction_cache[cache_key] = []
             return []
@@ -328,11 +336,17 @@ class MLService:
         return all_predictions
 
     def predict_all(
-        self, period: str | None = None, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE,
-        sort_by: str | None = None, sort_order: str = "asc",
+        self,
+        *,
+        current_user: CurrentUser,
+        period: str | None = None,
+        page: int = 1,
+        page_size: int = DEFAULT_PAGE_SIZE,
+        sort_by: str | None = None,
+        sort_order: str = "asc",
     ) -> dict:
         """Predict for all students with sorting and pagination."""
-        all_predictions = self._compute_all_predictions(period=period)
+        all_predictions = self._compute_all_predictions(current_user=current_user, period=period)
 
         total = len(all_predictions)
         high_risk_count = sum(1 for p in all_predictions if p["risk_level"] == "high")

@@ -267,9 +267,15 @@ class IngestionService:
         self.session.flush()
         return instance, True
 
-    def get_or_create_class(self, class_name: str, grade_level: str, class_num: int | None = None) -> Class:
+    def get_or_create_class(self, class_name: str, grade_level: str, class_num: int | None = None, *, school_id: int | None) -> Class:
         """Get existing class or create new one."""
-        cls, _ = self._get_or_create(Class, class_name=class_name, grade_level=grade_level, class_num=class_num)
+        cls, _ = self._get_or_create(
+            Class,
+            school_id=school_id,
+            class_name=class_name,
+            grade_level=grade_level,
+            class_num=class_num,
+        )
         return cls
 
     def get_or_create_student(
@@ -277,9 +283,16 @@ class IngestionService:
         student_tz: str,
         student_name: str,
         class_name: str,
+        *,
+        school_id: int | None,
     ) -> tuple[Student, bool]:
         """Get existing student or create new one. Returns (student, created)."""
-        cls = self.session.exec(select(Class).where(Class.class_name == class_name)).first()
+        cls = self.session.exec(
+            select(Class).where(
+                Class.class_name == class_name,
+                Class.school_id == school_id,
+            )
+        ).first()
         class_id = cls.id if cls else None
 
         statement = select(Student).where(Student.student_tz == student_tz)
@@ -290,6 +303,8 @@ class IngestionService:
                 student.student_name = student_name
             if student.class_id != class_id:
                 student.class_id = class_id
+            if student.school_id != school_id:
+                student.school_id = school_id
             self.session.add(student)
             return student, False
 
@@ -300,19 +315,20 @@ class IngestionService:
             student_name=student_name,
             class_id=class_id,
             student_tz_hash=hash_for_lookup(student_tz),
+            school_id=school_id,
         )
         self.session.add(student)
         self.session.flush()
         return student, True
 
-    def get_or_create_teacher(self, teacher_name: str) -> Teacher:
+    def get_or_create_teacher(self, teacher_name: str, *, school_id: int | None) -> Teacher:
         """Get existing teacher or create new one."""
-        teacher, _ = self._get_or_create(Teacher, name=teacher_name)
+        teacher, _ = self._get_or_create(Teacher, school_id=school_id, name=teacher_name)
         return teacher
 
-    def get_or_create_subject(self, subject_name: str) -> Subject:
+    def get_or_create_subject(self, subject_name: str, *, school_id: int | None) -> Subject:
         """Get existing subject or create new one."""
-        subject, _ = self._get_or_create(Subject, name=subject_name)
+        subject, _ = self._get_or_create(Subject, school_id=school_id, name=subject_name)
         return subject
 
     def ingest_grades_file(
@@ -322,6 +338,8 @@ class IngestionService:
         content_type: str,
         period: str = DEFAULT_PERIOD,
         year: str = DEFAULT_YEAR,
+        *,
+        school_id: int | None,
         uploaded_file_id: UUID | None = None,
     ) -> ImportResult:
         """
@@ -381,12 +399,12 @@ class IngestionService:
                         c_num = int(c_num_str) if pd.notna(c_num_str) and str(c_num_str).lower() != "nan" else None
                     except (ValueError, TypeError):
                         c_num = None
-                    self.get_or_create_class(class_name, grade_level, c_num)
+                    self.get_or_create_class(class_name, grade_level, c_num, school_id=school_id)
                     classes_created.add(class_name)
                     result.classes_created += 1
 
                 if student_tz not in students_processed:
-                    _, created = self.get_or_create_student(student_tz, student_name, class_name)
+                    _, created = self.get_or_create_student(student_tz, student_name, class_name, school_id=school_id)
                     if created:
                         result.students_created += 1
                     students_processed.add(student_tz)
@@ -395,15 +413,16 @@ class IngestionService:
                 clean_teacher = teacher_name if pd.notna(teacher_name) else None
                 if clean_teacher:
                     if clean_teacher not in teachers_cache:
-                        teachers_cache[clean_teacher] = self.get_or_create_teacher(clean_teacher)
+                        teachers_cache[clean_teacher] = self.get_or_create_teacher(clean_teacher, school_id=school_id)
                     teacher_id = teachers_cache[clean_teacher].id
 
                 if subject not in subjects_cache:
-                    subjects_cache[subject] = self.get_or_create_subject(subject)
+                    subjects_cache[subject] = self.get_or_create_subject(subject, school_id=school_id)
                 subject_id = subjects_cache[subject].id
 
                 grade_record = Grade(
                     student_tz=student_tz,
+                    school_id=school_id,
                     subject_name=subject,
                     subject_id=subject_id,
                     teacher_name=clean_teacher,
@@ -425,6 +444,7 @@ class IngestionService:
             batch_id=batch_id,
             filename=filename,
             file_type="grades",
+            school_id=school_id,
             rows_imported=result.rows_imported,
             rows_failed=result.rows_failed,
             errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
@@ -444,6 +464,8 @@ class IngestionService:
         content_type: str,
         period: str = DEFAULT_PERIOD,
         year: str = DEFAULT_YEAR,
+        *,
+        school_id: int | None,
         uploaded_file_id: UUID | None = None,
     ) -> ImportResult:
         """
@@ -494,16 +516,17 @@ class IngestionService:
                         c_num = int(c_num_str) if pd.notna(c_num_str) and str(c_num_str).lower() != "nan" else None
                     except (ValueError, TypeError):
                         c_num = None
-                    self.get_or_create_class(class_name, grade_level, c_num)
+                    self.get_or_create_class(class_name, grade_level, c_num, school_id=school_id)
                     classes_created.add(class_name)
                     result.classes_created += 1
 
-                _, created = self.get_or_create_student(student_tz, student_name, class_name)
+                _, created = self.get_or_create_student(student_tz, student_name, class_name, school_id=school_id)
                 if created:
                     result.students_created += 1
 
                 attendance_record = AttendanceRecord(
                     student_tz=student_tz,
+                    school_id=school_id,
                     lessons_reported=int(row.get("lessons_reported", 0)),
                     absence=int(row.get("absence", 0)),
                     absence_justified=int(row.get("absence_justified", 0)),
@@ -527,6 +550,7 @@ class IngestionService:
             batch_id=batch_id,
             filename=filename,
             file_type="events",
+            school_id=school_id,
             rows_imported=result.rows_imported,
             rows_failed=result.rows_failed,
             errors=json.dumps(result.errors[:MAX_STORED_ERRORS]) if result.errors else None,
@@ -547,6 +571,8 @@ class IngestionService:
         file_type: str | None = None,
         period: str = DEFAULT_PERIOD,
         year: str = DEFAULT_YEAR,
+        *,
+        school_id: int | None,
         uploaded_file_id: UUID | None = None,
     ) -> ImportResult:
         """
@@ -565,9 +591,25 @@ class IngestionService:
             file_type = detect_file_type(df)
 
         if file_type == "grades":
-            return self.ingest_grades_file(file_content, filename, content_type, period, year, uploaded_file_id)
+            return self.ingest_grades_file(
+                file_content,
+                filename,
+                content_type,
+                period,
+                year,
+                school_id=school_id,
+                uploaded_file_id=uploaded_file_id,
+            )
         elif file_type == "events":
-            return self.ingest_events_file(file_content, filename, content_type, period, year, uploaded_file_id)
+            return self.ingest_events_file(
+                file_content,
+                filename,
+                content_type,
+                period,
+                year,
+                school_id=school_id,
+                uploaded_file_id=uploaded_file_id,
+            )
         else:
             return ImportResult(
                 batch_id=str(uuid.uuid4()),

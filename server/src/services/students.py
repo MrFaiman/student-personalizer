@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import case, literal
 from sqlmodel import Session, col, func, select
 
+from ..auth.current_user import CurrentUser
 from ..constants import (
     AT_RISK_GRADE_THRESHOLD,
     ATTENDANCE_WEIGHT,
@@ -21,8 +22,15 @@ class StudentService:
     def __init__(self, session: Session):
         self.session = session
 
+    def _require_school_id(self, current_user: CurrentUser) -> int:
+        if current_user.school_id is None:
+            raise ValueError("School scope required")
+        return current_user.school_id
+
     def list_students(
         self,
+        *,
+        current_user: CurrentUser,
         page: int = 1,
         page_size: int = DEFAULT_PAGE_SIZE,
         class_id: UUID | None = None,
@@ -34,7 +42,9 @@ class StudentService:
         sort_order: str = "asc",
     ) -> dict:
         """List students with filters and related data. Returns a dict for the view."""
+        school_id = self._require_school_id(current_user)
         query = select(Student)
+        query = query.where(Student.school_id == school_id)
 
         if class_id:
             query = query.where(Student.class_id == class_id)
@@ -44,6 +54,7 @@ class StudentService:
         if at_risk_only:
             subquery = (
                 select(Grade.student_tz)
+                .where(Grade.school_id == school_id)
                 .group_by(Grade.student_tz)
                 .having(func.avg(Grade.grade) < AT_RISK_GRADE_THRESHOLD)
             )
@@ -82,7 +93,7 @@ class StudentService:
         # Aggregate grades per student in SQL
         grade_avg_query = (
             select(Grade.student_tz, func.avg(Grade.grade))
-            .where(Grade.student_tz.in_(student_tzs))
+            .where(Grade.school_id == school_id, Grade.student_tz.in_(student_tzs))
             .group_by(Grade.student_tz)
         )
         if year:
@@ -99,7 +110,7 @@ class StudentService:
                 func.sum(AttendanceRecord.total_negative_events),
                 func.sum(AttendanceRecord.total_positive_events),
             )
-            .where(AttendanceRecord.student_tz.in_(student_tzs))
+            .where(AttendanceRecord.school_id == school_id, AttendanceRecord.student_tz.in_(student_tzs))
             .group_by(AttendanceRecord.student_tz)
         )
         if year:
@@ -156,16 +167,26 @@ class StudentService:
             "page_size": page_size,
         }
 
-    def get_student_detail(self, student_tz: str, period: str | None = None, year: str | None = None) -> dict | None:
+    def get_student_detail(
+        self,
+        *,
+        current_user: CurrentUser,
+        student_tz: str,
+        period: str | None = None,
+        year: str | None = None,
+    ) -> dict | None:
         """Get flattened detailed student data as a dict for the view."""
-        student = self.session.exec(select(Student).where(Student.student_tz == student_tz)).first()
+        school_id = self._require_school_id(current_user)
+        student = self.session.exec(
+            select(Student).where(Student.student_tz == student_tz, Student.school_id == school_id)
+        ).first()
         if not student:
             return None
 
         cls = self.session.get(Class, student.class_id)
 
         # Get average grade via SQL
-        avg_query = select(func.avg(Grade.grade)).where(Grade.student_tz == student_tz)
+        avg_query = select(func.avg(Grade.grade)).where(Grade.student_tz == student_tz, Grade.school_id == school_id)
         if year:
             avg_query = avg_query.where(Grade.year == year)
         if period:
@@ -178,7 +199,7 @@ class StudentService:
             func.sum(AttendanceRecord.total_absences),
             func.sum(AttendanceRecord.total_negative_events),
             func.sum(AttendanceRecord.total_positive_events),
-        ).where(AttendanceRecord.student_tz == student_tz)
+        ).where(AttendanceRecord.student_tz == student_tz, AttendanceRecord.school_id == school_id)
         if year:
             att_query = att_query.where(AttendanceRecord.year == year)
         if period:
@@ -191,7 +212,7 @@ class StudentService:
 
         is_at_risk = avg_grade is not None and avg_grade < AT_RISK_GRADE_THRESHOLD
 
-        performance_score = self._calculate_performance_score(student_tz, period, year)
+        performance_score = self._calculate_performance_score(current_user=current_user, student_tz=student_tz, period=period, year=year)
 
         grade_level = cls.grade_level if cls else None
         class_name = cls.class_name if cls else "Unknown"
@@ -295,13 +316,23 @@ class StudentService:
             "classes": class_responses,
         }
 
-    def get_student_grades(self, student_tz: str, period: str | None = None, year: str | None = None) -> list[dict] | None:
+    def get_student_grades(
+        self,
+        *,
+        current_user: CurrentUser,
+        student_tz: str,
+        period: str | None = None,
+        year: str | None = None,
+    ) -> list[dict] | None:
         """Get all grades for a student as a list of dicts for the view."""
-        student = self.session.exec(select(Student).where(Student.student_tz == student_tz)).first()
+        school_id = self._require_school_id(current_user)
+        student = self.session.exec(
+            select(Student).where(Student.student_tz == student_tz, Student.school_id == school_id)
+        ).first()
         if not student:
             return None
 
-        query = select(Grade).where(Grade.student_tz == student_tz)
+        query = select(Grade).where(Grade.student_tz == student_tz, Grade.school_id == school_id)
         if year:
             query = query.where(Grade.year == year)
         if period:
@@ -321,13 +352,26 @@ class StudentService:
             for g in grades
         ]
 
-    def get_student_attendance(self, student_tz: str, period: str | None = None, year: str | None = None) -> list[dict] | None:
+    def get_student_attendance(
+        self,
+        *,
+        current_user: CurrentUser,
+        student_tz: str,
+        period: str | None = None,
+        year: str | None = None,
+    ) -> list[dict] | None:
         """Get all attendance records for a student as a list of dicts for the view."""
-        student = self.session.exec(select(Student).where(Student.student_tz == student_tz)).first()
+        school_id = self._require_school_id(current_user)
+        student = self.session.exec(
+            select(Student).where(Student.student_tz == student_tz, Student.school_id == school_id)
+        ).first()
         if not student:
             return None
 
-        query = select(AttendanceRecord).where(AttendanceRecord.student_tz == student_tz)
+        query = select(AttendanceRecord).where(
+            AttendanceRecord.student_tz == student_tz,
+            AttendanceRecord.school_id == school_id,
+        )
         if year:
             query = query.where(AttendanceRecord.year == year)
         if period:
@@ -353,14 +397,28 @@ class StudentService:
             for r in records
         ]
 
-    def _calculate_performance_score(self, student_tz: str, period: str | None, year: str | None = None) -> float | None:
+    def _calculate_performance_score(
+        self,
+        *,
+        current_user: CurrentUser,
+        student_tz: str,
+        period: str | None,
+        year: str | None = None,
+    ) -> float | None:
         """Internal logic to calculate performance score percentile."""
-        total_students_count = self.session.exec(select(func.count(Student.student_tz))).one()
+        school_id = self._require_school_id(current_user)
+        total_students_count = self.session.exec(
+            select(func.count(Student.student_tz)).where(Student.school_id == school_id)
+        ).one()
         if total_students_count <= 1:
             return None
 
         # Get all student average grades via SQL
-        avg_query = select(Grade.student_tz, func.avg(Grade.grade)).group_by(Grade.student_tz)
+        avg_query = (
+            select(Grade.student_tz, func.avg(Grade.grade))
+            .where(Grade.school_id == school_id)
+            .group_by(Grade.student_tz)
+        )
         if year:
             avg_query = avg_query.where(Grade.year == year)
         if period:
@@ -369,12 +427,16 @@ class StudentService:
         avg_grades_map = {row[0]: row[1] for row in all_avg_grades}
 
         # Get all student attendance stats via SQL
-        att_stats_query = select(
-            AttendanceRecord.student_tz,
-            func.sum(AttendanceRecord.total_absences),
-            func.sum(AttendanceRecord.total_negative_events),
-            func.sum(AttendanceRecord.total_positive_events),
-        ).group_by(AttendanceRecord.student_tz)
+        att_stats_query = (
+            select(
+                AttendanceRecord.student_tz,
+                func.sum(AttendanceRecord.total_absences),
+                func.sum(AttendanceRecord.total_negative_events),
+                func.sum(AttendanceRecord.total_positive_events),
+            )
+            .where(AttendanceRecord.school_id == school_id)
+            .group_by(AttendanceRecord.student_tz)
+        )
         if year:
             att_stats_query = att_stats_query.where(AttendanceRecord.year == year)
         if period:
@@ -389,7 +451,9 @@ class StudentService:
             for row in all_att_stats
         }
 
-        all_student_tzs = self.session.exec(select(Student.student_tz)).all()
+        all_student_tzs = self.session.exec(
+            select(Student.student_tz).where(Student.school_id == school_id)
+        ).all()
         student_stats_list = []
         for tz in all_student_tzs:
             s_avg = avg_grades_map.get(tz)
@@ -426,9 +490,12 @@ class StudentService:
         else:
             return round(absence_pct * ATTENDANCE_WEIGHT_NO_GRADES + behavior_pct * BEHAVIOR_WEIGHT_NO_GRADES, 1)
 
-    def get_student_timeline(self, student_tz: str) -> dict | None:
+    def get_student_timeline(self, *, current_user: CurrentUser, student_tz: str) -> dict | None:
         """Query grades/attendance grouped by year+period, return list of timeline points."""
-        student = self.session.exec(select(Student).where(Student.student_tz == student_tz)).first()
+        school_id = self._require_school_id(current_user)
+        student = self.session.exec(
+            select(Student).where(Student.student_tz == student_tz, Student.school_id == school_id)
+        ).first()
         if not student:
             return None
 
@@ -439,7 +506,7 @@ class StudentService:
                 Grade.period,
                 func.avg(Grade.grade).label("avg_grade"),
             )
-            .where(Grade.student_tz == student_tz)
+            .where(Grade.student_tz == student_tz, Grade.school_id == school_id)
             .group_by(Grade.year, Grade.period)
         )
         grade_rows = self.session.exec(grades_agg_query).all()
@@ -453,13 +520,16 @@ class StudentService:
                 func.sum(AttendanceRecord.attendance).label("total_attended"),
                 func.sum(AttendanceRecord.total_absences).label("total_absences"),
             )
-            .where(AttendanceRecord.student_tz == student_tz)
+            .where(AttendanceRecord.student_tz == student_tz, AttendanceRecord.school_id == school_id)
             .group_by(AttendanceRecord.year, AttendanceRecord.period)
         )
         att_rows = self.session.exec(att_agg_query).all()
 
         # Get per-subject grades for the subjects breakdown
-        subject_grades_query = select(Grade.year, Grade.period, Grade.subject_name, Grade.grade).where(Grade.student_tz == student_tz)
+        subject_grades_query = select(Grade.year, Grade.period, Grade.subject_name, Grade.grade).where(
+            Grade.student_tz == student_tz,
+            Grade.school_id == school_id,
+        )
         subject_grades = self.session.exec(subject_grades_query).all()
 
         timeline_map: dict[tuple[str, str], dict] = {}

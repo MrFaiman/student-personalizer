@@ -28,6 +28,11 @@ def check_server(client):
     try:
         response = client.get("/health")
         assert response.status_code == 200
+        # These E2E tests assume an open dev instance (AUTH_REQUIRED=false).
+        # If the server requires auth, skip rather than failing every request.
+        probe = client.get("/api/analytics/metadata")
+        if probe.status_code == 401:
+            pytest.skip("Server requires auth (AUTH_REQUIRED=true). Start server with AUTH_REQUIRED=false for E2E tests.")
     except httpx.ConnectError:
         pytest.skip("Server not running. Start with: uv run uvicorn src.main:app --reload")
 
@@ -163,10 +168,10 @@ class TestAnalytics:
         print(f"Metadata: {len(data['periods'])} periods, {len(data['grade_levels'])} levels, {len(data['teachers'])} teachers")
 
     def test_teachers_list(self, client):
-        """Test teachers list endpoint."""
-        response = client.get("/api/analytics/teachers", params={"period": PERIOD})
+        """Teachers are available via metadata in this API."""
+        response = client.get("/api/analytics/metadata")
         assert response.status_code == 200
-        teachers = response.json()
+        teachers = response.json().get("teachers", [])
         assert isinstance(teachers, list)
         print(f"Teachers: {len(teachers)}")
 
@@ -186,8 +191,8 @@ class TestAnalyticsWithData:
     @pytest.fixture
     def first_teacher(self, client):
         """Get first available teacher."""
-        response = client.get("/api/analytics/teachers", params={"period": PERIOD})
-        teachers = response.json()
+        response = client.get("/api/analytics/metadata")
+        teachers = response.json().get("teachers", [])
         if not teachers:
             pytest.skip("No teachers available")
         return teachers[0]

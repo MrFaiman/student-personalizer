@@ -9,6 +9,8 @@ from ..utils.clock import utc_now
 class AuditLog(SQLModel, table=True):
     """Immutable audit log for all security-relevant events."""
 
+    __tablename__ = "audit_log"
+
     id: int | None = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=utc_now, index=True)
     user_id: UUID | None = Field(default=None, index=True)  # None = system/anonymous

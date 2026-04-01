@@ -3,7 +3,8 @@ from collections import Counter
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, func, select
 
-from ..auth.dependencies import require_admin, require_teacher
+from ..auth.current_user import CurrentUser
+from ..auth.dependencies import get_current_user, require_admin, require_teacher
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, VALID_MIME_TYPES
 from ..database import get_session
 from ..dependencies import require_write_access
@@ -24,7 +25,9 @@ router = APIRouter(prefix="/api/open-day", tags=["open-day"])
 @router.post("/upload", response_model=OpenDayUploadResponse, dependencies=[Depends(require_write_access), Depends(require_admin)])
 async def upload_open_day_file(
     file: UploadFile = File(...),
+    school_id: int | None = Query(default=None, description="Mashov semel (school scope) to associate this upload with."),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Upload a CSV or Excel open-day registration file."""
     content_type = file.content_type or ""
@@ -41,7 +44,13 @@ async def upload_open_day_file(
 
     try:
         service = OpenDayService(session)
-        return service.process_upload(mime_format, content, file.filename or "upload")
+        resolved_school_id = school_id if school_id is not None else current_user.school_id
+        if current_user.role.value == "school_admin":
+            if resolved_school_id is None:
+                raise HTTPException(status_code=403, detail="School scope required")
+            if current_user.school_id is None or resolved_school_id != current_user.school_id:
+                raise HTTPException(status_code=403, detail="Not allowed for this school")
+        return service.process_upload(mime_format, content, file.filename or "upload", school_id=resolved_school_id)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Could not parse file: {exc}")
 

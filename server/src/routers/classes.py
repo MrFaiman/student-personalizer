@@ -3,14 +3,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
-from ..auth.dependencies import require_teacher
+from ..auth.dependencies import require_school_scope, require_viewer
 from ..database import get_session
 from ..schemas.analytics import TopBottomResponse
 from ..schemas.student import ClassResponse
 from ..services.classes import ClassService
 from ..views.classes import ClassDefaultView
 
-router = APIRouter(prefix="/api/classes", tags=["classes"], dependencies=[Depends(require_teacher)])
+router = APIRouter(prefix="/api/classes", tags=["classes"], dependencies=[Depends(require_viewer), Depends(require_school_scope)])
 
 
 @router.get("", response_model=list[ClassResponse])
