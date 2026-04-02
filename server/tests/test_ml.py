@@ -14,8 +14,9 @@ from sqlmodel import Session, SQLModel, create_engine
 
 import src.services.ml as ml_mod
 from src.auth.current_user import CurrentUser
-from src.auth.dependencies import get_current_user
 from src.auth.models import UserRole
+from src.auth.schemas import CreateUserRequest
+from src.auth.service import AuthService
 from src.database import get_session
 from src.main import app
 from src.services.ml import FEATURE_COLUMNS, MLService
@@ -214,24 +215,50 @@ class TestMLEndpoints:
 
     @pytest.fixture()
     def client(self, seeded_engine):
-        """TestClient with dependency overrides: seeded DB + admin auth bypass."""
+        """TestClient with dependency overrides: seeded DB."""
         def override_session():
             with Session(seeded_engine) as s:
                 yield s
 
         app.dependency_overrides[get_session] = override_session
-        app.dependency_overrides[get_current_user] = lambda: _ADMIN_USER
         with TestClient(app) as c:
             yield c
         app.dependency_overrides.clear()
 
-    def test_status_untrained(self, client):
-        resp = client.get("/api/ml/status")
+    @pytest.fixture()
+    def auth_headers(self, seeded_engine, client):
+        """Create an admin user and return Authorization headers."""
+        with Session(seeded_engine) as s:
+            svc = AuthService(s)
+            # Ensure an admin user exists
+            try:
+                svc.create_user(
+                    CreateUserRequest(
+                        email="ml_admin@test.com",
+                        password="MlAdmin@1234!",
+                        display_name="ML Admin",
+                        role=UserRole.system_admin,
+                        school_id=100,
+                        school_name="Test School",
+                    )
+                )
+            except Exception:
+                # user may already exist if fixture is reused
+                pass
+            svc.ensure_rbac_seed()
+
+        resp = client.post("/api/auth/login", json={"email": "ml_admin@test.com", "password": "MlAdmin@1234!"})
+        assert resp.status_code == 200, resp.text
+        token = resp.json()["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+
+    def test_status_untrained(self, client, auth_headers):
+        resp = client.get("/api/ml/status", headers=auth_headers)
         assert resp.status_code == 200
         assert resp.json()["trained"] is False
 
-    def test_train_endpoint(self, client):
-        resp = client.post("/api/ml/train", params={"period": "Q1"})
+    def test_train_endpoint(self, client, auth_headers):
+        resp = client.post("/api/ml/train", params={"period": "Q1"}, headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "trained"
@@ -239,10 +266,10 @@ class TestMLEndpoints:
         assert "grade_feature_importances" in data
         assert "grade_trend_slope" in data["grade_feature_importances"]
 
-    def test_predict_single_after_train(self, client):
-        client.post("/api/ml/train", params={"period": "Q1"})
+    def test_predict_single_after_train(self, client, auth_headers):
+        client.post("/api/ml/train", params={"period": "Q1"}, headers=auth_headers)
 
-        resp = client.get("/api/ml/predict/S004", params={"period": "Q1"})
+        resp = client.get("/api/ml/predict/S004", params={"period": "Q1"}, headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["student_tz"] == "S004"
@@ -250,29 +277,29 @@ class TestMLEndpoints:
         assert "features" in data
         assert "grade_trend_slope" in data["features"]
 
-    def test_predict_unknown_student_404(self, client):
-        client.post("/api/ml/train", params={"period": "Q1"})
-        resp = client.get("/api/ml/predict/UNKNOWN", params={"period": "Q1"})
+    def test_predict_unknown_student_404(self, client, auth_headers):
+        client.post("/api/ml/train", params={"period": "Q1"}, headers=auth_headers)
+        resp = client.get("/api/ml/predict/UNKNOWN", params={"period": "Q1"}, headers=auth_headers)
         assert resp.status_code == 404
 
-    def test_predict_before_train_400(self, client):
-        resp = client.get("/api/ml/predict/S001", params={"period": "Q1"})
+    def test_predict_before_train_400(self, client, auth_headers):
+        resp = client.get("/api/ml/predict/S001", params={"period": "Q1"}, headers=auth_headers)
         assert resp.status_code == 400
 
-    def test_batch_predict_after_train(self, client):
-        client.post("/api/ml/train", params={"period": "Q1"})
+    def test_batch_predict_after_train(self, client, auth_headers):
+        client.post("/api/ml/train", params={"period": "Q1"}, headers=auth_headers)
 
-        resp = client.get("/api/ml/predict", params={"period": "Q1"})
+        resp = client.get("/api/ml/predict", params={"period": "Q1"}, headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["model_trained"] is True
         assert data["total_students"] == 8
         assert len(data["predictions"]) == 8
 
-    def test_status_after_train(self, client):
-        client.post("/api/ml/train", params={"period": "Q1"})
+    def test_status_after_train(self, client, auth_headers):
+        client.post("/api/ml/train", params={"period": "Q1"}, headers=auth_headers)
 
-        resp = client.get("/api/ml/status")
+        resp = client.get("/api/ml/status", headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["trained"] is True
@@ -294,9 +321,24 @@ class TestMLEndpoints:
                 yield s
 
         app.dependency_overrides[get_session] = override_empty
-        app.dependency_overrides[get_current_user] = lambda: _ADMIN_USER
         with TestClient(app) as c:
-            resp = c.post("/api/ml/train", params={"period": "Q1"})
+            # create admin user and get token
+            with Session(empty_eng) as s:
+                svc = AuthService(s)
+                svc.create_user(
+                    CreateUserRequest(
+                        email="ml_empty_admin@test.com",
+                        password="MlEmptyAdmin@1234!",
+                        display_name="ML Admin",
+                        role=UserRole.system_admin,
+                        school_id=100,
+                        school_name="Test School",
+                    )
+                )
+                svc.ensure_rbac_seed()
+            login = c.post("/api/auth/login", json={"email": "ml_empty_admin@test.com", "password": "MlEmptyAdmin@1234!"})
+            token = login.json()["access_token"]
+            resp = c.post("/api/ml/train", params={"period": "Q1"}, headers={"Authorization": f"Bearer {token}"})
         app.dependency_overrides.clear()
 
         assert resp.status_code == 400

@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
     from .auth.service import AuthService
     with next(get_session()) as session:
         AuthService(session).ensure_default_admin()
+        AuthService(session).ensure_rbac_seed()
 
     yield
 

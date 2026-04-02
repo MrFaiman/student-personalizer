@@ -25,7 +25,7 @@ from ..constants import INACTIVITY_TIMEOUT_MINUTES, MFA_ENFORCED_ROLES
 from ..database import get_session
 from ..utils.clock import utc_now
 from .current_user import CurrentUser
-from .models import User, UserRole, UserSchoolMembership, UserSession
+from .models import Permission, RolePermission, User, UserRole, UserRoleLink, UserSchoolMembership, UserSession
 from .tokens import decode_token
 
 _bearer = HTTPBearer(auto_error=False)
@@ -137,9 +137,13 @@ def get_current_user(
             raise HTTPException(status_code=403, detail="MFA setup required for admin accounts")
 
     # Build CurrentUser from JWT claims + DB fields
+    #
+    # Tenant isolation: do NOT implicitly default to user.school_id.
+    # Domain-data access must be within an explicit active school scope selected
+    # via /api/auth/select-school (embedded in JWT claim school_id).
     school_id_claim = payload.get("school_id")
     if school_id_claim is None:
-        school_id = user.school_id
+        school_id = None
     elif isinstance(school_id_claim, int):
         school_id = school_id_claim
     else:
@@ -206,6 +210,102 @@ def require_school_scope(current_user: CurrentUser = Depends(get_current_user)) 
     if current_user.school_id is None:
         raise HTTPException(status_code=403, detail="School scope required")
     return current_user
+
+
+def _resolve_permission_keys(
+    request: Request,
+    session: Session,
+    *,
+    user_id: UUID,
+    school_id: int | None,
+) -> set[str]:
+    cached = getattr(request.state, "permission_keys", None)
+    if isinstance(cached, set):
+        return cached
+
+    # Roles that apply:
+    # - global assignments: user_role.school_id IS NULL
+    # - scoped assignments: user_role.school_id == active school_id
+    role_link_query = select(UserRoleLink.role_id).where(UserRoleLink.user_id == user_id)
+    if school_id is None:
+        role_link_query = role_link_query.where(UserRoleLink.school_id.is_(None))
+    else:
+        role_link_query = role_link_query.where(
+            (UserRoleLink.school_id.is_(None)) | (UserRoleLink.school_id == school_id)
+        )
+
+    role_ids = list(session.exec(role_link_query).all())
+    if not role_ids:
+        keys: set[str] = set()
+        request.state.permission_keys = keys
+        return keys
+
+    stmt = (
+        select(Permission.key)
+        .join(RolePermission, RolePermission.permission_id == Permission.id)
+        .where(RolePermission.role_id.in_(role_ids))
+    )
+    keys = set(session.exec(stmt).all())
+    request.state.permission_keys = keys
+    return keys
+
+
+def require_permission(permission_key: str):
+    """Dependency factory: require a permission key granted via RBAC tables."""
+
+    def _check(
+        request: Request,
+        current_user: CurrentUser = Depends(get_current_user),
+        session: Session = Depends(get_session),
+    ) -> CurrentUser:
+        keys = _resolve_permission_keys(
+            request,
+            session,
+            user_id=current_user.user_id,
+            school_id=current_user.school_id,
+        )
+        if permission_key not in keys:
+            log_event(
+                session,
+                action="access_denied",
+                user_id=current_user.user_id,
+                user_email=current_user.email,
+                success=False,
+                detail={"reason": "permission_denied", "permission": permission_key, "path": request.url.path},
+            )
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return current_user
+
+    return _check
+
+
+def require_any_permission(permission_keys: list[str]):
+    """Dependency factory: require at least one permission key."""
+
+    def _check(
+        request: Request,
+        current_user: CurrentUser = Depends(get_current_user),
+        session: Session = Depends(get_session),
+    ) -> CurrentUser:
+        keys = _resolve_permission_keys(
+            request,
+            session,
+            user_id=current_user.user_id,
+            school_id=current_user.school_id,
+        )
+        if not any(k in keys for k in permission_keys):
+            log_event(
+                session,
+                action="access_denied",
+                user_id=current_user.user_id,
+                user_email=current_user.email,
+                success=False,
+                detail={"reason": "permission_denied", "permissions": permission_keys, "path": request.url.path},
+            )
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return current_user
+
+    return _check
 
 
 # Convenience shortcuts

@@ -16,6 +16,68 @@ class UserRole(str, Enum):
     read_only = "read_only"
 
 
+class RoleScope(str, Enum):
+    global_ = "global"
+    school = "school"
+
+
+class Role(SQLModel, table=True):
+    """Normalized RBAC role (can be global or school-scoped)."""
+
+    __tablename__ = "role"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    scope: RoleScope = Field(default=RoleScope.school)
+    description: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+    permissions: list["RolePermission"] = Relationship(back_populates="role")
+    users: list["UserRoleLink"] = Relationship(back_populates="role")
+
+
+class Permission(SQLModel, table=True):
+    """Permission key used for fine-grained authorization checks."""
+
+    __tablename__ = "permission"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    key: str = Field(index=True, unique=True)
+    description: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+    roles: list["RolePermission"] = Relationship(back_populates="permission")
+
+
+class UserRoleLink(SQLModel, table=True):
+    """Assign a role to a user, optionally scoped to a specific school."""
+
+    __tablename__ = "user_role"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id", index=True)
+    role_id: UUID = Field(foreign_key="role.id", index=True)
+    school_id: int | None = Field(default=None, index=True)  # NULL = global assignment
+    created_at: datetime = Field(default_factory=utc_now)
+
+    user: Optional["User"] = Relationship(back_populates="role_links")
+    role: Optional[Role] = Relationship(back_populates="users")
+
+
+class RolePermission(SQLModel, table=True):
+    """Assign a permission to a role."""
+
+    __tablename__ = "role_permission"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    role_id: UUID = Field(foreign_key="role.id", index=True)
+    permission_id: UUID = Field(foreign_key="permission.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    role: Optional[Role] = Relationship(back_populates="permissions")
+    permission: Optional[Permission] = Relationship(back_populates="roles")
+
+
 class User(SQLModel, table=True):
     """System user with role-based access."""
 
@@ -51,6 +113,7 @@ class User(SQLModel, table=True):
     sessions: list["UserSession"] = Relationship(back_populates="user")
     password_history: list["PasswordHistory"] = Relationship(back_populates="user")
     memberships: list["UserSchoolMembership"] = Relationship(back_populates="user")
+    role_links: list[UserRoleLink] = Relationship(back_populates="user")
 
 
 class UserSchoolMembership(SQLModel, table=True):

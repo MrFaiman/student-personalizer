@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy import case, literal
 from sqlmodel import Session, func, select
 
+from ..auth.current_user import CurrentUser
 from ..constants import AT_RISK_GRADE_THRESHOLD
 from ..models import Class, Grade, Student
 
@@ -13,12 +14,24 @@ class ClassService:
     def __init__(self, session: Session):
         self.session = session
 
-    def list_classes_with_stats(self, period: str | None = None, year: str | None = None) -> list[dict]:
+    def _require_school_id(self, current_user: CurrentUser) -> int:
+        if current_user.school_id is None:
+            raise ValueError("School scope required")
+        return current_user.school_id
+
+    def list_classes_with_stats(
+        self,
+        *,
+        current_user: CurrentUser,
+        period: str | None = None,
+        year: str | None = None,
+    ) -> list[dict]:
         """
         Get all classes with calculated statistics.
         Returns pre-calculated dicts for the view to format.
         """
-        classes = self.session.exec(select(Class)).all()
+        school_id = self._require_school_id(current_user)
+        classes = self.session.exec(select(Class).where(Class.school_id == school_id)).all()
         if not classes:
             return []
 
@@ -30,6 +43,7 @@ class ClassService:
                 Grade.student_tz,
                 func.avg(Grade.grade).label("avg_grade"),
             )
+            .where(Grade.school_id == school_id)
             .group_by(Grade.student_tz)
         )
         if year:
@@ -47,7 +61,7 @@ class ClassService:
                 func.count(case((student_avg_sub.c.avg_grade < AT_RISK_GRADE_THRESHOLD, literal(1)))).label("at_risk_count"),
             )
             .outerjoin(student_avg_sub, Student.student_tz == student_avg_sub.c.student_tz)
-            .where(Student.class_id.isnot(None))
+            .where(Student.class_id.isnot(None), Student.school_id == school_id)
             .group_by(Student.class_id)
         )
         rows = self.session.exec(class_stats_query).all()
@@ -67,18 +81,28 @@ class ClassService:
 
         return result_data
 
-    def get_class_heatmap(self, class_id: UUID, period: str | None = None, year: str | None = None) -> dict:
+    def get_class_heatmap(
+        self,
+        *,
+        current_user: CurrentUser,
+        class_id: UUID,
+        period: str | None = None,
+        year: str | None = None,
+    ) -> dict:
         """
         Returns Heatmap Matrix: Student x Subject.
         All averages are pre-calculated.
         """
-        students = self.session.exec(select(Student).where(Student.class_id == class_id)).all()
+        school_id = self._require_school_id(current_user)
+        students = self.session.exec(
+            select(Student).where(Student.class_id == class_id, Student.school_id == school_id)
+        ).all()
         if not students:
             return {}
 
         student_tzs = [s.student_tz for s in students]
 
-        grade_query = select(Grade).where(Grade.student_tz.in_(student_tzs))
+        grade_query = select(Grade).where(Grade.school_id == school_id, Grade.student_tz.in_(student_tzs))
         if year:
             grade_query = grade_query.where(Grade.year == year)
         if period:
@@ -96,7 +120,7 @@ class ClassService:
         # Get per-student averages via SQL
         avg_query = (
             select(Grade.student_tz, func.avg(Grade.grade))
-            .where(Grade.student_tz.in_(student_tzs))
+            .where(Grade.school_id == school_id, Grade.student_tz.in_(student_tzs))
             .group_by(Grade.student_tz)
         )
         if year:
@@ -119,11 +143,23 @@ class ClassService:
             "students": student_rows,
         }
 
-    def get_top_bottom_students(self, class_id: UUID, period: str | None = None, top_n: int = 5, bottom_n: int = 5, year: str | None = None) -> dict:
+    def get_top_bottom_students(
+        self,
+        *,
+        current_user: CurrentUser,
+        class_id: UUID,
+        period: str | None = None,
+        top_n: int = 5,
+        bottom_n: int = 5,
+        year: str | None = None,
+    ) -> dict:
         """
         Returns sorted students with pre-calculated averages.
         """
-        students = self.session.exec(select(Student).where(Student.class_id == class_id)).all()
+        school_id = self._require_school_id(current_user)
+        students = self.session.exec(
+            select(Student).where(Student.class_id == class_id, Student.school_id == school_id)
+        ).all()
         if not students:
             return {"students": [], "top_n": top_n, "bottom_n": bottom_n}
 
@@ -133,7 +169,7 @@ class ClassService:
         # Get averages via SQL GROUP BY
         avg_query = (
             select(Grade.student_tz, func.avg(Grade.grade).label("avg_grade"))
-            .where(Grade.student_tz.in_(student_tzs))
+            .where(Grade.school_id == school_id, Grade.student_tz.in_(student_tzs))
             .group_by(Grade.student_tz)
         )
         if year:

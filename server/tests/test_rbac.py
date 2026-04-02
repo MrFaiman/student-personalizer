@@ -47,6 +47,7 @@ def rbac_engine():
                     school_name="RBAC School",
                 )
             )
+        svc.ensure_rbac_seed()
 
     return eng
 

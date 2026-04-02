@@ -48,7 +48,7 @@ class TestDashboardAnalytics:
         """Test teacher statistics using TeacherService (raw data)."""
         service = TeacherService(seeded_session)
 
-        stats = service.get_teacher_stats(teacher_name="Teacher-1", period="Q1")
+        stats = service.get_teacher_stats(current_user=_USER, teacher_name="Teacher-1", period="Q1")
 
         assert stats["teacher_name"] == "Teacher-1"
         assert stats["total_students"] == 8 # All 8 students have Subject-1/Teacher-1

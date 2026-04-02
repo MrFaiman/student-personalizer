@@ -7,7 +7,8 @@ from sqlmodel import Session, func, select
 
 from ..audit.service import log_event
 from ..auth.current_user import CurrentUser
-from ..auth.dependencies import get_current_user, require_admin, require_teacher
+from ..auth.dependencies import get_current_user, require_permission, require_school_scope
+from ..auth.permissions import PermissionKey
 from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, DEFAULT_YEAR, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, UPLOAD_DIR
 from ..database import get_session
 from ..dependencies import require_write_access
@@ -22,16 +23,20 @@ _upload_path = Path(UPLOAD_DIR)
 _upload_path.mkdir(parents=True, exist_ok=True)
 
 
-@router.post("/upload", response_model=ImportResponse, dependencies=[Depends(require_write_access), Depends(require_admin)])
+@router.post(
+    "/upload",
+    response_model=ImportResponse,
+    dependencies=[
+        Depends(require_write_access),
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_upload.value)),
+    ],
+)
 async def upload_file(
     file: UploadFile = File(...),
     file_type: Literal["grades", "events"] | None = Query(
         default=None,
         description="File type (grades or events). Auto-detected if not specified.",
-    ),
-    school_id: int | None = Query(
-        default=None,
-        description="Mashov semel (school scope) to associate the ingested data with. Required for school-scoped admins.",
     ),
     period: str = Query(
         default=DEFAULT_PERIOD,
@@ -89,21 +94,16 @@ async def upload_file(
     session.flush()
 
     # Persist school scope on the uploaded file record as well (helps scoping logs later).
-    resolved_school_id = school_id if school_id is not None else current_user.school_id
+    # Strict tenant isolation: resolved scope is always the active school from JWT.
+    resolved_school_id = current_user.school_id
     uploaded.school_id = resolved_school_id
     session.add(uploaded)
     session.flush()
 
     ingestion_service = IngestionService(session)
 
-    # Resolve school scope for import.
-    resolved_school_id = school_id if school_id is not None else current_user.school_id
-    if current_user.role.value == "school_admin":
-        # School admins must operate within their selected school scope.
-        if resolved_school_id is None:
-            raise HTTPException(status_code=403, detail="School scope required")
-        if current_user.school_id is None or resolved_school_id != current_user.school_id:
-            raise HTTPException(status_code=403, detail="Not allowed for this school")
+    # Resolve school scope for import (active school only).
+    resolved_school_id = current_user.school_id
 
     result: ImportResult = ingestion_service.ingest_file(
         file_content=content,
@@ -149,16 +149,24 @@ async def upload_file(
     )
 
 
-@router.get("/logs", response_model=ImportLogListResponse, dependencies=[Depends(require_teacher)])
+@router.get(
+    "/logs",
+    response_model=ImportLogListResponse,
+    dependencies=[
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_logs_read.value)),
+    ],
+)
 async def get_import_logs(
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE, description="Items per page"),
     sort_by: str | None = Query(default=None, description="Column to sort by: filename, file_type, year, period, rows_imported, created_at"),
     sort_order: str = Query(default="desc", description="Sort direction: asc or desc"),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get a paginated list of import logs."""
-    total = session.exec(select(func.count(ImportLog.id))).one()
+    total = session.exec(select(func.count(ImportLog.id)).where(ImportLog.school_id == current_user.school_id)).one()
 
     sort_columns = {
         "filename": ImportLog.filename,
@@ -172,7 +180,13 @@ async def get_import_logs(
     order = sort_col.desc() if sort_order == "desc" else sort_col.asc()
 
     offset = (page - 1) * page_size
-    statement = select(ImportLog).order_by(order).offset(offset).limit(page_size)
+    statement = (
+        select(ImportLog)
+        .where(ImportLog.school_id == current_user.school_id)
+        .order_by(order)
+        .offset(offset)
+        .limit(page_size)
+    )
     logs = session.exec(statement).all()
 
     return ImportLogListResponse(
@@ -196,10 +210,18 @@ async def get_import_logs(
     )
 
 
-@router.get("/logs/{batch_id}", response_model=ImportLogResponse, dependencies=[Depends(require_teacher)])
+@router.get(
+    "/logs/{batch_id}",
+    response_model=ImportLogResponse,
+    dependencies=[
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_logs_read.value)),
+    ],
+)
 async def get_import_log(
     batch_id: str,
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get details of a specific import by batch ID."""
     statement = select(ImportLog).where(ImportLog.batch_id == batch_id)
@@ -207,6 +229,8 @@ async def get_import_log(
 
     if not log:
         raise HTTPException(status_code=404, detail="Import log not found")
+    if log.school_id != current_user.school_id:
+        raise HTTPException(status_code=403, detail="Not allowed for this school")
 
     return ImportLogResponse(
         id=log.id,
@@ -221,10 +245,18 @@ async def get_import_log(
     )
 
 
-@router.delete("/logs/{batch_id}", dependencies=[Depends(require_write_access), Depends(require_admin)])
+@router.delete(
+    "/logs/{batch_id}",
+    dependencies=[
+        Depends(require_write_access),
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_delete.value)),
+    ],
+)
 async def delete_import_log(
     batch_id: str,
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """
     Delete an import log and all associated data.
@@ -243,6 +275,10 @@ async def delete_import_log(
 
     if not log:
         raise HTTPException(status_code=404, detail="Import log not found")
+
+    # Tenant isolation: only allow deleting within active school scope.
+    if current_user.school_id is None or log.school_id != current_user.school_id:
+        raise HTTPException(status_code=403, detail="Not allowed for this school")
 
     # Capture the uploaded file record before deleting the log
     uploaded_file = log.uploaded_file
@@ -268,6 +304,14 @@ async def delete_import_log(
 
     session.commit()
 
+    log_event(
+        session,
+        action="delete_import",
+        user_id=current_user.user_id,
+        user_email=current_user.email,
+        success=True,
+        detail={"school_id": current_user.school_id, "batch_id": batch_id, "records_deleted": deleted_records},
+    )
     return {
         "message": "Import log deleted successfully",
         "batch_id": batch_id,

@@ -5,6 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlmodel import Session, select
 
+from ..audit.service import log_event
 from ..database import get_session
 from ..dependencies import require_write_access
 from ..middleware.rate_limit import rate_limit
@@ -62,6 +63,7 @@ async def logout(
 @router.post("/refresh", response_model=TokenResponse)
 @rate_limit("10/minute")
 async def refresh(request: Request, body: RefreshRequest, session: Session = Depends(get_session)):
+    # service logs successful refresh; invalid tokens raise
     return AuthService(session).refresh(body.refresh_token)
 
 
@@ -120,6 +122,7 @@ async def my_schools(
 @router.post("/select-school", response_model=TokenResponse)
 async def select_school(
     body: SelectSchoolRequest,
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
@@ -190,6 +193,16 @@ async def select_school(
             "school_name": school_name,
         },
     )
+    log_event(
+        session,
+        action="select_school",
+        user_id=user.id,
+        user_email=user.email,
+        success=True,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        detail={"school_id": school_id, "school_name": school_name},
+    )
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -201,6 +214,7 @@ async def change_password(
     _write: None = Depends(require_write_access),
 ):
     AuthService(session).change_password(db_user, body)
+    log_event(session, action="password_change", user_id=db_user.id, user_email=db_user.email, success=True)
     return {"ok": True}
 
 
@@ -239,7 +253,16 @@ async def create_user(
         body.school_name = school_name
     else:
         body.school_name = None
-    return AuthService(session).create_user(body)
+    user = AuthService(session).create_user(body)
+    log_event(
+        session,
+        action="user_create",
+        user_id=_admin.user_id,
+        user_email=_admin.email,
+        success=True,
+        detail={"created_user_id": str(user.id), "created_email": user.email, "created_role": user.role.value, "school_id": user.school_id},
+    )
+    return user
 
 
 @router.patch("/users/{user_id}", response_model=UserResponse)
@@ -288,6 +311,14 @@ async def update_user(
     session.add(user)
     session.commit()
     session.refresh(user)
+    log_event(
+        session,
+        action="user_update",
+        user_id=_admin.user_id,
+        user_email=_admin.email,
+        success=True,
+        detail={"target_user_id": str(user.id), "target_email": user.email, "role": user.role.value, "school_id": user.school_id, "is_active": user.is_active},
+    )
     return user
 
 
@@ -307,6 +338,14 @@ async def admin_reset_password(
         if _admin.school_id is None or user.school_id != _admin.school_id:
             raise HTTPException(status_code=403, detail="Not allowed for this school")
     AuthService(session).admin_reset_password(user, body.new_password, body.must_change_password)
+    log_event(
+        session,
+        action="admin_reset_password",
+        user_id=_admin.user_id,
+        user_email=_admin.email,
+        success=True,
+        detail={"target_user_id": str(user.id), "target_email": user.email, "must_change_password": body.must_change_password},
+    )
     return {"ok": True}
 
 
@@ -346,6 +385,14 @@ async def admin_reset_mfa(
         session.add(s)
 
     session.commit()
+    log_event(
+        session,
+        action="admin_reset_mfa",
+        user_id=_admin.user_id,
+        user_email=_admin.email,
+        success=True,
+        detail={"target_user_id": str(user.id), "target_email": user.email},
+    )
     return {"ok": True}
 
 
@@ -363,6 +410,7 @@ async def mfa_setup(
     secret, uri = setup_mfa(db_user)
     session.add(db_user)
     session.commit()
+    log_event(session, action="mfa_setup_start", user_id=db_user.id, user_email=db_user.email, success=True)
     return MfaSetupResponse(provisioning_uri=uri, secret=secret)
 
 
@@ -379,6 +427,7 @@ async def mfa_verify(
     plaintext_codes = verify_mfa_setup(db_user, body.code)
     session.add(db_user)
     session.commit()
+    log_event(session, action="mfa_enabled", user_id=db_user.id, user_email=db_user.email, success=True)
     return MfaBackupCodesResponse(backup_codes=plaintext_codes)
 
 
@@ -439,6 +488,7 @@ async def mfa_disable(
     disable_mfa(db_user, body.code)
     session.add(db_user)
     session.commit()
+    log_event(session, action="mfa_disabled", user_id=db_user.id, user_email=db_user.email, success=True)
     return {"ok": True}
 
 

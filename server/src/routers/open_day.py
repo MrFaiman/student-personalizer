@@ -3,8 +3,10 @@ from collections import Counter
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, func, select
 
+from ..audit.service import log_event
 from ..auth.current_user import CurrentUser
-from ..auth.dependencies import get_current_user, require_admin, require_teacher
+from ..auth.dependencies import get_current_user, require_permission, require_school_scope
+from ..auth.permissions import PermissionKey
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, VALID_MIME_TYPES
 from ..database import get_session
 from ..dependencies import require_write_access
@@ -22,10 +24,17 @@ from ..services.open_day import OpenDayService
 router = APIRouter(prefix="/api/open-day", tags=["open-day"])
 
 
-@router.post("/upload", response_model=OpenDayUploadResponse, dependencies=[Depends(require_write_access), Depends(require_admin)])
+@router.post(
+    "/upload",
+    response_model=OpenDayUploadResponse,
+    dependencies=[
+        Depends(require_write_access),
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_upload.value)),
+    ],
+)
 async def upload_open_day_file(
     file: UploadFile = File(...),
-    school_id: int | None = Query(default=None, description="Mashov semel (school scope) to associate this upload with."),
     session: Session = Depends(get_session),
     current_user: CurrentUser = Depends(get_current_user),
 ):
@@ -44,18 +53,36 @@ async def upload_open_day_file(
 
     try:
         service = OpenDayService(session)
-        resolved_school_id = school_id if school_id is not None else current_user.school_id
-        if current_user.role.value == "school_admin":
-            if resolved_school_id is None:
-                raise HTTPException(status_code=403, detail="School scope required")
-            if current_user.school_id is None or resolved_school_id != current_user.school_id:
-                raise HTTPException(status_code=403, detail="Not allowed for this school")
-        return service.process_upload(mime_format, content, file.filename or "upload", school_id=resolved_school_id)
+        result = service.process_upload(mime_format, content, file.filename or "upload", school_id=current_user.school_id)
+        log_event(
+            session,
+            action="open_day_upload",
+            user_id=current_user.user_id,
+            user_email=current_user.email,
+            success=True,
+            detail={"school_id": current_user.school_id, "filename": file.filename, "content_type": content_type},
+        )
+        return result
     except Exception as exc:
+        log_event(
+            session,
+            action="open_day_upload",
+            user_id=current_user.user_id,
+            user_email=current_user.email,
+            success=False,
+            detail={"school_id": current_user.school_id, "filename": file.filename, "error": str(exc)},
+        )
         raise HTTPException(status_code=400, detail=f"Could not parse file: {exc}")
 
 
-@router.get("/registrations", response_model=OpenDayRegistrationListResponse, dependencies=[Depends(require_teacher)])
+@router.get(
+    "/registrations",
+    response_model=OpenDayRegistrationListResponse,
+    dependencies=[
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_logs_read.value)),
+    ],
+)
 async def list_registrations(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
@@ -64,9 +91,10 @@ async def list_registrations(
     grade: str | None = Query(default=None),
     import_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """List open day registrations with optional search and filters."""
-    query = select(OpenDayRegistration)
+    query = select(OpenDayRegistration).where(OpenDayRegistration.school_id == current_user.school_id)
 
     if search:
         term = f"%{search}%"
@@ -115,8 +143,18 @@ async def list_registrations(
     )
 
 
-@router.get("/stats", response_model=OpenDayStats, dependencies=[Depends(require_teacher)])
-async def get_stats(session: Session = Depends(get_session)):
+@router.get(
+    "/stats",
+    response_model=OpenDayStats,
+    dependencies=[
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_logs_read.value)),
+    ],
+)
+async def get_stats(
+    session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Return aggregate stats for open day registrations."""
     from collections import defaultdict
 
@@ -128,6 +166,7 @@ async def get_stats(session: Session = Depends(get_session)):
             OpenDayRegistration.current_school,
             OpenDayRegistration.submitted_at,
         )
+        .where(OpenDayRegistration.school_id == current_user.school_id)
     ).all()
 
     by_track: Counter = Counter()
@@ -162,11 +201,23 @@ async def get_stats(session: Session = Depends(get_session)):
     )
 
 
-@router.get("/imports", response_model=OpenDayImportListResponse, dependencies=[Depends(require_teacher)])
-async def list_imports(session: Session = Depends(get_session)):
+@router.get(
+    "/imports",
+    response_model=OpenDayImportListResponse,
+    dependencies=[
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_logs_read.value)),
+    ],
+)
+async def list_imports(
+    session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """List all open day file imports (upload history)."""
     imports = session.exec(
-        select(OpenDayImport).order_by(OpenDayImport.import_date.desc())  # type: ignore[union-attr]
+        select(OpenDayImport)
+        .where(OpenDayImport.school_id == current_user.school_id)
+        .order_by(OpenDayImport.import_date.desc())  # type: ignore[union-attr]
     ).all()
     total = len(imports)
     return OpenDayImportListResponse(
@@ -185,28 +236,67 @@ async def list_imports(session: Session = Depends(get_session)):
     )
 
 
-@router.delete("/reset", dependencies=[Depends(require_write_access), Depends(require_admin)])
-async def reset_all(session: Session = Depends(get_session)):
+@router.delete(
+    "/reset",
+    dependencies=[
+        Depends(require_write_access),
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_delete.value)),
+    ],
+)
+async def reset_all(
+    session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Delete all open day registrations and imports."""
     from sqlmodel import delete
 
-    session.exec(delete(OpenDayRegistration))
-    session.exec(delete(OpenDayImport))
+    session.exec(delete(OpenDayRegistration).where(OpenDayRegistration.school_id == current_user.school_id))  # type: ignore[arg-type]
+    session.exec(delete(OpenDayImport).where(OpenDayImport.school_id == current_user.school_id))  # type: ignore[arg-type]
     session.commit()
+    log_event(
+        session,
+        action="open_day_reset",
+        user_id=current_user.user_id,
+        user_email=current_user.email,
+        success=True,
+        detail={"school_id": current_user.school_id},
+    )
     return {"message": "All open day data deleted"}
 
 
-@router.delete("/imports/{import_id}", dependencies=[Depends(require_write_access), Depends(require_admin)])
-async def delete_import(import_id: int, session: Session = Depends(get_session)):
+@router.delete(
+    "/imports/{import_id}",
+    dependencies=[
+        Depends(require_write_access),
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.ingestion_delete.value)),
+    ],
+)
+async def delete_import(
+    import_id: int,
+    session: Session = Depends(get_session),
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Delete an import and all its registrations."""
     from sqlmodel import delete
 
     imp = session.get(OpenDayImport, import_id)
     if not imp:
         raise HTTPException(status_code=404, detail="Import not found.")
+    if imp.school_id != current_user.school_id:
+        raise HTTPException(status_code=403, detail="Not allowed for this school")
 
     session.exec(delete(OpenDayRegistration).where(OpenDayRegistration.import_id == import_id))  # type: ignore[arg-type]
     session.delete(imp)
     session.commit()
+    log_event(
+        session,
+        action="open_day_delete_import",
+        user_id=current_user.user_id,
+        user_email=current_user.email,
+        success=True,
+        detail={"school_id": current_user.school_id, "import_id": import_id, "batch_id": imp.batch_id},
+    )
 
     return {"message": "Deleted successfully", "import_id": import_id}

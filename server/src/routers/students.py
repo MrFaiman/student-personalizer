@@ -5,7 +5,8 @@ from sqlmodel import Session
 
 from ..audit.service import log_event
 from ..auth.current_user import CurrentUser
-from ..auth.dependencies import get_current_user, require_school_scope, require_viewer
+from ..auth.dependencies import get_current_user, require_permission, require_school_scope
+from ..auth.permissions import PermissionKey
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from ..database import get_session
 from ..schemas.student import (
@@ -20,7 +21,14 @@ from ..services.students import StudentService
 from ..views.masking import apply_student_mask
 from ..views.students import StudentDefaultView
 
-router = APIRouter(prefix="/api/students", tags=["students"], dependencies=[Depends(require_viewer), Depends(require_school_scope)])
+router = APIRouter(
+    prefix="/api/students",
+    tags=["students"],
+    dependencies=[
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.students_read.value)),
+    ],
+)
 
 
 @router.get("", response_model=StudentListResponse)

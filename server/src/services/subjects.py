@@ -2,6 +2,7 @@ from uuid import UUID
 
 from sqlmodel import Session, func, select
 
+from ..auth.current_user import CurrentUser
 from ..constants import AT_RISK_GRADE_THRESHOLD
 from ..models import Class, Grade, Student, Subject
 
@@ -12,9 +13,19 @@ class SubjectService:
     def __init__(self, session: Session):
         self.session = session
 
-    def list_subjects(self, period: str | None = None, year: str | None = None) -> list[str]:
+    def _require_school_id(self, current_user: CurrentUser) -> int:
+        if current_user.school_id is None:
+            raise ValueError("School scope required")
+        return current_user.school_id
+
+    def list_subjects(self, *, current_user: CurrentUser, period: str | None = None, year: str | None = None) -> list[str]:
         """Get list of all subject names with available grades."""
-        query = select(Grade.subject_name).distinct().where(Grade.subject_name.is_not(None))
+        school_id = self._require_school_id(current_user)
+        query = (
+            select(Grade.subject_name)
+            .distinct()
+            .where(Grade.school_id == school_id, Grade.subject_name.is_not(None))
+        )
         if year:
             query = query.where(Grade.year == year)
         if period:
@@ -22,9 +33,10 @@ class SubjectService:
         return list(self.session.exec(query).all())
 
     def get_subjects_list_with_stats(
-        self, period: str | None = None, grade_level: str | None = None, year: str | None = None
+        self, *, current_user: CurrentUser, period: str | None = None, grade_level: str | None = None, year: str | None = None
     ) -> list[dict]:
         """Get list of all subjects with summary stats (pre-calculated)."""
+        school_id = self._require_school_id(current_user)
         # SQL: aggregate grades grouped by subject
         query = (
             select(
@@ -34,7 +46,7 @@ class SubjectService:
                 func.count(func.distinct(Grade.student_tz)).label("student_count"),
                 func.array_agg(func.distinct(Grade.teacher_name)).label("teachers"),
             )
-            .where(Grade.subject_name.isnot(None))
+            .where(Grade.school_id == school_id, Grade.subject_name.isnot(None))
             .group_by(Grade.subject_name, Grade.subject_id)
         )
         if year:
@@ -46,7 +58,7 @@ class SubjectService:
             query = (
                 query.join(Student, Grade.student_tz == Student.student_tz)
                 .join(Class, Student.class_id == Class.id)
-                .where(Class.grade_level == grade_level)
+                .where(Class.school_id == school_id, Student.school_id == school_id, Class.grade_level == grade_level)
             )
 
         rows = self.session.exec(query).all()
@@ -63,9 +75,17 @@ class SubjectService:
 
         return results
 
-    def get_subject_stats(self, subject_name: str, period: str | None = None, year: str | None = None) -> dict:
+    def get_subject_stats(
+        self,
+        *,
+        current_user: CurrentUser,
+        subject_name: str,
+        period: str | None = None,
+        year: str | None = None,
+    ) -> dict:
         """Get raw grade data for a subject."""
-        query = select(Grade).where(Grade.subject_name == subject_name)
+        school_id = self._require_school_id(current_user)
+        query = select(Grade).where(Grade.school_id == school_id, Grade.subject_name == subject_name)
         if year:
             query = query.where(Grade.year == year)
         if period:
@@ -85,13 +105,21 @@ class SubjectService:
             "teachers": set(g.teacher_name for g in grades if g.teacher_name),
         }
 
-    def get_subject_detail(self, subject_id: UUID, period: str | None = None, year: str | None = None) -> dict | None:
+    def get_subject_detail(
+        self,
+        *,
+        current_user: CurrentUser,
+        subject_id: UUID,
+        period: str | None = None,
+        year: str | None = None,
+    ) -> dict | None:
         """Get detailed analytics for a specific subject (pre-calculated)."""
+        school_id = self._require_school_id(current_user)
         subject = self.session.get(Subject, subject_id)
-        if not subject:
+        if not subject or subject.school_id != school_id:
             return None
 
-        query = select(Grade).where(Grade.subject_id == subject_id)
+        query = select(Grade).where(Grade.school_id == school_id, Grade.subject_id == subject_id)
         if year:
             query = query.where(Grade.year == year)
         if period:

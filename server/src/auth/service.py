@@ -9,7 +9,8 @@ from sqlmodel import Session, select
 from ..audit.service import log_event
 from ..constants import INACTIVITY_TIMEOUT_MINUTES
 from ..utils.clock import utc_now
-from .models import PasswordHistory, User, UserRole, UserSchoolMembership, UserSession
+from .models import PasswordHistory, Permission, Role, RolePermission, RoleScope, User, UserRole, UserRoleLink, UserSchoolMembership, UserSession
+from .permissions import ALL_PERMISSION_KEYS, PermissionKey
 from .password import (
     PASSWORD_HISTORY_DEPTH,
     hash_password,
@@ -190,6 +191,16 @@ class AuthService:
         self.session.add(new_session)
         self.session.commit()
 
+        log_event(
+            self.session,
+            action="refresh",
+            user_id=user.id,
+            user_email=user.email,
+            success=True,
+            ip_address=session.ip_address,
+            user_agent=session.user_agent,
+            detail={"school_id": school_id if isinstance(school_id, int) else None},
+        )
         return TokenResponse(access_token=new_access, refresh_token=new_refresh)
 
     def logout(self, jti: str) -> None:
@@ -249,6 +260,14 @@ class AuthService:
             s.is_revoked = True
             self.session.add(s)
         self.session.commit()
+        log_event(
+            self.session,
+            action="admin_reset_password",
+            user_id=target_user.id,
+            user_email=target_user.email,
+            success=True,
+            detail={"must_change_password": must_change},
+        )
 
     def ensure_default_admin(self) -> None:
         """Ensure at least one privileged user exists."""
@@ -270,3 +289,127 @@ class AuthService:
                 "default_admin_created",
                 extra={"email": admin.email, "note": "Change password immediately"},
             )
+
+    def ensure_rbac_seed(self) -> None:
+        """Idempotently seed baseline RBAC roles and backfill assignments.
+
+        This is a transitional bootstrap:
+        - Creates normalized Role rows matching the legacy User.role enum values.
+        - Backfills one UserRoleLink per user to preserve behavior while router/service
+          enforcement is migrated to permission checks.
+        """
+        # 1) Seed baseline roles (normalized RBAC)
+        existing_roles = {r.name: r for r in self.session.exec(select(Role)).all()}
+        baseline: list[tuple[str, RoleScope]] = [
+            (UserRole.super_admin.value, RoleScope.global_),
+            (UserRole.system_admin.value, RoleScope.global_),
+            (UserRole.school_admin.value, RoleScope.school),
+            (UserRole.teacher.value, RoleScope.school),
+            (UserRole.read_only.value, RoleScope.school),
+        ]
+
+        created = False
+        for name, scope in baseline:
+            if name not in existing_roles:
+                role = Role(name=name, scope=scope)
+                self.session.add(role)
+                created = True
+
+        if created:
+            self.session.commit()
+
+        roles = {r.name: r for r in self.session.exec(select(Role)).all()}
+
+        # 2) Seed baseline permissions + role mappings
+        existing_perms = {p.key: p for p in self.session.exec(select(Permission)).all()}
+        for key in ALL_PERMISSION_KEYS:
+            if key not in existing_perms:
+                self.session.add(Permission(key=key))
+                created = True
+        if created:
+            self.session.commit()
+
+        perms = {p.key: p for p in self.session.exec(select(Permission)).all()}
+
+        def grant(role_name: str, keys: set[str]) -> None:
+            role = roles.get(role_name)
+            if not role:
+                return
+            for k in keys:
+                perm = perms.get(k)
+                if not perm:
+                    continue
+                exists = self.session.exec(
+                    select(RolePermission).where(
+                        RolePermission.role_id == role.id,
+                        RolePermission.permission_id == perm.id,
+                    )
+                ).first()
+                if exists:
+                    continue
+                self.session.add(RolePermission(role_id=role.id, permission_id=perm.id))
+
+        all_keys = set(ALL_PERMISSION_KEYS)
+        grant(UserRole.super_admin.value, all_keys)
+        grant(UserRole.system_admin.value, all_keys)
+
+        grant(
+            UserRole.school_admin.value,
+            {
+                PermissionKey.students_read.value,
+                PermissionKey.students_write.value,
+                PermissionKey.ingestion_upload.value,
+                PermissionKey.ingestion_logs_read.value,
+                PermissionKey.ingestion_delete.value,
+                PermissionKey.analytics_read.value,
+                PermissionKey.ml_train.value,
+                PermissionKey.admin_users_read.value,
+                PermissionKey.admin_users_write.value,
+                PermissionKey.config_read.value,
+                PermissionKey.config_write.value,
+            },
+        )
+        grant(
+            UserRole.teacher.value,
+            {
+                PermissionKey.students_read.value,
+                PermissionKey.students_write.value,
+                PermissionKey.ingestion_logs_read.value,
+                PermissionKey.analytics_read.value,
+                PermissionKey.config_read.value,
+            },
+        )
+        grant(
+            UserRole.read_only.value,
+            {
+                PermissionKey.students_read.value,
+                PermissionKey.ingestion_logs_read.value,
+                PermissionKey.analytics_read.value,
+                PermissionKey.config_read.value,
+            },
+        )
+
+        self.session.commit()
+
+        # 3) Backfill user_role links from legacy user.role
+        users = self.session.exec(select(User)).all()
+        for u in users:
+            role = roles.get(u.role.value)
+            if not role:
+                continue
+
+            already = self.session.exec(
+                select(UserRoleLink).where(
+                    UserRoleLink.user_id == u.id,
+                    UserRoleLink.role_id == role.id,
+                    UserRoleLink.school_id.is_(None),
+                )
+            ).first()
+            if already:
+                continue
+
+            self.session.add(UserRoleLink(user_id=u.id, role_id=role.id, school_id=None))
+            created = True
+
+        if created:
+            self.session.commit()

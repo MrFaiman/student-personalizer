@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
+from sqlmodel import Session
 
 from ..auth.current_user import CurrentUser
-from ..auth.dependencies import require_system_admin
+from ..audit.service import log_event
+from ..auth.dependencies import require_permission, require_system_admin
+from ..auth.permissions import PermissionKey
 from ..constants import (
     AT_RISK_GRADE_THRESHOLD,
     DEFAULT_PAGE_SIZE,
@@ -16,6 +19,7 @@ from ..constants import (
     PERFORMANCE_GOOD_THRESHOLD,
     PERFORMANCE_MEDIUM_THRESHOLD,
 )
+from ..database import get_session
 from ..dependencies import get_preview_mode, set_preview_mode
 
 router = APIRouter(prefix="/api/config", tags=["config"])
@@ -26,7 +30,7 @@ class PreviewModeToggle(BaseModel):
 
 
 @router.get("")
-async def get_config():
+async def get_config(_user: CurrentUser = Depends(require_permission(PermissionKey.config_read.value))):
     return {
         "at_risk_grade_threshold": AT_RISK_GRADE_THRESHOLD,
         "medium_grade_threshold": MEDIUM_GRADE_THRESHOLD,
@@ -43,11 +47,25 @@ async def get_config():
 
 
 @router.get("/preview-mode")
-async def get_preview_mode_status():
+async def get_preview_mode_status(_user: CurrentUser = Depends(require_permission(PermissionKey.config_read.value))):
     return {"preview_mode": get_preview_mode()}
 
 
 @router.post("/preview-mode", dependencies=[Depends(require_system_admin)])
-async def toggle_preview_mode(body: PreviewModeToggle, _admin: CurrentUser = Depends(require_system_admin)):
+async def toggle_preview_mode(
+    body: PreviewModeToggle,
+    request: Request,
+    _admin: CurrentUser = Depends(require_system_admin),
+    _perm: CurrentUser = Depends(require_permission(PermissionKey.config_write.value)),
+    session: Session = Depends(get_session),
+):
     set_preview_mode(body.enabled)
+    log_event(
+        session,
+        action="config_change",
+        user_id=_admin.user_id,
+        user_email=_admin.email,
+        success=True,
+        detail={"key": "preview_mode", "value": body.enabled, "path": request.url.path},
+    )
     return {"preview_mode": get_preview_mode()}

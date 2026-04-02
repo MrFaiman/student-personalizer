@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
 from ..auth.current_user import CurrentUser
-from ..auth.dependencies import get_current_user, require_school_scope, require_viewer
+from ..auth.dependencies import get_current_user, require_permission, require_school_scope
+from ..auth.permissions import PermissionKey
 from ..database import get_session
 from ..schemas.analytics import (
     CascadingFilterOptions,
@@ -20,7 +21,14 @@ from ..schemas.analytics import (
 from ..services.analytics import AnalyticsService
 from ..views.analytics import AnalyticsDefaultView
 
-router = APIRouter(prefix="/api/analytics", tags=["analytics"], dependencies=[Depends(require_viewer)])
+router = APIRouter(
+    prefix="/api/analytics",
+    tags=["analytics"],
+    dependencies=[
+        Depends(require_school_scope),
+        Depends(require_permission(PermissionKey.analytics_read.value)),
+    ],
+)
 
 
 @router.get("/kpis", response_model=LayerKPIsResponse)
@@ -32,7 +40,6 @@ async def get_layer_kpis(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get Dashboard KPIs."""
-    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
@@ -49,7 +56,6 @@ async def get_class_comparison(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get class comparison data."""
-    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
@@ -66,7 +72,6 @@ async def get_student_radar(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get radar chart data for a student."""
-    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
@@ -83,7 +88,6 @@ async def get_metadata(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get available filter options."""
-    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
@@ -106,7 +110,6 @@ async def get_period_comparison(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Compare average grades between two periods."""
-    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
@@ -131,7 +134,6 @@ async def get_red_student_segmentation(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get at-risk student segmentation."""
-    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
@@ -158,7 +160,6 @@ async def get_red_student_list(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get paginated list of at-risk students."""
-    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
@@ -187,7 +188,6 @@ async def get_versus_comparison(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get versus comparison data."""
-    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
@@ -214,7 +214,6 @@ async def get_cascading_filter_options(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get available filter options."""
-    require_school_scope(current_user)
     service = AnalyticsService(session)
     view = AnalyticsDefaultView()
     
