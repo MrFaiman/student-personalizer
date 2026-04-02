@@ -3,9 +3,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
 
-from ..auth.dependencies import require_permission, require_school_scope
 from ..auth.current_user import CurrentUser
-from ..auth.dependencies import get_current_user
+from ..auth.dependencies import get_current_user, require_permission, require_school_scope
 from ..auth.permissions import PermissionKey
 from ..database import get_session
 from ..schemas.subject import SubjectDetailResponse, SubjectListItem, SubjectStatsResponse

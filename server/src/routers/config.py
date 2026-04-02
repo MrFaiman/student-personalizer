@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from ..auth.current_user import CurrentUser
 from ..audit.service import log_event
+from ..auth.current_user import CurrentUser
 from ..auth.dependencies import require_permission, require_system_admin
 from ..auth.permissions import PermissionKey
 from ..constants import (

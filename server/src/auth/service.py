@@ -4,13 +4,24 @@ from uuid import UUID
 
 from fastapi import HTTPException, Request
 from jose import JWTError
+from sqlalchemy.exc import ProgrammingError
 from sqlmodel import Session, select
 
 from ..audit.service import log_event
 from ..constants import INACTIVITY_TIMEOUT_MINUTES
 from ..utils.clock import utc_now
-from .models import PasswordHistory, Permission, Role, RolePermission, RoleScope, User, UserRole, UserRoleLink, UserSchoolMembership, UserSession
-from .permissions import ALL_PERMISSION_KEYS, PermissionKey
+from .models import (
+    PasswordHistory,
+    Permission,
+    Role,
+    RolePermission,
+    RoleScope,
+    User,
+    UserRole,
+    UserRoleLink,
+    UserSchoolMembership,
+    UserSession,
+)
 from .password import (
     PASSWORD_HISTORY_DEPTH,
     hash_password,
@@ -18,6 +29,7 @@ from .password import (
     validate_password_policy,
     verify_password,
 )
+from .permissions import ALL_PERMISSION_KEYS, PermissionKey
 from .schemas import ChangePasswordRequest, CreateUserRequest, LoginRequest, MfaChallengeResponse, TokenResponse
 from .tokens import create_access_token, create_mfa_token, create_refresh_token, decode_refresh_token
 
@@ -299,7 +311,15 @@ class AuthService:
           enforcement is migrated to permission checks.
         """
         # 1) Seed baseline roles (normalized RBAC)
-        existing_roles = {r.name: r for r in self.session.exec(select(Role)).all()}
+        #
+        # For PostgreSQL environments, schema is managed by Alembic migrations.
+        # If migrations were not applied yet, fail fast with a clear message.
+        try:
+            existing_roles = {r.name: r for r in self.session.exec(select(Role)).all()}
+        except ProgrammingError as exc:
+            raise RuntimeError(
+                "RBAC tables are missing in the database. Run migrations: `uv run alembic upgrade head`"
+            ) from exc
         baseline: list[tuple[str, RoleScope]] = [
             (UserRole.super_admin.value, RoleScope.global_),
             (UserRole.system_admin.value, RoleScope.global_),
