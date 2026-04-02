@@ -2,11 +2,9 @@ import argparse
 import os
 from pathlib import Path
 
-from alembic.config import Config
 from sqlalchemy import text
 from sqlmodel import SQLModel
 
-from alembic import command
 from src.database import engine
 
 
@@ -33,22 +31,14 @@ def _wipe_sqlmodel_metadata() -> None:
     SQLModel.metadata.create_all(engine)
 
 
-def _wipe_postgres_and_stamp_head() -> None:
-    # Drop all known tables (metadata), plus alembic version table.
+def _wipe_postgres() -> None:
+    # Drop all known tables (metadata), plus legacy alembic version table if present.
     SQLModel.metadata.drop_all(engine)
     with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS alembic_version CASCADE"))
 
-    alembic_ini = Path(__file__).resolve().parents[1] / "alembic.ini"
-    cfg = Config(str(alembic_ini))
-
     # Recreate current schema from models.
     SQLModel.metadata.create_all(engine)
-
-    # Stamp DB as up-to-date without replaying migrations.
-    # Some migrations assume prior tables exist (e.g., ALTER TABLE on legacy schema),
-    # so stamping is the safest "wipe to current schema" behavior.
-    command.stamp(cfg, "head")
 
 
 def main() -> int:
@@ -68,7 +58,7 @@ def main() -> int:
 
     dialect = engine.dialect.name
     if dialect == "postgresql":
-        _wipe_postgres_and_stamp_head()
+        _wipe_postgres()
     else:
         _wipe_sqlmodel_metadata()
 

@@ -76,12 +76,9 @@ ln -s /etc/letsencrypt/live/students.school.il/fullchain.pem certs/server.crt
 ln -s /etc/letsencrypt/live/students.school.il/privkey.pem certs/server.key
 ```
 
-### 3. Run Database Migrations
+### 3. Initialize Database Schema
 
-```bash
-cd server
-uv run alembic upgrade head
-```
+The server manages schema at runtime using `SQLModel.metadata.create_all()` on startup (no Alembic).
 
 ### 4. Start Services
 
@@ -144,8 +141,5 @@ Application logs are written to stdout in JSON format (structured logging). Forw
 
 ```bash
 git pull
-cd server && uv run alembic upgrade head
 docker compose -f docker-compose.prod.yml up -d --build
 ```
-
-Always run migrations before restarting the server.

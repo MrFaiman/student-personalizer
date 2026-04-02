@@ -318,7 +318,7 @@ class AuthService:
             existing_roles = {r.name: r for r in self.session.exec(select(Role)).all()}
         except ProgrammingError as exc:
             raise RuntimeError(
-                "RBAC tables are missing in the database. Run migrations: `uv run alembic upgrade head`"
+                "RBAC tables are missing in the database. Ensure the server can create tables on startup (init_db) or wipe/recreate the DB."
             ) from exc
         baseline: list[tuple[str, RoleScope]] = [
             (UserRole.super_admin.value, RoleScope.global_),

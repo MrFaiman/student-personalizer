@@ -24,25 +24,15 @@ else:
 def init_db():
     """Initialize database.
 
-    Database schema is managed via Alembic migrations (see server/alembic).
-    """
-    if not _is_sqlite:
-        return
+    Schema is managed at runtime via SQLModel metadata.
 
-    # SQLite is used for tests / local scratch DBs; keep automatic table creation
-    # to avoid needing to run Alembic inside every test.
-    from .audit.models import AuditLog  # noqa: F401
-    from .auth.models import PasswordHistory, User, UserSchoolMembership, UserSession  # noqa: F401
-    from .models import (  # noqa: F401
-        AttendanceRecord,
-        Class,
-        Grade,
-        ImportLog,
-        OpenDayRegistration,
-        Student,
-        Subject,
-        Teacher,
-    )
+    Note: This project intentionally does not use Alembic migrations. Tables are
+    created (if missing) on startup using `SQLModel.metadata.create_all()`.
+    """
+    # Import all models so their tables are registered in SQLModel.metadata
+    import src.audit.models  # noqa: F401
+    import src.auth.models  # noqa: F401
+    import src.models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)
 
