@@ -29,7 +29,7 @@ This system implements the following controls in compliance with the Israeli Min
 | Control | Implementation |
 |---|---|
 | Authentication | JWT (access 15 min / refresh 8 h), Argon2id password hashing |
-| Authorization | Role-based (admin / teacher / viewer), enforced on every endpoint |
+| Authorization | Normalized RBAC (`role`, `permission`, `user_role`, `role_permission`) with per-endpoint permission guards |
 | Account lockout | 5 failed attempts → 15-minute lockout |
 | Session management | Inactivity timeout (30 min), token rotation on refresh |
 | Password policy | 10+ chars, uppercase, lowercase, digit, special char; last-5 history |
@@ -43,6 +43,24 @@ This system implements the following controls in compliance with the Israeli Min
 | Container hardening | Non-root user, `no-new-privileges`, read-only filesystem for client |
 | Dependency scanning | `pip-audit` (Python) and `pnpm audit` (Node) in CI |
 | SAST | `bandit` static analysis in CI |
+
+## RBAC and Tenant Isolation (School Scope)
+
+### Tenant isolation rule
+
+- **All domain-data endpoints require an explicit active school scope** embedded in the access token claim `school_id`.
+- Users must select scope via `POST /api/auth/select-school` (or receive a scoped token via login/SSO).
+- Requests without an active `school_id` are rejected with **403** on school-scoped APIs.
+
+### Permission keys
+
+The server enforces fine-grained authorization via permission keys (examples):
+
+- `students:read`, `students:write`
+- `ingestion:upload`, `ingestion:logs:read`, `ingestion:delete`
+- `analytics:read`, `ml:train`
+- `admin:users:read`, `admin:users:write`
+- `config:read`, `config:write`
 
 ## Vulnerability Disclosure Policy
 
