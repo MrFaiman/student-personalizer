@@ -286,10 +286,11 @@ class AuthService:
         count = self.session.exec(select(User)).first()
         if count is None:
             import os
-            default_pass = os.getenv("DEFAULT_ADMIN_PASSWORD", "Admin@1234!")
+            admin_email = os.getenv("ADMIN_EMAIL", "admin@school.local").lower().strip()
+            default_pass = os.getenv("ADMIN_PASSWORD") or os.getenv("DEFAULT_ADMIN_PASSWORD", "Admin@1234!")
             admin = User(
-                email="admin@school.local",
-                display_name="מנהל מערכת",
+                email=admin_email,
+                display_name="Administrator",
                 hashed_password=hash_password(default_pass),
                 role=UserRole.system_admin,
                 must_change_password=True,
