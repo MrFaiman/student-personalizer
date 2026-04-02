@@ -70,6 +70,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
+      - run: uv run alembic upgrade head
       - run: uv run pytest tests/ -v --tb=short
 
   sast:
