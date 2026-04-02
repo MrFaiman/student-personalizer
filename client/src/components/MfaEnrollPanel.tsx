@@ -140,7 +140,7 @@ export function MfaEnrollPanel({ onEnrolled }: { onEnrolled?: () => void }) {
                 <div className="flex gap-2">
                   <MfaCodeInput
                     value={verifyCode}
-                    onChange={(e) => setVerifyCode(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVerifyCode(e.target.value)}
                   />
                   <Button
                     onClick={() => verifyMutation.mutate()}

@@ -2,13 +2,16 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Copy } from "lucide-react";
 
-import { Button, type ButtonProps } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 
 export function CopyToClipboardButton({
   text,
   children,
   ...buttonProps
-}: Omit<ButtonProps, "onClick"> & { text: string; children?: React.ReactNode }) {
+}: Omit<React.ComponentProps<typeof Button>, "onClick"> & {
+  text: string;
+  children?: React.ReactNode;
+}) {
   const { t } = useTranslation();
   const [isCopying, setIsCopying] = useState(false);
 
