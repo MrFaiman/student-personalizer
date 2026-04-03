@@ -9,7 +9,6 @@ import httpx
 
 from ..config import settings
 
-
 Verdict = Literal["clean", "malicious", "unknown", "skipped"]
 
 

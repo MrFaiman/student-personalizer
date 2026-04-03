@@ -1,12 +1,11 @@
-import pytest
-
 import uuid
+
+import pytest
 
 from src.auth.current_user import CurrentUser
 from src.auth.models import UserRole
 from src.services.analytics import AnalyticsService
 from src.services.teachers import TeacherService
-
 
 _USER = CurrentUser(
     user_id=uuid.uuid4(),
