@@ -12,8 +12,17 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
+    """Internal / legacy: service layer still returns both tokens; HTTP responses omit refresh in JSON."""
+
     access_token: str
     refresh_token: str
+    token_type: str = "bearer"
+
+
+class AccessTokenResponse(BaseModel):
+    """OAuth-style access-only response; refresh is set via httpOnly cookie."""
+
+    access_token: str
     token_type: str = "bearer"
 
 
@@ -26,7 +35,11 @@ class MfaChallengeResponse(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str | None = None
+
+
+class SsoCompleteRequest(BaseModel):
+    code: str
 
 
 class ChangePasswordRequest(BaseModel):

@@ -2,6 +2,7 @@ import { Star, CalendarCheck, AlertTriangle, Eye } from "lucide-react";
 
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { requireStudentData } from "@/lib/guards/require-student-data";
 import { Helmet } from "react-helmet-async";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -24,29 +25,18 @@ import { useConfigStore } from "@/lib/config-store";
 import {
   KPICard,
   DashboardBarChart,
-  EmptyState,
   StatusBadge,
 } from "@/components/dashboard";
 
-export const Route = createFileRoute("/")({ component: HomePage });
+export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    await requireStudentData();
+  },
+  component: HomePage,
+});
 
 function HomePage() {
   const { t } = useTranslation();
-  const filters = useFilterStore();
-
-  const { data: kpis, isLoading } = useQuery({
-    queryKey: ["kpis", filters.year, filters.period, filters.gradeLevel],
-    queryFn: () =>
-      analyticsApi.getKPIs({
-        year: filters.year,
-        period: filters.period,
-        grade_level: filters.gradeLevel,
-      }),
-  });
-
-  if (!isLoading && kpis?.total_students === 0) {
-    return <EmptyState />;
-  }
 
   return (
     <>

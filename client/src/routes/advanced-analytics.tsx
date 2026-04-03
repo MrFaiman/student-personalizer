@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { BarChart3 } from "lucide-react";
 
 import { analyticsApi } from "@/lib/api";
+import { requireStudentData } from "@/lib/guards/require-student-data";
 import { useCascadingFilters } from "@/hooks/useCascadingFilters";
 import { useFilters } from "@/components/FilterContext";
 import {
@@ -25,6 +26,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/advanced-analytics")({
+  beforeLoad: async () => {
+    await requireStudentData();
+  },
   component: AdvancedAnalyticsPage,
 });
 

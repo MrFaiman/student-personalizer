@@ -7,8 +7,12 @@ import { Users, Shield } from "lucide-react";
 
 import { useAuthStore } from "@/lib/auth-store";
 import { adminUsersApi } from "@/lib/api/admin-users";
-import { authApi } from "@/lib/api/auth";
-import type { SchoolOption, User, UserRole } from "@/lib/types/auth";
+import type { User, UserRole } from "@/lib/types/auth";
+
+import {
+  MashovSchoolCombobox,
+  type SchoolSelection,
+} from "@/components/school-search-combobox";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,26 +72,21 @@ function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
-  const [schoolFilter, setSchoolFilter] = useState<string>("__all__");
+  const [schoolFilter, setSchoolFilter] = useState<SchoolSelection>({ kind: "all" });
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editUser, setEditUser] = useState<User | null>(null);
   const [resetPwUser, setResetPwUser] = useState<User | null>(null);
 
-  const { data: schools, isLoading: schoolsLoading } = useQuery({
-    queryKey: ["schools-options"],
-    queryFn: authApi.schools,
-  });
-
   const { data: users, isLoading, error } = useQuery({
     queryKey: ["admin-users"],
     queryFn: adminUsersApi.listUsers,
+    staleTime: 30_000,
   });
 
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const schoolIdFilter =
-      schoolFilter === "__all__" ? null : Number(schoolFilter);
+    const schoolIdFilter = schoolFilter.kind === "school" ? schoolFilter.id : null;
 
     return (users ?? [])
       .filter((u) => {
@@ -212,24 +211,17 @@ function AdminUsersPage() {
           </SelectContent>
         </Select>
 
-        <Select
-          value={schoolFilter}
-          onValueChange={(v) => setSchoolFilter(v)}
-          dir="rtl"
-          disabled={schoolsLoading}
-        >
-          <SelectTrigger className="md:col-span-2">
-            <SelectValue placeholder={t("adminUsers.school")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">{t("general.all")}</SelectItem>
-            {(schools ?? []).map((s) => (
-              <SelectItem key={s.school_id} value={String(s.school_id)}>
-                {s.school_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="md:col-span-2">
+          <MashovSchoolCombobox
+            selection={schoolFilter}
+            onSelectionChange={setSchoolFilter}
+            withAll
+            withNone={false}
+            allLabel={t("general.all")}
+            noneLabel={t("adminUsers.noSchool")}
+            className="w-full"
+          />
+        </div>
       </div>
 
       {error && (
@@ -375,7 +367,6 @@ function AdminUsersPage() {
       <CreateUserDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        schools={schools ?? []}
         onCreate={(payload) => createMutation.mutate(payload)}
         isSaving={createMutation.isPending}
         error={createMutation.error instanceof Error ? createMutation.error.message : null}
@@ -385,7 +376,6 @@ function AdminUsersPage() {
         key={`edit-${editUser?.id ?? "none"}`}
         user={editUser}
         onClose={() => setEditUser(null)}
-        schools={schools ?? []}
         onSave={(userId, patch) => updateMutation.mutate({ userId, patch })}
         isSaving={updateMutation.isPending}
         error={updateMutation.error instanceof Error ? updateMutation.error.message : null}
@@ -416,14 +406,12 @@ function AdminUsersPage() {
 function CreateUserDialog({
   open,
   onOpenChange,
-  schools,
   onCreate,
   isSaving,
   error,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  schools: SchoolOption[];
   onCreate: (payload: Parameters<typeof adminUsersApi.createUser>[0]) => void;
   isSaving: boolean;
   error: string | null;
@@ -434,7 +422,7 @@ function CreateUserDialog({
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("teacher");
   const [mustChange, setMustChange] = useState(true);
-  const [schoolId, setSchoolId] = useState<string>("__none__");
+  const [schoolSel, setSchoolSel] = useState<SchoolSelection>({ kind: "none" });
 
   const canSubmit = email.trim() && displayName.trim() && password.trim();
 
@@ -444,7 +432,7 @@ function CreateUserDialog({
     setPassword("");
     setRole("teacher");
     setMustChange(true);
-    setSchoolId("__none__");
+    setSchoolSel({ kind: "none" });
   }
 
   return (
@@ -499,19 +487,14 @@ function CreateUserDialog({
 
             <div className="space-y-2">
               <label className="text-sm font-medium">{t("adminUsers.school")}</label>
-              <Select value={schoolId} onValueChange={setSchoolId} dir="rtl">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">{t("adminUsers.noSchool")}</SelectItem>
-                  {schools.map((s) => (
-                    <SelectItem key={s.school_id} value={String(s.school_id)}>
-                      {s.school_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MashovSchoolCombobox
+                selection={schoolSel}
+                onSelectionChange={setSchoolSel}
+                withAll={false}
+                withNone
+                allLabel={t("general.all")}
+                noneLabel={t("adminUsers.noSchool")}
+              />
             </div>
           </div>
 
@@ -544,7 +527,7 @@ function CreateUserDialog({
                 password,
                 role,
                 must_change_password: mustChange,
-                school_id: schoolId === "__none__" ? null : Number(schoolId),
+                school_id: schoolSel.kind === "school" ? schoolSel.id : null,
               })
             }
             disabled={!canSubmit || isSaving}
@@ -560,14 +543,12 @@ function CreateUserDialog({
 function EditUserDialog({
   user,
   onClose,
-  schools,
   onSave,
   isSaving,
   error,
 }: {
   user: User | null;
   onClose: () => void;
-  schools: SchoolOption[];
   onSave: (userId: string, patch: Parameters<typeof adminUsersApi.updateUser>[1]) => void;
   isSaving: boolean;
   error: string | null;
@@ -578,8 +559,14 @@ function EditUserDialog({
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
   const [role, setRole] = useState<UserRole>(user?.role ?? "teacher");
   const [active, setActive] = useState<boolean>(user?.is_active ?? true);
-  const [schoolId, setSchoolId] = useState<string>(
-    user?.school_id != null ? String(user.school_id) : "__none__",
+  const [schoolSel, setSchoolSel] = useState<SchoolSelection>(() =>
+    user?.school_id != null
+      ? {
+          kind: "school",
+          id: user.school_id,
+          name: user.school_name ?? String(user.school_id),
+        }
+      : { kind: "none" },
   );
 
   const canSubmit = displayName.trim().length > 0;
@@ -643,19 +630,14 @@ function EditUserDialog({
 
             <div className="space-y-2">
               <label className="text-sm font-medium">{t("adminUsers.school")}</label>
-              <Select value={schoolId} onValueChange={setSchoolId} dir="rtl">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">{t("adminUsers.noSchool")}</SelectItem>
-                  {schools.map((s) => (
-                    <SelectItem key={s.school_id} value={String(s.school_id)}>
-                      {s.school_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <MashovSchoolCombobox
+                selection={schoolSel}
+                onSelectionChange={setSchoolSel}
+                withAll={false}
+                withNone
+                allLabel={t("general.all")}
+                noneLabel={t("adminUsers.noSchool")}
+              />
             </div>
 
             {error && (
@@ -677,7 +659,7 @@ function EditUserDialog({
                 display_name: displayName,
                 role,
                 is_active: active,
-                school_id: schoolId === "__none__" ? null : Number(schoolId),
+                school_id: schoolSel.kind === "school" ? schoolSel.id : null,
               });
             }}
             disabled={!user || !canSubmit || isSaving}

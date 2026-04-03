@@ -63,8 +63,12 @@ import type {
   StudentTimelinePoint,
 } from "@/lib/types";
 import { useFilters } from "@/components/FilterContext";
+import { requireStudentData } from "@/lib/guards/require-student-data";
 
 export const Route = createFileRoute("/students/$studentTz")({
+  beforeLoad: async () => {
+    await requireStudentData();
+  },
   component: RouteComponent,
 });
 

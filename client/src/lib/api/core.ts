@@ -1,8 +1,11 @@
 import type { z } from "zod";
 
+import { useAuthStore } from "../auth-store";
 import { ApiError } from "../api-error";
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
+import { API_BASE_URL } from "./base-url";
+
+export { API_BASE_URL };
 
 let _refreshPromise: Promise<boolean> | null = null;
 
@@ -11,7 +14,6 @@ export async function fetchApi<T>(
   options?: RequestInit,
   schema?: z.ZodType<T>,
 ): Promise<T> {
-  const { useAuthStore } = await import("../auth-store");
   const { accessToken, refresh } = useAuthStore.getState();
 
   const headers: Record<string, string> = {
@@ -26,6 +28,7 @@ export async function fetchApi<T>(
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
+    credentials: "include",
   });
 
   // On 401 try a single token refresh
@@ -42,6 +45,7 @@ export async function fetchApi<T>(
       const retry = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers: retryHeaders,
+        credentials: "include",
       });
       if (!retry.ok) {
         const errorData = await retry.json().catch(() => ({}));

@@ -173,7 +173,8 @@
   },
   "schools": {
     "selectSchool": "בחר בית ספר",
-    "selectSchoolPrompt": "הדבק/הקלד מספר סמל מוסד (או העתק מהשורה) לבחירת בית ספר:"
+    "selectSchoolPrompt": "הדבק/הקלד מספר סמל מוסד (או העתק מהשורה) לבחירת בית ספר:",
+    "changeSchool": "החלפת מוסד"
   },
   "security": {
     "mfa": {

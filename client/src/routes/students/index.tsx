@@ -36,8 +36,12 @@ import { studentsApi, analyticsApi } from "@/lib/api";
 import { DEBOUNCE_DELAY_MS } from "@/lib/constants";
 import { useConfigStore } from "@/lib/config-store";
 import { useAppForm } from "@/lib/form";
+import { requireStudentData } from "@/lib/guards/require-student-data";
 
 export const Route = createFileRoute("/students/")({
+  beforeLoad: async () => {
+    await requireStudentData();
+  },
   component: StudentsListPage,
 });
 

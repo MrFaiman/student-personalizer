@@ -1,11 +1,13 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlmodel import Session, select
 
 from ..audit.service import log_event
+from ..config import settings
 from ..database import get_session
 from ..dependencies import require_write_access
 from ..middleware.rate_limit import rate_limit
@@ -13,6 +15,7 @@ from .current_user import CurrentUser
 from .dependencies import get_current_user, get_db_user, require_admin
 from .mfa import check_mfa_code, disable_mfa, setup_mfa, verify_mfa_setup
 from .models import User
+from .refresh_cookie import access_token_json_response, attach_refresh_cookie, clear_refresh_cookie
 from .schemas import (
     AdminResetPasswordRequest,
     ChangePasswordRequest,
@@ -25,13 +28,14 @@ from .schemas import (
     MfaVerifyRequest,
     RefreshRequest,
     SchoolOptionResponse,
-  SelectSchoolRequest,
-    TokenResponse,
+    SelectSchoolRequest,
+    SsoCompleteRequest,
     UpdateUserRequest,
     UserResponse,
 )
-from .schools import fetch_schools, find_school_name
+from .schools import fetch_schools, find_school_name, search_schools
 from .service import AuthService
+from .sso_exchange import store_sso_tokens, take_sso_tokens
 from .tokens import create_access_token, create_refresh_token, decode_mfa_token, decode_token
 
 logger = logging.getLogger(__name__)
@@ -40,10 +44,15 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 _bearer = HTTPBearer(auto_error=False)
 
 
-@router.post("/login", response_model=TokenResponse | MfaChallengeResponse)
+@router.post("/login")
 @rate_limit("5/minute")
 async def login(request: Request, body: LoginRequest, session: Session = Depends(get_session)):
-    return AuthService(session).login(body, request)
+    result = AuthService(session).login(body, request)
+    if isinstance(result, MfaChallengeResponse):
+        return result
+    resp = access_token_json_response(result.access_token)
+    attach_refresh_cookie(resp, result.refresh_token)
+    return resp
 
 
 @router.post("/logout")
@@ -51,20 +60,33 @@ async def logout(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     session: Session = Depends(get_session),
 ):
+    response = JSONResponse({"ok": True})
+    clear_refresh_cookie(response)
     if credentials:
         try:
             payload = decode_token(credentials.credentials)
             AuthService(session).logout(payload.get("jti", ""))
         except JWTError:
             pass  # Already invalid, still return 200
-    return {"ok": True}
+    return response
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post("/refresh")
 @rate_limit("10/minute")
-async def refresh(request: Request, body: RefreshRequest, session: Session = Depends(get_session)):
-    # service logs successful refresh; invalid tokens raise
-    return AuthService(session).refresh(body.refresh_token)
+async def refresh(
+    request: Request,
+    session: Session = Depends(get_session),
+    body: RefreshRequest = Body(default_factory=RefreshRequest),
+):
+    refresh_token = request.cookies.get(settings.refresh_cookie_name)
+    if not refresh_token and settings.refresh_token_body_fallback and body.refresh_token:
+        refresh_token = body.refresh_token
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="No refresh token")
+    tokens = AuthService(session).refresh(refresh_token)
+    resp = access_token_json_response(tokens.access_token)
+    attach_refresh_cookie(resp, tokens.refresh_token)
+    return resp
 
 
 @router.get("/me", response_model=UserResponse)
@@ -95,6 +117,24 @@ async def list_schools():
         raise HTTPException(status_code=502, detail="Failed to fetch schools list") from exc
 
 
+@router.get("/schools/search", response_model=list[SchoolOptionResponse])
+@rate_limit("60/minute")
+async def search_schools_endpoint(
+    request: Request,
+    q: str = "",
+    limit: int = 50,
+    _admin: CurrentUser = Depends(require_admin),
+):
+    """Paginated-style search over the Mashov schools list (admin UI). Uses the same cache as /schools."""
+    lim = min(max(limit, 1), 100)
+    try:
+        schools = await search_schools(q, lim)
+        return [SchoolOptionResponse(school_id=s.school_id, school_name=s.school_name) for s in schools]
+    except Exception as exc:
+        logger.exception("schools_search_failed")
+        raise HTTPException(status_code=502, detail="Failed to search schools") from exc
+
+
 @router.get("/my-schools", response_model=list[SchoolOptionResponse])
 async def my_schools(
     current_user: CurrentUser = Depends(get_current_user),
@@ -119,7 +159,7 @@ async def my_schools(
     ]
 
 
-@router.post("/select-school", response_model=TokenResponse)
+@router.post("/select-school")
 async def select_school(
     body: SelectSchoolRequest,
     request: Request,
@@ -203,7 +243,9 @@ async def select_school(
         user_agent=request.headers.get("user-agent"),
         detail={"school_id": school_id, "school_name": school_name},
     )
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    resp = access_token_json_response(access_token)
+    attach_refresh_cookie(resp, refresh_token)
+    return resp
 
 
 @router.put("/change-password")
@@ -431,7 +473,7 @@ async def mfa_verify(
     return MfaBackupCodesResponse(backup_codes=plaintext_codes)
 
 
-@router.post("/mfa/challenge", response_model=TokenResponse)
+@router.post("/mfa/challenge")
 async def mfa_challenge(
     body: MfaLoginRequest,
     session: Session = Depends(get_session),
@@ -474,7 +516,9 @@ async def mfa_challenge(
     session.commit()
     log_event(session, action="login", user_id=user.id, user_email=user.email, success=True, detail={"mfa": True})
     _log.getLogger(__name__).info("mfa_login_success", extra={"user_id": str(user.id)})
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    resp = access_token_json_response(access_token)
+    attach_refresh_cookie(resp, refresh_token)
+    return resp
 
 
 @router.post("/mfa/disable")
@@ -520,7 +564,8 @@ async def sso_callback(
 ):
     """Handle the authorization code callback from the OIDC provider.
     Provisions or finds the local user and issues JWT tokens.
-    Redirects to the frontend with the access token in the URL fragment.
+    Redirects to the frontend with a one-time ``sso_code`` in the URL fragment;
+    the SPA exchanges it via POST /api/auth/sso/complete (sets httpOnly refresh cookie).
     """
     from fastapi.responses import RedirectResponse
 
@@ -542,12 +587,26 @@ async def sso_callback(
     log_event(session, action="sso_login", user_id=user.id, user_email=user.email, success=True, ip_address=ip, user_agent=ua)
     logger.info("sso_login_success", extra={"user_id": str(user.id)})
 
-    # Redirect to frontend with tokens in the URL fragment (never in query string)
+    code = store_sso_tokens(access_token=tokens["access_token"], refresh_token=tokens["refresh_token"])
     from ..constants import ORIGIN_URL
-    redirect_url = f"{ORIGIN_URL}/#sso_login={tokens['access_token']}&refresh={tokens['refresh_token']}"
+
+    redirect_url = f"{ORIGIN_URL}/#sso_code={code}"
     response = RedirectResponse(url=redirect_url)
     response.delete_cookie("sso_state")
     return response
+
+
+@router.post("/sso/complete")
+@rate_limit("30/minute")
+async def sso_complete(request: Request, body: SsoCompleteRequest):
+    """Exchange one-time SSO code for access token (JSON) + httpOnly refresh cookie."""
+    pair = take_sso_tokens(body.code)
+    if not pair:
+        raise HTTPException(status_code=400, detail="Invalid or expired SSO code")
+    access_token, refresh_token = pair
+    resp = access_token_json_response(access_token)
+    attach_refresh_cookie(resp, refresh_token)
+    return resp
 
 
 @router.get("/sso/status")

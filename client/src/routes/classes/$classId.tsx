@@ -21,8 +21,12 @@ import { StudentLink } from "@/components/StudentLink";
 import type { HeatmapStudent, StudentRanking } from "@/lib/types";
 import { analyticsApi, studentsApi } from "@/lib/api";
 import { useConfigStore } from "@/lib/config-store";
+import { requireStudentData } from "@/lib/guards/require-student-data";
 
 export const Route = createFileRoute("/classes/$classId")({
+  beforeLoad: async () => {
+    await requireStudentData();
+  },
   component: ClassDetailPage,
 });
 

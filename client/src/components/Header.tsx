@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, Menu } from "lucide-react";
+import { GlobalAdminSchoolButton } from "@/components/GlobalAdminSchoolButton";
 import { SchoolSwitcher } from "@/components/SchoolSwitcher";
 
 export function Header({ onMenuClick }: { onMenuClick: () => void }) {
@@ -14,8 +15,9 @@ export function Header({ onMenuClick }: { onMenuClick: () => void }) {
         </div>
         <span className="text-sm font-bold">{t("appName")}</span>
       </div>
-      <div className="hidden md:flex items-center gap-6">
+      <div className="hidden md:flex items-center gap-3">
         <SchoolSwitcher />
+        <GlobalAdminSchoolButton />
       </div>
       <Button
         variant="ghost"

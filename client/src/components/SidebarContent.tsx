@@ -25,6 +25,7 @@ import {
   LogOut,
   ShieldCheck,
 } from "lucide-react";
+import { GlobalAdminSchoolButton } from "@/components/GlobalAdminSchoolButton";
 import { useAuthStore } from "@/lib/auth-store";
 import { useFilterStore } from "@/lib/filter-store";
 import { formatHebrewYear } from "@/lib/hebrew-year";
@@ -71,15 +72,19 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
     },
   });
 
+  const hasSchoolScope = user?.school_id != null;
+
   const { data: metadata } = useQuery({
     queryKey: ["metadata"],
     queryFn: analyticsApi.getMetadata,
     staleTime: METADATA_STALE_TIME_MS,
+    enabled: hasSchoolScope,
   });
 
   const { data: kpis, isLoading: kpisLoading } = useQuery({
     queryKey: ["kpis-global"],
     queryFn: () => analyticsApi.getKPIs({}),
+    enabled: hasSchoolScope,
   });
 
   const isEmptyState = !kpisLoading && kpis?.total_students === 0;
@@ -265,6 +270,10 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void } = {})
               <p className="text-sm font-medium truncate">{user.display_name}</p>
               <p className="text-xs text-muted-foreground truncate">{t(`auth.role.${user.role}`)}</p>
             </div>
+            <GlobalAdminSchoolButton
+              onNavigate={onNavigate}
+              className="w-full justify-start h-9 sm:h-8"
+            />
             <Link to="/security/mfa" onClick={onNavigate}>
               <Button
                 variant="ghost"

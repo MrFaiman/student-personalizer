@@ -9,8 +9,12 @@ import { BookOpen, Users, TrendingUp } from "lucide-react";
 import { useFilters } from "@/components/FilterContext";
 import { StatCard } from "@/components/StatCard";
 import { analyticsApi } from "@/lib/api";
+import { requireStudentData } from "@/lib/guards/require-student-data";
 
 export const Route = createFileRoute("/subjects/")({
+  beforeLoad: async () => {
+    await requireStudentData();
+  },
   component: SubjectsListPage,
 });
 

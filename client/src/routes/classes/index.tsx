@@ -9,8 +9,12 @@ import { School, Users, AlertTriangle, TrendingUp } from "lucide-react";
 import { useFilters } from "@/components/FilterContext";
 import { StatCard } from "@/components/StatCard";
 import { studentsApi } from "@/lib/api";
+import { requireStudentData } from "@/lib/guards/require-student-data";
 
 export const Route = createFileRoute("/classes/")({
+  beforeLoad: async () => {
+    await requireStudentData();
+  },
   component: ClassesListPage,
 });
 

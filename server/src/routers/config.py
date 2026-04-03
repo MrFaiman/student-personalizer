@@ -30,7 +30,12 @@ class PreviewModeToggle(BaseModel):
 
 
 @router.get("")
-async def get_config(_user: CurrentUser = Depends(require_permission(PermissionKey.config_read.value))):
+async def get_config():
+    """Public read: UI constants (no secrets). Used before JWT exists and from the SPA on cold load.
+
+    Browser GETs do not send ``Authorization``; the refresh cookie is not accepted here.
+    Mutations remain protected (e.g. ``POST /preview-mode``).
+    """
     return {
         "at_risk_grade_threshold": AT_RISK_GRADE_THRESHOLD,
         "medium_grade_threshold": MEDIUM_GRADE_THRESHOLD,
@@ -47,7 +52,7 @@ async def get_config(_user: CurrentUser = Depends(require_permission(PermissionK
 
 
 @router.get("/preview-mode")
-async def get_preview_mode_status(_user: CurrentUser = Depends(require_permission(PermissionKey.config_read.value))):
+async def get_preview_mode_status():
     return {"preview_mode": get_preview_mode()}
 
 

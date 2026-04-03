@@ -19,6 +19,7 @@ from src.auth.models import UserRole
 from src.auth.schemas import CreateUserRequest
 from src.auth.schools import SchoolOption
 from src.auth.service import AuthService
+from src.config import settings
 from src.database import get_session
 from src.main import app
 
@@ -67,6 +68,15 @@ def seeded_client(engine):
     app.dependency_overrides.pop(get_session, None)
 
 
+def _login_access_token(cl: TestClient, email: str, password: str) -> str:
+    resp = cl.post("/api/auth/login", json={"email": email, "password": password})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "access_token" in data
+    assert "refresh_token" not in data
+    assert settings.refresh_cookie_name in resp.cookies
+    return data["access_token"]
+
 
 def test_login_success(seeded_client):
     resp = seeded_client.post("/api/auth/login", json={
@@ -76,8 +86,9 @@ def test_login_success(seeded_client):
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
-    assert "refresh_token" in data
+    assert "refresh_token" not in data
     assert data["token_type"] == "bearer"
+    assert settings.refresh_cookie_name in resp.cookies
 
 
 def test_login_wrong_password(seeded_client):
@@ -104,7 +115,6 @@ def test_login_email_case_insensitive(seeded_client):
     assert resp.status_code == 200
 
 
-
 def test_account_lockout_after_five_failures(seeded_client, engine):
     """5 consecutive bad passwords should lock the account."""
     with Session(engine) as s:
@@ -126,53 +136,37 @@ def test_account_lockout_after_five_failures(seeded_client, engine):
     assert resp.status_code == 429  # Too Many Requests - account temporarily locked
 
 
-
-def test_refresh_returns_new_tokens(seeded_client):
-    login = seeded_client.post("/api/auth/login", json={
+def test_refresh_returns_new_access(seeded_client):
+    seeded_client.post("/api/auth/login", json={
         "email": "auth_admin@test.com",
         "password": "Admin@Test1234!",
     })
-    assert login.status_code == 200
-    refresh_token = login.json()["refresh_token"]
-
-    resp = seeded_client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
+    resp = seeded_client.post("/api/auth/refresh", json={})
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
+    assert "refresh_token" not in data
 
 
 def test_refresh_with_invalid_token(seeded_client):
-    resp = seeded_client.post("/api/auth/refresh", json={"refresh_token": "not.a.real.token"})
+    seeded_client.cookies.clear()
+    resp = seeded_client.post("/api/auth/refresh", json={})
     assert resp.status_code == 401
 
 
+def test_logout_revokes_session_and_clears_cookie(seeded_client):
+    access = _login_access_token(seeded_client, "auth_admin@test.com", "Admin@Test1234!")
 
-def test_logout_revokes_session(seeded_client):
-    login = seeded_client.post("/api/auth/login", json={
-        "email": "auth_admin@test.com",
-        "password": "Admin@Test1234!",
-    })
-    assert login.status_code == 200
-    access_token = login.json()["access_token"]
-    refresh_token = login.json()["refresh_token"]
-
-    # Logout
-    logout = seeded_client.post("/api/auth/logout", headers={"Authorization": f"Bearer {access_token}"})
+    logout = seeded_client.post("/api/auth/logout", headers={"Authorization": f"Bearer {access}"})
     assert logout.status_code == 200
 
-    # Refresh should now fail (session revoked)
-    resp = seeded_client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
+    resp = seeded_client.post("/api/auth/refresh", json={})
     assert resp.status_code == 401
-
 
 
 def test_create_user_rejects_weak_password(seeded_client):
     """Admin creating a user with a weak password should fail with 422."""
-    login = seeded_client.post("/api/auth/login", json={
-        "email": "auth_admin@test.com",
-        "password": "Admin@Test1234!",
-    })
-    token = login.json()["access_token"]
+    token = _login_access_token(seeded_client, "auth_admin@test.com", "Admin@Test1234!")
 
     resp = seeded_client.post(
         "/api/auth/users",
@@ -183,11 +177,7 @@ def test_create_user_rejects_weak_password(seeded_client):
 
 
 def test_create_user_rejects_no_uppercase(seeded_client):
-    login = seeded_client.post("/api/auth/login", json={
-        "email": "auth_admin@test.com",
-        "password": "Admin@Test1234!",
-    })
-    token = login.json()["access_token"]
+    token = _login_access_token(seeded_client, "auth_admin@test.com", "Admin@Test1234!")
 
     resp = seeded_client.post(
         "/api/auth/users",
@@ -197,13 +187,8 @@ def test_create_user_rejects_no_uppercase(seeded_client):
     assert resp.status_code == 422
 
 
-
 def test_me_returns_current_user(seeded_client):
-    login = seeded_client.post("/api/auth/login", json={
-        "email": "auth_admin@test.com",
-        "password": "Admin@Test1234!",
-    })
-    token = login.json()["access_token"]
+    token = _login_access_token(seeded_client, "auth_admin@test.com", "Admin@Test1234!")
 
     resp = seeded_client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
@@ -233,17 +218,37 @@ def test_schools_returns_options(seeded_client, monkeypatch):
     ]
 
 
+def test_schools_search_requires_auth(seeded_client):
+    resp = seeded_client.get("/api/auth/schools/search")
+    assert resp.status_code == 401
+
+
+def test_schools_search_filters(seeded_client, monkeypatch):
+    async def fake_fetch_schools(*_, **__):
+        return [
+            SchoolOption(school_id=111111, school_name="Alpha School"),
+            SchoolOption(school_id=222222, school_name="Beta School"),
+        ]
+
+    monkeypatch.setattr("src.auth.schools.fetch_schools", fake_fetch_schools)
+
+    token = _login_access_token(seeded_client, "auth_admin@test.com", "Admin@Test1234!")
+
+    resp = seeded_client.get(
+        "/api/auth/schools/search?q=beta",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == [{"school_id": 222222, "school_name": "Beta School"}]
+
+
 def test_create_user_rejects_invalid_school_id(seeded_client, monkeypatch):
     async def fake_fetch_schools(*_, **__):
         return [SchoolOption(school_id=111111, school_name="Alpha School")]
 
     monkeypatch.setattr("src.auth.router.fetch_schools", fake_fetch_schools)
 
-    login = seeded_client.post("/api/auth/login", json={
-        "email": "auth_admin@test.com",
-        "password": "Admin@Test1234!",
-    })
-    token = login.json()["access_token"]
+    token = _login_access_token(seeded_client, "auth_admin@test.com", "Admin@Test1234!")
 
     resp = seeded_client.post(
         "/api/auth/users",
@@ -266,11 +271,7 @@ def test_create_user_sets_school_name_from_school_id(seeded_client, monkeypatch)
 
     monkeypatch.setattr("src.auth.router.fetch_schools", fake_fetch_schools)
 
-    login = seeded_client.post("/api/auth/login", json={
-        "email": "auth_admin@test.com",
-        "password": "Admin@Test1234!",
-    })
-    token = login.json()["access_token"]
+    token = _login_access_token(seeded_client, "auth_admin@test.com", "Admin@Test1234!")
 
     resp = seeded_client.post(
         "/api/auth/users",

@@ -1,20 +1,22 @@
 import {
+  AccessTokenResponseSchema,
   LoginResponseSchema,
   MfaBackupCodesResponseSchema,
   MfaSetupResponseSchema,
   SchoolOptionsSchema,
   SsoStatusSchema,
-  TokenResponseSchema,
   UserSchema,
+  type AccessTokenResponse,
   type LoginResponse,
   type MfaBackupCodesResponse,
   type MfaSetupResponse,
   type SchoolOption,
   type SsoStatus,
-  type TokenResponse,
   type User,
 } from "../types/auth";
-import { API_BASE_URL } from "./core";
+import { API_BASE_URL } from "./base-url";
+
+const cred: RequestCredentials = "include";
 
 async function post<T>(
   endpoint: string,
@@ -25,6 +27,7 @@ async function post<T>(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    credentials: cred,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -40,6 +43,7 @@ async function get<T>(
 ): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: { Authorization: `Bearer ${token}` },
+    credentials: cred,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return schema.parse(await res.json());
@@ -55,6 +59,7 @@ async function authPost<T>(
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
+    credentials: cred,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -67,8 +72,8 @@ export const authApi = {
   login: (email: string, password: string): Promise<LoginResponse> =>
     post("/api/auth/login", { email, password }, LoginResponseSchema),
 
-  mfaChallenge: (mfa_token: string, code: string): Promise<TokenResponse> =>
-    post("/api/auth/mfa/challenge", { mfa_token, code }, TokenResponseSchema),
+  mfaChallenge: (mfa_token: string, code: string): Promise<AccessTokenResponse> =>
+    post("/api/auth/mfa/challenge", { mfa_token, code }, AccessTokenResponseSchema),
 
   mfaSetup: (token: string): Promise<MfaSetupResponse> =>
     authPost("/api/auth/mfa/setup", token, {}, MfaSetupResponseSchema),
@@ -79,13 +84,14 @@ export const authApi = {
   mfaDisable: (token: string, code: string): Promise<void> =>
     authPost("/api/auth/mfa/disable", token, { code }, { parse: () => undefined }),
 
-  refresh: (refresh_token: string): Promise<TokenResponse> =>
-    post("/api/auth/refresh", { refresh_token }, TokenResponseSchema),
+  refresh: (): Promise<AccessTokenResponse> =>
+    post("/api/auth/refresh", {}, AccessTokenResponseSchema),
 
   logout: async (access_token: string): Promise<void> => {
     await fetch(`${API_BASE_URL}/api/auth/logout`, {
       method: "POST",
       headers: { Authorization: `Bearer ${access_token}` },
+      credentials: cred,
     });
   },
 
@@ -103,8 +109,11 @@ export const authApi = {
   mySchools: (token: string): Promise<SchoolOption[]> =>
     get("/api/auth/my-schools", token, SchoolOptionsSchema),
 
-  selectSchool: (token: string, school_id: number): Promise<TokenResponse> =>
-    authPost("/api/auth/select-school", token, { school_id }, TokenResponseSchema),
+  selectSchool: (token: string, school_id: number): Promise<AccessTokenResponse> =>
+    authPost("/api/auth/select-school", token, { school_id }, AccessTokenResponseSchema),
+
+  ssoComplete: (code: string): Promise<AccessTokenResponse> =>
+    post("/api/auth/sso/complete", { code }, AccessTokenResponseSchema),
 
   ssoStatus: async (): Promise<SsoStatus> => {
     const res = await fetch(`${API_BASE_URL}/api/auth/sso/status`);
@@ -124,6 +133,7 @@ export const authApi = {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ current_password, new_password }),
+      credentials: cred,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

@@ -23,8 +23,12 @@ import { getBarColor } from "@/lib/utils";
 import { TOOLTIP_STYLE } from "@/lib/chart-styles";
 import { analyticsApi } from "@/lib/api";
 import { useConfigStore } from "@/lib/config-store";
+import { requireStudentData } from "@/lib/guards/require-student-data";
 
 export const Route = createFileRoute("/subjects/$subjectId")({
+  beforeLoad: async () => {
+    await requireStudentData();
+  },
   component: SubjectDetailPage,
 });
 

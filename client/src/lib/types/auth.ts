@@ -24,6 +24,14 @@ export const UserSchema = z.object({
 });
 export type User = z.infer<typeof UserSchema>;
 
+/** Access token in JSON; refresh token is httpOnly cookie. */
+export const AccessTokenResponseSchema = z.object({
+  access_token: z.string(),
+  token_type: z.string().default("bearer"),
+});
+export type AccessTokenResponse = z.infer<typeof AccessTokenResponseSchema>;
+
+/** Legacy shape (tests / tooling only). */
 export const TokenResponseSchema = z.object({
   access_token: z.string(),
   refresh_token: z.string(),
@@ -50,7 +58,7 @@ export type MfaBackupCodesResponse = z.infer<typeof MfaBackupCodesResponseSchema
 
 export const LoginResponseSchema = z.union([
   MfaChallengeResponseSchema,
-  TokenResponseSchema,
+  AccessTokenResponseSchema,
 ]);
 export type LoginResponse = z.infer<typeof LoginResponseSchema>;
 
