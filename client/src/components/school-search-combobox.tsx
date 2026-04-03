@@ -68,10 +68,6 @@ export function MashovSchoolCombobox({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  useEffect(() => {
-    if (open) setSearchInput("");
-  }, [open]);
-
   const triggerLabel =
     selection.kind === "all"
       ? allLabel
@@ -86,7 +82,10 @@ export function MashovSchoolCombobox({
         variant="outline"
         className="w-full justify-between gap-2 font-normal"
         disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) setSearchInput("");
+          setOpen((o) => !o);
+        }}
       >
         <span className="min-w-0 truncate text-right">{triggerLabel}</span>
         <ChevronDown className="size-4 shrink-0 opacity-50" />
