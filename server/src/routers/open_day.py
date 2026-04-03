@@ -10,6 +10,7 @@ from ..auth.permissions import PermissionKey
 from ..constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, VALID_MIME_TYPES
 from ..database import get_session
 from ..dependencies import require_write_access
+from ..integrations.virustotal import scan_file
 from ..models import OpenDayImport, OpenDayRegistration
 from ..schemas.open_day import (
     OpenDayImportItem,
@@ -20,6 +21,7 @@ from ..schemas.open_day import (
     OpenDayUploadResponse,
 )
 from ..services.open_day import OpenDayService
+from ..utils.file_validation import sanitize_filename, validate_upload
 
 router = APIRouter(prefix="/api/open-day", tags=["open-day"])
 
@@ -39,19 +41,48 @@ async def upload_open_day_file(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Upload a CSV or Excel open-day registration file."""
-    content_type = file.content_type or ""
-    mime_format = VALID_MIME_TYPES.get(content_type)
+    if file.filename:
+        file.filename = sanitize_filename(file.filename)
+
+    mime = (file.content_type or "").lower().split(";")[0].strip()
+    mime_format = VALID_MIME_TYPES.get(mime)
+    if not mime_format and mime == "application/octet-stream":
+        # Some browsers/clients send octet-stream; infer from filename extension.
+        name = (file.filename or "").lower()
+        if name.endswith(".csv"):
+            mime_format = "csv"
+        elif name.endswith(".xlsx") or name.endswith(".xls"):
+            mime_format = "excel"
+
     if not mime_format:
         raise HTTPException(
             status_code=400,
             detail="Invalid file type. Please upload an Excel (.xlsx) or CSV (.csv) file.",
         )
 
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail="Empty file uploaded.")
+    content = await validate_upload(file)
 
     try:
+        # Optional VirusTotal scan gate (fail-open on VT outage/timeout).
+        vt_detail: dict | None = None
+        try:
+            vt = await scan_file(content, filename=file.filename or "upload")
+            vt_detail = {"verdict": vt.verdict, "analysis_id": vt.analysis_id, "stats": vt.stats, "reason": vt.reason}
+            if vt.should_block:
+                log_event(
+                    session,
+                    action="open_day_upload",
+                    user_id=current_user.user_id,
+                    user_email=current_user.email,
+                    success=False,
+                    detail={"school_id": current_user.school_id, "filename": file.filename, "reason": "virustotal_block", "vt": vt_detail},
+                )
+                raise HTTPException(status_code=400, detail="File failed malware scan")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            vt_detail = {"verdict": "skipped", "reason": f"virustotal_error:{type(exc).__name__}"}
+
         service = OpenDayService(session)
         result = service.process_upload(mime_format, content, file.filename or "upload", school_id=current_user.school_id)
         log_event(
@@ -60,7 +91,7 @@ async def upload_open_day_file(
             user_id=current_user.user_id,
             user_email=current_user.email,
             success=True,
-            detail={"school_id": current_user.school_id, "filename": file.filename, "content_type": content_type},
+            detail={"school_id": current_user.school_id, "filename": file.filename, "content_type": mime, "vt": vt_detail},
         )
         return result
     except Exception as exc:

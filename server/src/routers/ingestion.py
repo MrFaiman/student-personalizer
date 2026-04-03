@@ -12,6 +12,7 @@ from ..auth.permissions import PermissionKey
 from ..constants import DEFAULT_PAGE_SIZE, DEFAULT_PERIOD, DEFAULT_YEAR, MAX_ERRORS_IN_RESPONSE, MAX_PAGE_SIZE, UPLOAD_DIR
 from ..database import get_session
 from ..dependencies import require_write_access
+from ..integrations.virustotal import scan_file
 from ..models import AttendanceRecord, Grade, ImportLog, UploadedFile
 from ..schemas.ingestion import ImportLogListResponse, ImportLogResponse, ImportResponse
 from ..services.ingestion import ImportResult, IngestionService
@@ -63,7 +64,7 @@ async def upload_file(
         file.filename = sanitize_filename(file.filename)
     content_type = file.content_type or ""
 
-    # Check for duplicate upload
+    # Check for duplicate upload (before external scanning to reduce API usage).
     checksum = hashlib.sha256(content).hexdigest()
     existing = session.exec(
         select(UploadedFile).where(UploadedFile.checksum == checksum)
@@ -73,6 +74,26 @@ async def upload_file(
             status_code=409,
             detail=f"This file has already been uploaded as '{existing.original_filename}' on {existing.uploaded_at.isoformat()}",
         )
+
+    # Optional VirusTotal scan gate (fail-open on VT outage/timeout).
+    vt_detail: dict | None = None
+    try:
+        vt = await scan_file(content, filename=file.filename or "upload")
+        vt_detail = {"verdict": vt.verdict, "analysis_id": vt.analysis_id, "stats": vt.stats, "reason": vt.reason}
+        if vt.should_block:
+            log_event(
+                session,
+                action="upload",
+                user_id=current_user.user_id,
+                user_email=current_user.email,
+                success=False,
+                detail={"school_id": current_user.school_id, "filename": file.filename, "reason": "virustotal_block", "vt": vt_detail},
+            )
+            raise HTTPException(status_code=400, detail="File failed malware scan")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        vt_detail = {"verdict": "skipped", "reason": f"virustotal_error:{type(exc).__name__}"}
 
     # Save the uploaded file to disk and create a tracking record
     uploaded = UploadedFile(
@@ -123,7 +144,7 @@ async def upload_file(
             user_id=current_user.user_id,
             user_email=current_user.email,
             success=False,
-            detail={"school_id": resolved_school_id, "filename": file.filename, "reason": "unknown file type"},
+            detail={"school_id": resolved_school_id, "filename": file.filename, "reason": "unknown file type", "vt": vt_detail},
         )
         raise HTTPException(
             status_code=400,
@@ -136,7 +157,13 @@ async def upload_file(
         user_id=current_user.user_id,
         user_email=current_user.email,
         success=True,
-        detail={"school_id": resolved_school_id, "filename": file.filename, "file_type": result.file_type, "batch_id": result.batch_id},
+        detail={
+            "school_id": resolved_school_id,
+            "filename": file.filename,
+            "file_type": result.file_type,
+            "batch_id": result.batch_id,
+            "vt": vt_detail,
+        },
     )
     return ImportResponse(
         batch_id=result.batch_id,
