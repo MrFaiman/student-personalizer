@@ -14,7 +14,7 @@ Student Personalizer — a full-stack pedagogical dashboard for analyzing studen
 - `pnpm lint` — ESLint
 
 ### Server (uv, in `server/`)
-- `uv run server` — FastAPI server at localhost:3000
+- `uv run python -m src.main` — FastAPI server at localhost:3000 (from `server/`)
 - `uv run pytest` — Run tests
 - `uv sync` — Install dependencies
 

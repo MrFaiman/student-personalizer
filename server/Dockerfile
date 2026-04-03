@@ -18,4 +18,4 @@ COPY src/ ./src/
 EXPOSE 3000
 
 # Run the server
-CMD ["uv", "run", "server"]
+CMD ["uv", "run", "python", "-m", "src.main"]

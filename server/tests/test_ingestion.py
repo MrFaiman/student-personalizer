@@ -2,8 +2,8 @@
 Test script for XLSX ingestion API using files from /data directory.
 
 Usage:
-1. Start the server: uv run uvicorn main:app --reload
-2. Run this script: uv run python test_ingestion.py
+1. From server/: uv run python -m src.main
+2. Run this script: uv run python tests/test_ingestion.py
 """
 
 import sys
@@ -250,7 +250,7 @@ def main():
     # Check if server is running
     if not check_server():
         print("\nERROR: Server is not running!")
-        print("Start the server with: uv run uvicorn main:app --reload")
+        print("From server/: uv run python -m src.main")
         sys.exit(1)
 
     print("\nServer is running!")

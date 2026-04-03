@@ -2,7 +2,7 @@
 End-to-end API tests with pytest.
 
 Run with: pytest tests/test_api.py -v
-Requires server running: uv run src/main.py
+Requires server running (from server/): uv run python -m src.main
 """
 
 from pathlib import Path
@@ -34,7 +34,7 @@ def check_server(client):
         if probe.status_code == 401:
             pytest.skip("Server requires auth (AUTH_REQUIRED=true). Start server with AUTH_REQUIRED=false for E2E tests.")
     except httpx.ConnectError:
-        pytest.skip("Server not running. Start with: uv run uvicorn src.main:app --reload")
+        pytest.skip("Server not running. From server/: uv run python -m src.main")
 
 
 class TestHealthCheck:

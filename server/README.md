@@ -9,7 +9,7 @@ REST API for ingesting and analyzing student academic data. Built with FastAPI, 
 uv sync
 
 # Run the server
-uv run server
+uv run python -m src.main
 ```
 
 The API starts on `http://localhost:3000` by default. Set the `PORT` environment variable to change it.
@@ -27,6 +27,10 @@ docker run -p 3000:3000 student-personalizer-api
 | -------------- | ---------------------- | ----------------- |
 | `PORT`         | `3000`                 | Server port       |
 | `DATABASE_URL` | `sqlite:///./data.db`  | Database URL      |
+
+### Auth cookies (refresh token)
+
+Refresh JWTs are issued as **httpOnly** cookies (`sp_refresh` by default, path `/api`). The browser SPA must call the API with **`credentials: include`** (CORS `allow_credentials` + explicit `ORIGIN_URL`). Prefer serving the UI and `/api` behind **one origin** (reverse proxy) so `SameSite=Lax` works. Split origins (`app.` + `api.`) need `COOKIE_SAMESITE=none`, `COOKIE_SECURE=true`, and extra CSRF protections. See `.env.example`.
 
 ## Database Models
 
@@ -175,7 +179,7 @@ The ingestion service accepts `.xlsx` files with Hebrew column headers. File typ
 
 ```bash
 # Start the server first
-uv run server
+uv run python -m src.main
 
 # Run tests
 pytest tests/ -v

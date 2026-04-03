@@ -1555,7 +1555,7 @@ wheels = [
 [[package]]
 name = "server"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "argon2-cffi" },
     { name = "authlib" },
@@ -1621,10 +1621,10 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "bandit", specifier = ">=1.8.0" },
-    { name = "pip-audit", specifier = ">=2.7.0" },
-    { name = "pytest", specifier = ">=8.0.0" },
-    { name = "ruff", specifier = ">=0.9.0" },
+    { name = "bandit" },
+    { name = "pip-audit" },
+    { name = "pytest" },
+    { name = "ruff" },
 ]
 
 [[package]]
