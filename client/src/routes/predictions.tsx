@@ -114,6 +114,52 @@ function PredictionsPage() {
 
   const totalPredictions = predictions?.total || 0;
   const highRiskCount = predictions?.high_risk_count ?? 0;
+  const mediumRiskCount = predictions?.medium_risk_count ?? 0;
+
+  const evaluationStrategyLabel =
+    status?.evaluation_strategy === "temporal_holdout"
+      ? "חלוקה כרונולוגית"
+      : status?.evaluation_strategy === "cross_validation"
+        ? "קרוס ולידציה"
+        : "-";
+
+  const buildFactors = (pred: {
+    predicted_grade?: number;
+    dropout_risk?: number;
+    features?: {
+      grade_trend_slope?: number;
+      failing_subjects?: number;
+      total_absences?: number;
+      total_negative_events?: number;
+      total_positive_events?: number;
+    };
+    factors?: string[];
+  }) => {
+    if (pred.factors?.length) return pred.factors;
+    const factors: string[] = [];
+    const features = pred.features;
+    if (!features) return factors;
+
+    if ((pred.predicted_grade ?? 0) < atRiskGradeThreshold) {
+      factors.push("ציון חזוי נמוך");
+    }
+    if ((features.grade_trend_slope ?? 0) < 0) {
+      factors.push("מגמת ציונים יורדת");
+    }
+    if ((features.failing_subjects ?? 0) >= 2) {
+      factors.push("ריבוי מקצועות נכשלים");
+    }
+    if ((features.total_absences ?? 0) >= 6) {
+      factors.push("היעדרויות גבוהות");
+    }
+    if ((features.total_negative_events ?? 0) >= 6) {
+      factors.push("אירועים שליליים רבים");
+    }
+    if ((features.total_positive_events ?? 0) >= 8) {
+      factors.push("חוזקות התנהגותיות");
+    }
+    return factors;
+  };
 
   return (
     <div className="space-y-4">
@@ -172,7 +218,7 @@ function PredictionsPage() {
           </div>
 
           {!statusLoading && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mt-6 pt-6 border-t">
               <div className="text-center">
                 <div className="text-2xl font-bold tabular-nums">
                   {status?.samples ?? "-"}
@@ -196,6 +242,38 @@ function PredictionsPage() {
                     : "-"}
                 </div>
                 <div className="text-sm text-muted-foreground">דיוק נשירה</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold tabular-nums">
+                  {status?.dropout_model_roc_auc != null
+                    ? status.dropout_model_roc_auc.toFixed(3)
+                    : "-"}
+                </div>
+                <div className="text-sm text-muted-foreground">ROC-AUC</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold tabular-nums">
+                  {status?.dropout_model_pr_auc != null
+                    ? status.dropout_model_pr_auc.toFixed(3)
+                    : "-"}
+                </div>
+                <div className="text-sm text-muted-foreground">PR-AUC</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold tabular-nums">
+                  {status?.dropout_recall_high_risk != null
+                    ? `${(status.dropout_recall_high_risk * 100).toFixed(1)}%`
+                    : "-"}
+                </div>
+                <div className="text-sm text-muted-foreground">Recall סיכון גבוה</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold">
+                  {evaluationStrategyLabel}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  שיטת הערכה
+                </div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold">
@@ -230,7 +308,7 @@ function PredictionsPage() {
 
       {/* Stats Cards */}
       {status?.trained && predictions && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-4">
               <div className="bg-primary/10 rounded-lg p-2">
@@ -255,6 +333,21 @@ function PredictionsPage() {
                 </p>
                 <p className="text-sm text-muted-foreground">
                   סיכון גבוה לנשירה
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="bg-yellow-100 rounded-lg p-2">
+                <AlertTriangle className="size-5 text-yellow-700" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-yellow-700 tabular-nums">
+                  {mediumRiskCount}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  סיכון בינוני לנשירה
                 </p>
               </div>
             </CardContent>
@@ -372,7 +465,7 @@ function PredictionsPage() {
                     </TableCell>
                     <TableCell className="max-w-[200px]">
                       <div className="text-sm text-muted-foreground truncate">
-                        {pred.factors?.slice(0, 2).join(", ") || "-"}
+                        {buildFactors(pred).slice(0, 2).join(", ") || "-"}
                       </div>
                     </TableCell>
                   </TableRow>

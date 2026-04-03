@@ -39,9 +39,21 @@ class TrainResponse(BaseModel):
     status: str
     samples: int
     grade_model_mae: float
+    grade_model_median_ae: float | None = None
     dropout_model_accuracy: float
+    dropout_model_roc_auc: float | None = None
+    dropout_model_pr_auc: float | None = None
+    dropout_precision_high_risk: float | None = None
+    dropout_recall_high_risk: float | None = None
+    dropout_confusion_matrix: list[list[int]] | None = None
     grade_feature_importances: dict[str, float]
     dropout_feature_importances: dict[str, float]
+    class_distribution: dict[str, int] | None = None
+    cv_folds_grade: int | None = None
+    cv_folds_dropout: int | None = None
+    evaluation_strategy: str | None = None
+    high_risk_threshold: float | None = None
+    medium_risk_threshold: float | None = None
 
 
 class BatchPredictionResponse(BaseModel):
@@ -64,4 +76,12 @@ class ModelStatusResponse(BaseModel):
     trained_at: str | None = None
     samples: int | None = None
     grade_model_mae: float | None = None
+    grade_model_median_ae: float | None = None
     dropout_model_accuracy: float | None = None
+    dropout_model_roc_auc: float | None = None
+    dropout_model_pr_auc: float | None = None
+    dropout_precision_high_risk: float | None = None
+    dropout_recall_high_risk: float | None = None
+    evaluation_strategy: str | None = None
+    cv_folds_grade: int | None = None
+    cv_folds_dropout: int | None = None

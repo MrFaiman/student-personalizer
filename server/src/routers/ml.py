@@ -80,8 +80,8 @@ async def predict_all(
 @router.get("/status", response_model=ModelStatusResponse)
 async def model_status(
     session: Session = Depends(get_session),
-    _current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
 ):
     """Get current model status and metadata."""
     service = MLService(session)
-    return service.get_status()
+    return service.get_status(current_user=current_user)

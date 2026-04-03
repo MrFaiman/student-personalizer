@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from ..auth.dependencies import require_admin, require_permission
-from ..auth.permissions import PermissionKey
+from ..auth.current_user import CurrentUser
+from ..auth.dependencies import require_admin, require_school_scope
 from ..constants import XLSX_CONTENT_TYPE
 from ..database import get_session
 from ..dependencies import require_write_access
@@ -23,7 +23,6 @@ router = APIRouter(
     dependencies=[
         Depends(require_admin),
         Depends(require_write_access),
-        Depends(require_permission(PermissionKey.ingestion_upload.value)),
     ],
 )
 
@@ -50,16 +49,22 @@ class GenerateResponse(BaseModel):
 
 @router.post("/generate", response_model=GenerateResponse)
 def generate_debug_data(
+    current_user: CurrentUser = Depends(require_school_scope),
     years: Annotated[list[int], Query()] = [2024, 2025],
     quarters: Annotated[int, Query(ge=1, le=4)] = 4,
     students: Annotated[int, Query(ge=1, le=500)] = 120,
-    school_id: Annotated[int, Query(description="Mashov semel (school scope) to seed data under.")] = 100,
     db: Session = Depends(get_session),
 ) -> GenerateResponse:
     """
     Generate and ingest dummy school data directly into the database.
     Each call regenerates the same deterministic dataset (seed=42).
+
+    Data is always scoped to the caller's active school from the JWT (`school_id`),
+    same as normal ingestion — not a separate query parameter.
     """
+    school_id = current_user.school_id
+    assert school_id is not None  # require_school_scope
+
     files = generate_school_data(years=list(years), quarters=quarters, num_students=students)
 
     service = IngestionService(db)
