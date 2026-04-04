@@ -19,7 +19,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
-      - run: uv run ruff check src/
+      - run: uv run poe lint
 
   lint-client:
     name: Lint (client)
@@ -70,7 +70,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
-      - run: uv run pytest tests/ -v --tb=short
+      - run: uv run poe test
 
   sast:
     name: SAST (bandit)
@@ -84,7 +84,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
-      - run: uv run bandit -r src/ -ll -x src/debug
+      - run: uv run poe bandit
 
   dep-scan:
     name: Dependency scan
@@ -104,7 +104,7 @@ jobs:
           cache-dependency-path: client/pnpm-lock.yaml
       - name: Python dependency audit
         working-directory: server
-        run: uv run pip-audit --skip-editable
+        run: uv run poe pip-audit
       - name: Node dependency audit
         working-directory: client
         run: |

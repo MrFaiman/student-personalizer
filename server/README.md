@@ -1,187 +1,102 @@
-# Student Personalizer API
+# Student Personalizer - server
 
-REST API for ingesting and analyzing student academic data. Built with FastAPI, SQLModel, and Pandas.
+FastAPI backend for the pedagogical dashboard: Excel ingestion, PostgreSQL storage, analytics, JWT auth with RBAC and school scope, optional field-level PII encryption, and ML at-risk predictions. All HTTP APIs live under `/api/...` except `/`, `/health`, and (when enabled) OpenAPI.
 
-## Quick Start
+## Stack
+
+- **Python 3.13+**
+- **FastAPI**, **Uvicorn**
+- **SQLModel** (SQLAlchemy) on **PostgreSQL** - tables created on startup (`create_all`; no Alembic in this repo)
+- **pandas** / **openpyxl** for ingestion, **scikit-learn** for ML
+- **uv** for dependencies and runs
+
+## Prerequisites
+
+- **PostgreSQL** (18 recommended; matches docker-compose)
+- **uv** ([installation](https://docs.astral.sh/uv/getting-started/installation/))
+
+## Quick start
 
 ```bash
-# Install dependencies
+cd server
 uv sync
-
-# Run the server
+cp .env.example .env   # edit DATABASE_URL, secrets for real environments
 uv run python -m src.main
 ```
 
-The API starts on `http://localhost:3000` by default. Set the `PORT` environment variable to change it.
+Default listen address is `0.0.0.0` and port **3000** (override with `PORT`). Default DB URL matches local Postgres: `postgresql://postgres:postgres@localhost:5432/student_personalizer` (see `src/constants.py`).
 
-### Docker
+On startup the app creates tables, seeds RBAC, and ensures a bootstrap admin (see `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env.example`).
 
-```bash
-docker build -t student-personalizer-api .
-docker run -p 3000:3000 student-personalizer-api
-```
+## Scripts
+
+| Command | Purpose |
+|--------|---------|
+| `uv run python -m src.main` | Run API server |
+| `uv run poe dev` | Same as above (Poe task alias) |
+| `uv run pytest tests/ -v` | Tests (expects `DATABASE_URL` and usually `JWT_SECRET_KEY` when `AUTH_REQUIRED=true`) |
+| `uv run poe test` | Same as CI: `pytest tests/ -v --tb=short` |
+| `uv run poe check` | Runs `lint` then `test` (local pre-push smoke) |
+| `uv run ruff check src/` | Lint (line length 140; E, F, I, B, UP; E501 and B008 ignored) |
+| `uv run poe lint` | Same as above |
+| `uv run bandit -r src/ -ll -x src/debug` | SAST (debug package excluded in CI) |
+| `uv run poe bandit` | Same as above |
+
+`uv` has no `[tool.uv.scripts]`; tasks live under `[tool.poe.tasks]` and run via `uv run poe <name>`.
 
 ## Configuration
 
-| Variable       | Default                | Description       |
-| -------------- | ---------------------- | ----------------- |
-| `PORT`         | `3000`                 | Server port       |
-| `DATABASE_URL` | `sqlite:///./data.db`  | Database URL      |
+Copy `server/.env.example` and adjust. Common variables:
 
-### Auth cookies (refresh token)
+| Variable | Role |
+|----------|------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `ORIGIN_URL` | Single allowed CORS origin (SPA URL); must match how the browser calls the API |
+| `JWT_SECRET_KEY` | Required when `AUTH_REQUIRED=true` |
+| `FIELD_ENCRYPTION_KEY` / `HASH_PEPPER` | Required when `FIELD_ENCRYPTION_REQUIRED=true` (production hardening) |
+| `ENABLE_DEBUG` | When true: mounts `/docs`, `/redoc`, and the optional `/api/debug` router |
 
-Refresh JWTs are issued as **httpOnly** cookies (`sp_refresh` by default, path `/api`). The browser SPA must call the API with **`credentials: include`** (CORS `allow_credentials` + explicit `ORIGIN_URL`). Prefer serving the UI and `/api` behind **one origin** (reverse proxy) so `SameSite=Lax` works. Split origins (`app.` + `api.`) need `COOKIE_SAMESITE=none`, `COOKIE_SECURE=true`, and extra CSRF protections. See `.env.example`.
+Validated settings and startup security checks live in `src/config.py`. Refresh tokens use an **httpOnly** cookie; the SPA should use `credentials: "include"`. For split origins (separate app vs API hostnames), you typically need `COOKIE_SAMESITE` / `COOKIE_SECURE` - notes are in `.env.example`.
 
-## Database Models
+For a full **Docker Compose** production example (DB + API env wiring), see the repository root `docker-compose.prod.yml` and `.env.example`.
 
-### Class
+## Layout
 
-| Column       | Type   | Description                        |
-| ------------ | ------ | ---------------------------------- |
-| `class_name` | str PK | Class identifier (e.g. "י-1")     |
-| `grade_level`| str    | Grade level (e.g. "10", "י")      |
-
-### Student
-
-| Column        | Type   | Description                        |
-| ------------- | ------ | ---------------------------------- |
-| `student_tz`  | str PK | Student ID (ת.ז)                  |
-| `student_name`| str    | Full name                          |
-| `class_name`  | str FK | References `Class.class_name`      |
-
-### Grade
-
-| Column        | Type       | Description                    |
-| ------------- | ---------- | ------------------------------ |
-| `id`          | int PK     | Auto-generated                 |
-| `student_tz`  | str FK     | References `Student.student_tz`|
-| `subject`     | str        | Subject name                   |
-| `teacher_name`| str \| None| Teacher name                   |
-| `grade`       | float      | Numeric grade                  |
-| `period`      | str        | Academic period                |
-
-### AttendanceRecord
-
-| Column                 | Type   | Description                     |
-| ---------------------- | ------ | ------------------------------- |
-| `id`                   | int PK | Auto-generated                  |
-| `student_tz`           | str FK | References `Student.student_tz` |
-| `absence`              | int    | Unexcused absences              |
-| `absence_justified`    | int    | Excused absences                |
-| `late`                 | int    | Late arrivals                   |
-| `disturbance`          | int    | Disturbance events              |
-| `total_absences`       | int    | Sum of all absence types        |
-| `total_negative_events`| int    | Sum of all negative events      |
-| `total_positive_events`| int    | Sum of all positive events      |
-| `period`               | str    | Academic period                 |
-
-### ImportLog
-
-| Column         | Type          | Description                      |
-| -------------- | ------------- | -------------------------------- |
-| `id`           | int PK        | Auto-generated                   |
-| `batch_id`     | str           | Unique import batch identifier   |
-| `filename`     | str           | Original filename                |
-| `file_type`    | str           | `"grades"` or `"events"`        |
-| `rows_imported`| int           | Successfully imported rows       |
-| `rows_failed`  | int           | Failed rows                      |
-| `errors`       | str \| None   | JSON-encoded error details       |
-| `period`       | str \| None   | Academic period                  |
-| `created_at`   | datetime      | Import timestamp                 |
-
-## API Endpoints
-
-### General
-
-| Method | Path      | Description        |
-| ------ | --------- | ------------------ |
-| GET    | `/`       | API info           |
-| GET    | `/health` | Health check       |
-
-### Ingestion `/api/ingest`
-
-| Method | Path               | Description                  |
-| ------ | ------------------ | ---------------------------- |
-| POST   | `/upload`          | Upload and ingest XLSX file  |
-| GET    | `/logs`            | List import history          |
-| GET    | `/logs/{batch_id}` | Get import batch details     |
-
-**POST `/api/ingest/upload`**
-
-Accepts multipart form data:
-
-| Field       | Type           | Description                                          |
-| ----------- | -------------- | ---------------------------------------------------- |
-| `file`      | UploadFile     | `.xlsx` file                                         |
-| `file_type` | str (optional) | `"grades"` or `"events"` (auto-detected if omitted)  |
-| `period`    | str (optional) | Academic period (default `"Default"`)                |
-
-Returns `ImportResponse` with `batch_id`, row counts, and any errors.
-
-### Students `/api/students`
-
-| Method | Path                        | Description                  |
-| ------ | --------------------------- | ---------------------------- |
-| GET    | `/`                         | List students (paginated)    |
-| GET    | `/dashboard`                | Dashboard statistics         |
-| GET    | `/classes`                  | List classes with stats      |
-| GET    | `/{student_tz}`             | Student detail               |
-| GET    | `/{student_tz}/grades`      | Student grades               |
-| GET    | `/{student_tz}/attendance`  | Student attendance records   |
-
-**Query parameters for `GET /api/students/`:**
-
-| Param          | Type | Default | Description                     |
-| -------------- | ---- | ------- | ------------------------------- |
-| `page`         | int  | 1       | Page number                     |
-| `page_size`    | int  | 20      | Items per page (max 100)        |
-| `class_name`   | str  | —       | Filter by class                 |
-| `search`       | str  | —       | Search by student name          |
-| `at_risk_only` | bool | false   | Only students with avg < 55     |
-| `period`       | str  | —       | Filter by academic period       |
-
-### Analytics `/api/analytics`
-
-| Method | Path                               | Description                      |
-| ------ | ---------------------------------- | -------------------------------- |
-| GET    | `/kpis`                            | Grade-level KPIs                 |
-| GET    | `/class-comparison`                | Class average comparison         |
-| GET    | `/class/{class_name}/heatmap`      | Student x subject grade matrix   |
-| GET    | `/class/{class_name}/rankings`     | Top/bottom students in a class   |
-| GET    | `/teacher/{teacher_name}/stats`    | Teacher grade distribution       |
-| GET    | `/student/{student_tz}/radar`      | Student subject grades (radar)   |
-| GET    | `/teachers`                        | List all teachers                |
-| GET    | `/metadata`                        | Available periods, levels, etc.  |
-
-**Common query parameters:**
-
-| Param        | Type | Description                  |
-| ------------ | ---- | ---------------------------- |
-| `period`     | str  | Filter by academic period    |
-| `grade_level`| str  | Filter by grade level        |
-
-**`GET /class/{class_name}/rankings` additional params:**
-
-| Param      | Type | Default | Description               |
-| ---------- | ---- | ------- | ------------------------- |
-| `top_n`    | int  | 5       | Number of top students    |
-| `bottom_n` | int  | 5       | Number of bottom students |
-
-## File Format
-
-The ingestion service accepts `.xlsx` files with Hebrew column headers. File type is auto-detected based on columns present.
-
-**Grades files** are expected to have columns like `ת.ז` (ID), `שם התלמיד` (name), `שכבה` (grade level), `כיתה` (class number), followed by subject columns in `"Subject - Teacher"` format.
-
-**Events/attendance files** are expected to have columns like `ת.ז. התלמיד` (student ID), `שיעורים שדווחו` (reported lessons), `חיסור` (absence), and various behavioral event columns.
-
-## Testing
-
-```bash
-# Start the server first
-uv run python -m src.main
-
-# Run tests
-pytest tests/ -v
+```
+src/
+  main.py           # App factory, middleware, router registration
+  config.py         # Pydantic settings + security validation
+  constants.py      # Defaults (thresholds, URLs, feature flags)
+  models.py         # SQLModel tables
+  database.py       # Engine, sessions, optional SSL
+  routers/          # HTTP endpoints -> services
+  services/         # Business logic, queries
+  schemas/          # Pydantic request/response models
+  views/            # Response shaping where used
+  auth/             # Login, refresh, MFA, RBAC, SSO hooks
+  crypto/           # Field encryption + lookup hashes
 ```
 
+## API surface
+
+Routers include **auth**, **config**, **ingestion**, **students**, **classes**, **teachers**, **subjects**, **analytics**, **open_day**, **ml**, and (if `ENABLE_DEBUG`) **debug**. Most domain routes require a Bearer access token and, where applicable, an active **school** scope in the token.
+
+When `ENABLE_DEBUG=true`, interactive docs are at `/docs` and `/redoc`. Otherwise rely on the codebase or a local debug run for OpenAPI.
+
+## Excel ingestion
+
+Uploads are `.xlsx` with **Hebrew** headers. The parser infers **grades** vs **events/attendance** from columns. Implementation: `src/services/ingestion.py`; open-day spreadsheets are handled in `src/services/open_day.py`.
+
+## Docker
+
+From the **repository root** (same as CI):
+
+```bash
+docker build -f server/Dockerfile.prod server/
+```
+
+The image runs `uv run python -m src.main` as a non-root user and exposes port 3000 with a `/health` check.
+
+## Security
+
+Operational controls (auth, encryption, rate limits, audit logging) are summarized in the repo root `SECURITY.md`.
