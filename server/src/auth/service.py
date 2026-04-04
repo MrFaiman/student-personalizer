@@ -1,5 +1,5 @@
 import logging
-from datetime import timezone
+from datetime import UTC
 from uuid import UUID
 
 from fastapi import HTTPException, Request
@@ -95,7 +95,7 @@ class AuthService:
 
         # Check lockout - normalise stored datetime (SQLite stores naive, PostgreSQL stores aware)
         if user.locked_until:
-            locked_until = user.locked_until.replace(tzinfo=timezone.utc) if user.locked_until.tzinfo is None else user.locked_until
+            locked_until = user.locked_until.replace(tzinfo=UTC) if user.locked_until.tzinfo is None else user.locked_until
             if locked_until > utc_now():
                 logger.warning("login_blocked_lockout", extra={"user_id": str(user.id)})
                 log_event(self.session, action="login", user_id=user.id, user_email=user.email, success=False, ip_address=ip, user_agent=ua, detail={"reason": "account locked"})
@@ -151,7 +151,7 @@ class AuthService:
         try:
             payload = decode_refresh_token(refresh_token)
         except JWTError:
-            raise HTTPException(status_code=401, detail="Refresh token invalid or expired")
+            raise HTTPException(status_code=401, detail="Refresh token invalid or expired") from None
 
         user_id = UUID(payload["sub"])
         jti = payload["jti"]
@@ -165,7 +165,7 @@ class AuthService:
             raise HTTPException(status_code=401, detail="Session expired or revoked")
 
         # Check inactivity timeout
-        inactive_minutes = (utc_now() - session.last_activity.replace(tzinfo=timezone.utc)).total_seconds() / 60
+        inactive_minutes = (utc_now() - session.last_activity.replace(tzinfo=UTC)).total_seconds() / 60
         if inactive_minutes > INACTIVITY_TIMEOUT_MINUTES:
             session.is_revoked = True
             self.session.add(session)

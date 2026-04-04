@@ -1,24 +1,23 @@
-from typing import Dict, List, Optional
 
 from ..constants import AT_RISK_GRADE_THRESHOLD
 from ..models import AttendanceRecord
 
 
-def calculate_average(grades: List[float]) -> Optional[float]:
+def calculate_average(grades: list[float]) -> float | None:
     """Calculate the average of a list of grades."""
     if not grades:
         return None
     return sum(grades) / len(grades)
 
 
-def calculate_at_risk_status(average: Optional[float]) -> bool:
+def calculate_at_risk_status(average: float | None) -> bool:
     """Determine if a student is at risk based on their average grade."""
     if average is None:
         return False
     return average < AT_RISK_GRADE_THRESHOLD
 
 
-def sum_attendance_stats(records: List[AttendanceRecord]) -> Dict[str, int]:
+def sum_attendance_stats(records: list[AttendanceRecord]) -> dict[str, int]:
     """Sum attendance statistics from a list of records."""
     summary = {
         "absence": 0,

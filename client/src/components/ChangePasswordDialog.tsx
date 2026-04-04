@@ -32,7 +32,7 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
     }
 
     if (!accessToken) {
-      setErrors([t("auth.sessionExpired", "פג תוקף החיבור. התחבר מחדש.")]);
+      setErrors([t("auth.sessionExpired", "Session expired. Please log in again.")]);
       return;
     }
 
@@ -57,6 +57,7 @@ export function ChangePasswordDialog({ open, onSuccess }: Props) {
             setErrors(normalized);
             return;
           }
+          setErrors([t("auth.changePasswordError")]);
           return;
         }
       } catch {

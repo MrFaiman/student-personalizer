@@ -137,7 +137,14 @@ export const authApi = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail ?? `HTTP ${res.status}`);
+      const detail = err.detail;
+      const message =
+        typeof detail === "string"
+          ? detail
+          : detail !== undefined && detail !== null
+            ? JSON.stringify(detail)
+            : `HTTP ${res.status}`;
+      throw new Error(message);
     }
   },
 };

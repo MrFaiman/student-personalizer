@@ -253,7 +253,7 @@ def _build_grades_excel_bytes(rng, np_rng, students, subjects, teachers, abiliti
 
         all_valid = []
         col = 6
-        for subj, cfg in subjects.items():
+        for _subj, cfg in subjects.items():
             grades = _grades_for_student(rng, np_rng, ability, cfg, period_drift=period_drift)
             for g in grades:
                 cell = ws.cell(row_i, col, g)

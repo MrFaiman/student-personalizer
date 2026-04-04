@@ -50,7 +50,7 @@ class GenerateResponse(BaseModel):
 @router.post("/generate", response_model=GenerateResponse)
 def generate_debug_data(
     current_user: CurrentUser = Depends(require_school_scope),
-    years: Annotated[list[int], Query()] = [2024, 2025],
+    years: Annotated[list[int] | None, Query()] = None,
     quarters: Annotated[int, Query(ge=1, le=4)] = 4,
     students: Annotated[int, Query(ge=1, le=500)] = 120,
     db: Session = Depends(get_session),
@@ -65,7 +65,8 @@ def generate_debug_data(
     school_id = current_user.school_id
     assert school_id is not None  # require_school_scope
 
-    files = generate_school_data(years=list(years), quarters=quarters, num_students=students)
+    years_list = list[int](years) if years is not None else [2024, 2025]
+    files = generate_school_data(years=years_list, quarters=quarters, num_students=students)
 
     service = IngestionService(db)
     results: list[FileResult] = []

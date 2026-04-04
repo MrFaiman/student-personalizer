@@ -12,7 +12,7 @@ Routes that must mutate the User ORM record (change_password, mfa_setup …)
 use get_db_user instead.
 """
 
-from datetime import timezone
+from datetime import UTC
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request
@@ -37,7 +37,7 @@ def _get_token_payload(credentials: HTTPAuthorizationCredentials | None) -> dict
     try:
         return decode_token(credentials.credentials)
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        raise HTTPException(status_code=401, detail="Invalid or expired token") from None
 
 
 def get_current_user(
@@ -81,7 +81,7 @@ def get_current_user(
         )
         raise HTTPException(status_code=401, detail="Session expired or revoked")
 
-    inactive_minutes = (utc_now() - db_session.last_activity.replace(tzinfo=timezone.utc)).total_seconds() / 60
+    inactive_minutes = (utc_now() - db_session.last_activity.replace(tzinfo=UTC)).total_seconds() / 60
     if inactive_minutes > INACTIVITY_TIMEOUT_MINUTES:
         db_session.is_revoked = True
         session.add(db_session)

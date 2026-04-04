@@ -492,7 +492,7 @@ async def mfa_challenge(
     try:
         payload = decode_mfa_token(body.mfa_token)
     except JWTError:
-        raise HTTPException(status_code=401, detail="MFA token invalid or expired")
+        raise HTTPException(status_code=401, detail="MFA token invalid or expired") from None
 
     user = session.get(User, UUID(payload["sub"]))
     if not user or not user.is_active:

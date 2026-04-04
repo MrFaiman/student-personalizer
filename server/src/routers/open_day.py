@@ -103,7 +103,7 @@ async def upload_open_day_file(
             success=False,
             detail={"school_id": current_user.school_id, "filename": file.filename, "error": str(exc)},
         )
-        raise HTTPException(status_code=400, detail=f"Could not parse file: {exc}")
+        raise HTTPException(status_code=400, detail=f"Could not parse file: {exc}") from exc
 
 
 @router.get(

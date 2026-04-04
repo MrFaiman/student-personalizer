@@ -26,7 +26,7 @@ async def train_model(
     try:
         result = service.train(current_user=current_user, period=period)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     log_event(session, action="ml_train", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"period": period})
     return result
 
@@ -43,9 +43,9 @@ async def predict_student(
     try:
         result = service.predict_student(current_user=current_user, student_tz=student_tz, period=period)
     except FileNotFoundError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     log_event(session, action="ml_predict", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"student_tz": student_tz, "period": period})
     return result
 
@@ -72,7 +72,7 @@ async def predict_all(
             sort_order=sort_order,
         )
     except FileNotFoundError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     log_event(session, action="ml_predict_batch", user_id=current_user.user_id, user_email=current_user.email, success=True, detail={"period": period, "page": page})
     return result
 

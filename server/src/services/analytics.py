@@ -697,7 +697,7 @@ class AnalyticsService:
                 subj_rows = self.session.exec(subj_query).all()
                 subj_map = {row[0]: row[1] for row in subj_rows}
 
-                for cid, avg, student_count, total_students in rows:
+                for cid, avg, _student_count, total_students in rows:
                     cls = class_map.get(cid)
                     if cls:
                         series.append({

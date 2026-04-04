@@ -1,5 +1,5 @@
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -8,7 +8,7 @@ from sqlmodel import Field, Relationship, SQLModel
 from ..utils.clock import utc_now
 
 
-class UserRole(str, Enum):
+class UserRole(StrEnum):
     super_admin = "super_admin"
     system_admin = "system_admin"
     school_admin = "school_admin"
@@ -16,7 +16,7 @@ class UserRole(str, Enum):
     read_only = "read_only"
 
 
-class RoleScope(str, Enum):
+class RoleScope(StrEnum):
     global_ = "global"
     school = "school"
 
@@ -61,7 +61,7 @@ class UserRoleLink(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
     user: Optional["User"] = Relationship(back_populates="role_links")
-    role: Optional[Role] = Relationship(back_populates="users")
+    role: Role | None = Relationship(back_populates="users")
 
 
 class RolePermission(SQLModel, table=True):
@@ -74,8 +74,8 @@ class RolePermission(SQLModel, table=True):
     permission_id: UUID = Field(foreign_key="permission.id", index=True)
     created_at: datetime = Field(default_factory=utc_now)
 
-    role: Optional[Role] = Relationship(back_populates="permissions")
-    permission: Optional[Permission] = Relationship(back_populates="roles")
+    role: Role | None = Relationship(back_populates="permissions")
+    permission: Permission | None = Relationship(back_populates="roles")
 
 
 class User(SQLModel, table=True):
@@ -127,7 +127,7 @@ class UserSchoolMembership(SQLModel, table=True):
     school_name: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now)
 
-    user: Optional[User] = Relationship(back_populates="memberships")
+    user: User | None = Relationship(back_populates="memberships")
 
 
 class UserSession(SQLModel, table=True):
@@ -147,7 +147,7 @@ class UserSession(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
-    user: Optional[User] = Relationship(back_populates="sessions")
+    user: User | None = Relationship(back_populates="sessions")
 
 
 class PasswordHistory(SQLModel, table=True):
@@ -161,4 +161,4 @@ class PasswordHistory(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
-    user: Optional[User] = Relationship(back_populates="password_history")
+    user: User | None = Relationship(back_populates="password_history")

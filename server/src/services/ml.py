@@ -2,7 +2,7 @@
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -525,7 +525,7 @@ class MLService:
         class_counts = np.bincount(y_dropout.astype(int))
         class_distribution = {str(i): int(c) for i, c in enumerate(class_counts) if c > 0}
         meta = {
-            "trained_at": datetime.now(timezone.utc).isoformat(),
+            "trained_at": datetime.now(UTC).isoformat(),
             "school_id": school_id,
             "period_filter": period,
             "samples": len(df),
